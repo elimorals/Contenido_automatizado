@@ -1,0 +1,106 @@
+# =============================================================================
+# docker-compose.yml — contenido
+# Stack: Redis + AgentField control-plane + API + WebUI + Worker
+# =============================================================================
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: contenido-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  control-plane:
+    image: agentfield/control-plane:latest
+    container_name: contenido-control-plane
+    ports:
+      - "8080:8080"
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: contenido-api
+    command: uvicorn apps.api.main:app --host 0.0.0.0 --port 8000 --workers 1
+    ports:
+      - "8000:8000"
+    environment:
+      - CONTENIDO_ENV=${CONTENIDO_ENV:-dev}
+      - ENABLE_REDIS=true
+      - REDIS_HOST=redis
+      - AGENTFIELD_SERVER=http://control-plane:8080
+    env_file:
+      - .env
+    volumes:
+      - ./config.toml:/app/config.toml:ro
+      - ./storage:/app/storage
+      - ./output:/app/output
+    depends_on:
+      redis:
+        condition: service_healthy
+      control-plane:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  webui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: contenido-webui
+    command: streamlit run apps/webui/Main.py --server.port 8501 --server.address 0.0.0.0
+    ports:
+      - "8501:8501"
+    environment:
+      - CONTENIDO_API_URL=http://api:8000
+    env_file:
+      - .env
+    volumes:
+      - ./config.toml:/app/config.toml:ro
+    depends_on:
+      api:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m apps.api.worker
+    environment:
+      - CONTENIDO_ENV=${CONTENIDO_ENV:-dev}
+      - ENABLE_REDIS=true
+      - REDIS_HOST=redis
+      - AGENTFIELD_SERVER=http://control-plane:8080
+    env_file:
+      - .env
+    volumes:
+      - ./config.toml:/app/config.toml:ro
+      - ./storage:/app/storage
+      - ./output:/app/output
+    depends_on:
+      redis:
+        condition: service_healthy
+      control-plane:
+        condition: service_healthy
+    deploy:
+      replicas: 3              # = MAX_CONCURRENT_TASKS
+
+volumes:
+  redis_data:

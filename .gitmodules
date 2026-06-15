@@ -1,0 +1,3 @@
+[submodule ".claude/skills/higgsfield-skills"]
+	path = .claude/skills/higgsfield-skills
+	url = https://github.com/higgsfield-ai/skills

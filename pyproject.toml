@@ -1,0 +1,110 @@
+[project]
+name = "contenido"
+version = "0.1.0"
+description = "Plataforma de generación de reels: fusión MoneyPrinterTurbo (industrial) × reels-af (cognitivo)"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "Elias", email = "elias@cipreholding.com" }
+]
+
+dependencies = [
+    # === Web/API (de MPT) ===
+    "fastapi>=0.136.0",
+    "uvicorn[standard]>=0.32.0",
+    "streamlit>=1.58.0",
+    "python-multipart>=0.0.20",
+
+    # === Reasoning/DAG (de reels-af) ===
+    "agentfield",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.7.0",
+
+    # === LLM providers (de MPT) ===
+    "openai>=2.0.0",
+    "litellm>=1.86.0",
+    "google-generativeai>=0.8.0",
+    "dashscope>=1.20.0",
+    "anthropic>=0.40.0",
+
+    # === TTS (de MPT + reels-af) ===
+    "edge-tts>=7.2.0",
+    "azure-cognitiveservices-speech>=1.41.0",
+
+    # === ASR (de MPT) ===
+    "faster-whisper>=1.1.0",
+
+    # === Audio/Video (de reels-af, NO MoviePy) ===
+    "pydub>=0.25.0",
+    "pysubs2>=1.7.0",
+    "Pillow>=10.0.0",
+
+    # === Web fetching (de reels-af) ===
+    "aiohttp>=3.10.0",
+    "readability-lxml>=0.8.0",
+    "requests>=2.33.0",
+    "httpx>=0.28.0",
+
+    # === Storage/State (de MPT) ===
+    "redis>=5.2.0",
+
+    # === CLI (de reels-af) ===
+    "typer>=0.12.0",
+
+    # === Utils ===
+    "python-dotenv>=1.0.0",
+    "tomli-w>=1.0.0",
+    "loguru>=0.7.0",
+    "PyYAML>=6.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
+    "pytest-mock>=3.14.0",
+    "ruff>=0.8.0",
+    "mypy>=1.13.0",
+    "pre-commit>=4.0.0",
+]
+gpu = [
+    "torch>=2.5.0",
+]
+
+[project.scripts]
+contenido = "apps.cli.main:app"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["apps*", "core*", "orchestration*", "shared*"]
+exclude = ["tests*", "scripts*", "docs*", "resource*"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-v --tb=short --strict-markers"
+markers = [
+    "slow: marks tests as slow",
+    "integration: end-to-end integration tests",
+    "requires_redis: requires running Redis instance",
+    "requires_ffmpeg: requires ffmpeg in PATH",
+]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true

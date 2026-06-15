@@ -1,0 +1,278 @@
+# =============================================================================
+# contenido — configuración base
+# =============================================================================
+# Cópia este archivo a `config.toml` y ajusta según tu entorno.
+# Variables de entorno (.env) tienen precedencia sobre este archivo.
+# =============================================================================
+
+[app]
+env = "dev"                            # dev | staging | prod
+default_mode = "premium"               # express | premium
+log_level = "INFO"
+tls_verify = true
+
+# --- Concurrencia ---
+max_concurrent_tasks = 3
+max_queued_tasks = 50
+
+# --- Estado/colas ---
+enable_redis = false
+redis_host = "localhost"
+redis_port = 6379
+redis_db = 0
+
+# --- AgentField broker ---
+agentfield_server = "http://localhost:8080"
+agentfield_node_id = "contenido"
+agentfield_llm_call_timeout = 120
+
+# =============================================================================
+# LLM PROVIDERS
+# =============================================================================
+
+[llm]
+default_provider_premium = "openrouter"  # alto valor narrativo
+default_provider_express = "edge_tts_companion"  # bajo costo
+
+# Cada provider tiene su sección [llm.<provider>]
+[llm.openrouter]
+api_key = ""
+default_model = "openrouter/deepseek/deepseek-v4-pro"
+base_url = "https://openrouter.ai/api/v1"
+
+[llm.openai]
+api_key = ""
+model_name = "gpt-4o-mini"
+base_url = ""
+
+[llm.azure]
+api_key = ""
+model_name = "gpt-35-turbo"
+api_version = "2024-02-15-preview"
+base_url = ""
+
+[llm.gemini]
+api_key = ""
+model_name = "gemini-2.5-flash"
+
+[llm.moonshot]
+api_key = ""
+model_name = "moonshot-v1-8k"
+
+[llm.ollama]
+model_name = ""
+base_url = "http://localhost:11434/v1"
+
+[llm.qwen]
+api_key = ""
+model_name = "qwen-max"
+
+[llm.deepseek]
+api_key = ""
+model_name = "deepseek-chat"
+
+[llm.mimo]
+api_key = ""
+model_name = ""
+
+[llm.groq]
+api_key = ""
+model_name = ""
+
+# =============================================================================
+# TTS ENGINES
+# =============================================================================
+
+[tts]
+default_premium = "gemini_flash"       # único con tags inline
+default_express = "edge"               # gratis
+sample_accurate_timing = true          # aplica ffprobe+atempo a TODOS los engines
+
+[tts.edge]
+timeout = 30
+# Voces: ver `core/tts/engines/edge.py` para lista completa
+default_voice = "en-US-AvaNeural-Female"
+
+[tts.gemini_flash]
+model = "google/gemini-3.1-flash-tts-preview"
+voice_tone = "wonder"                  # urgent | wonder | deadpan | earnest | playful
+
+[tts.azure]
+api_key = ""
+region = "eastus"
+
+[tts.siliconflow]
+api_key = ""
+model = "FunAudioLLM/CosyVoice2-0.5B"
+
+# =============================================================================
+# IMAGEN / VIDEO IA (per-beat generation)
+# =============================================================================
+
+[visual]
+default_strategy = "hybrid"            # stock | ia | hybrid
+
+[visual.gemini_image]
+model = "openrouter/google/gemini-2.5-flash-image"
+canvas_w = 720
+canvas_h = 1280
+
+[visual.veo]
+enabled = false                        # true → ~$1.10 extra por reel
+model = "openrouter/google/veo-3.1-lite"
+fallback_to_ken_burns = true
+
+[visual.ken_burns]
+zoom_factor = 1.15                     # 15% zoom durante beat
+direction = "auto"                     # auto | in | out | left | right
+
+[visual.higgsfield]
+# Higgsfield Platform API — DoP (i2v) + Soul (i2i) + Effects
+# Auth: "Authorization: Key KEY_ID:KEY_SECRET". Override por env:
+#   HIGGSFIELD_CREDENTIALS o (HIGGSFIELD_KEY_ID + HIGGSFIELD_KEY_SECRET)
+enabled = false                        # true → DoP reemplaza/complementa Veo
+credentials = ""                       # "KEY_ID:KEY_SECRET"
+key_id = ""
+key_secret = ""
+base_url = "https://platform.higgsfield.ai"
+timeout_s = 300.0
+poll_interval_s = 2.0
+max_poll_time_s = 600.0
+
+# DoP (image-to-video, fijo 5s)
+dop_model = "dop-turbo"                # dop-lite | dop-turbo | dop-preview
+dop_endpoint = "/v1/image2video/dop"
+dop_clip_duration_s = 5
+dop_motion_strength = 0.85
+
+# Soul (character consistency)
+soul_enabled = false                   # true → first frames con SoulId
+soul_model = "soul_cinematic"          # text2image_soul_v2 | soul_cinematic
+soul_endpoint = "/v1/text2image/soul"
+soul_default_style_id = ""
+soul_default_reference_id = ""         # SoulId default si BeatVisual no lo trae
+soul_reference_strength = 0.75
+soul_width = 720
+soul_height = 1280
+
+# Effects (action VFX overlay)
+effects_enabled = false
+effects_endpoint = "/v1/effects/apply"
+
+# Selector
+prefer_over_veo = true                 # cuando ambos habilitados, Higgsfield gana
+motion_catalog_cache_path = "./storage/higgsfield_motions.json"
+
+# CLI fallback (opt-in). Cuando la REST API falla (rate-limit, 5xx, timeout),
+# intenta `higgsfield generate create ... --wait --json` como segundo intento.
+# Requiere binario instalado:
+#   curl -fsSL https://raw.githubusercontent.com/higgsfield-ai/cli/main/install.sh | sh
+# Y auth previa:  higgsfield auth login
+cli_fallback_enabled = false
+cli_binary_path = "higgsfield"         # asume PATH; usar full path en prod
+cli_default_video_model = "seedance_2_0"  # modelo canónico Higgsfield (SOTA)
+cli_timeout_s = 900.0
+
+# =============================================================================
+# STOCK FOOTAGE
+# =============================================================================
+
+[stock]
+# Rotación automática entre keys (thread-safe)
+pexels_api_keys = []
+pixabay_api_keys = []
+coverr_api_keys = []
+
+# Preferencia de proveedor (orden de fallback)
+provider_order = ["pexels", "pixabay", "coverr"]
+
+# Cache local
+cache_dir = "./storage/materials_cache"
+min_duration_s = 3.0
+max_duration_s = 30.0
+
+# =============================================================================
+# WHISPER (ASR para subtitle fallback)
+# =============================================================================
+
+[whisper]
+model_size = "large-v3"                # tiny | base | small | medium | large | large-v3
+device = "cpu"                         # cpu | cuda
+compute_type = "int8"                  # int8 | int8_float16 | float16
+beam_size = 5
+vad_threshold_ms = 500
+
+# =============================================================================
+# SUBTÍTULOS
+# =============================================================================
+
+[subtitles]
+default_style = "word_burst"           # word_burst | srt
+font_name = "Montserrat-Bold.ttf"
+font_size_burst = 170
+font_size_srt = 60
+fore_color = "#FFFFFF"
+stroke_color = "#000000"
+stroke_width = 1.5
+background = false                     # solo para SRT clásico
+position = "bottom"                    # bottom | top | center | custom
+custom_position = 70.0
+
+# CJK / multi-idioma
+cjk_font = "STHeitiMedium.ttc"
+
+# =============================================================================
+# EDITOR / FFMPEG
+# =============================================================================
+
+[editor]
+single_pass = true                     # de reels-af (recomendado)
+codec = "libx264"
+crf = 23
+preset = "fast"
+audio_codec = "aac"
+audio_bitrate = "128k"
+fps = 30
+
+# Detección automática de hardware encoder
+hw_encoder_fallback = ["h264_videotoolbox", "h264_nvenc", "h264_amf", "h264_qsv", "h264_mf", "libx264"]
+
+[editor.aspect]
+default = "9:16"
+# Dimensiones por aspect
+"9:16" = { width = 1080, height = 1920 }
+"16:9" = { width = 1920, height = 1080 }
+"1:1" = { width = 1080, height = 1080 }
+
+# =============================================================================
+# BGM (música de fondo)
+# =============================================================================
+
+[bgm]
+default_type = "random"                # random | none | custom
+default_file = ""
+default_volume = 0.2                   # 0.0 - 1.0
+library_dir = "./resource/songs"
+
+# =============================================================================
+# UI
+# =============================================================================
+
+[ui]
+hide_log = false
+show_cost_tracker = true
+show_timings = true
+default_language = "es-MX"
+supported_languages = [
+    "en-US", "es-MX", "zh-CN", "zh-HK", "zh-TW",
+    "fr-FR", "de-DE", "ru-RU", "vi-VN", "th-TH", "tr-TR"
+]
+
+# =============================================================================
+# DISTRIBUCIÓN
+# =============================================================================
+
+[upload_post]
+api_key = ""
+auto_upload = false
+platforms = ["tiktok", "instagram"]

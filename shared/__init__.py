@@ -1,0 +1,43 @@
+"""Shared schemas y config loader unificados."""
+from shared.config import Config, load_config
+from shared.schemas import (
+    AccentOverlay,
+    Beat,
+    BeatArtifact,
+    BeatVisual,
+    Card,
+    ConversationalScript,
+    Essence,
+    EssenceCandidate,
+    GenerationMode,
+    PairwiseVerdict,
+    ScriptDraft,
+    SubtitleStyle,
+    VideoAspect,
+    VideoParams,
+    VideoSource,
+    VisualStrategy,
+    WordTiming,
+)
+
+__all__ = [
+    "AccentOverlay",
+    "Beat",
+    "BeatArtifact",
+    "BeatVisual",
+    "Card",
+    "Config",
+    "ConversationalScript",
+    "Essence",
+    "EssenceCandidate",
+    "GenerationMode",
+    "PairwiseVerdict",
+    "ScriptDraft",
+    "SubtitleStyle",
+    "VideoAspect",
+    "VideoParams",
+    "VideoSource",
+    "VisualStrategy",
+    "WordTiming",
+    "load_config",
+]
