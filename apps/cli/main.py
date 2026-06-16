@@ -910,5 +910,194 @@ def comfy_models_cmd(
     asyncio.run(_run())
 
 
+# =============================================================================
+# Long-form subcommands — `contenido book ...`
+# =============================================================================
+
+book_app = typer.Typer(
+    name="book",
+    help="Video largo 5-60min: novelas, scripts, ideas extendidas (inspirado en ViMax)",
+    no_args_is_help=True,
+)
+app.add_typer(book_app, name="book")
+
+
+@book_app.command("plan")
+def book_plan(
+    input_path: Annotated[
+        Path, typer.Argument(help="Archivo con la novela/idea/script (.txt o .md)")
+    ],
+    target_minutes: Annotated[
+        float, typer.Option(help="Duración objetivo en minutos")
+    ] = 10.0,
+    source_kind: Annotated[
+        str, typer.Option(help="idea | script | novel | article | podcast_transcript")
+    ] = "idea",
+    intent: Annotated[
+        str, typer.Option(help="auto | narrative | motion | montage")
+    ] = "auto",
+    job_id: Annotated[
+        str, typer.Option(help="Override del job_id (default: random)")
+    ] = "",
+) -> None:
+    """Genera el script (3 actos + scenes + shots) sin renderizar nada."""
+    try:
+        from core.long_form import LongFormIntent, plan_long_form
+    except Exception as e:  # noqa: BLE001
+        typer.secho(f"✗ {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from e
+
+    if not input_path.exists():
+        typer.secho(f"✗ input_path no existe: {input_path}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=2)
+
+    source_text = input_path.read_text(encoding="utf-8")
+    if not source_text.strip():
+        typer.secho("✗ archivo vacío", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=2)
+
+    intent_enum: LongFormIntent | None
+    if intent == "auto":
+        intent_enum = None
+    elif intent in ("narrative", "motion", "montage"):
+        intent_enum = LongFormIntent(intent)
+    else:
+        typer.secho(
+            f"✗ intent desconocido '{intent}'. Usa: auto|narrative|motion|montage",
+            fg=typer.colors.RED, err=True,
+        )
+        raise typer.Exit(code=2)
+
+    async def _run() -> None:
+        typer.secho(
+            f"\n📚 Planning long-form video — {target_minutes} min, {source_kind}",
+            fg=typer.colors.CYAN, bold=True,
+        )
+        typer.echo(f"   Input: {input_path} ({len(source_text)} chars)")
+        try:
+            script, job = await plan_long_form(
+                source_text=source_text,
+                source_kind=source_kind,
+                target_minutes=target_minutes,
+                intent=intent_enum,
+                job_id=job_id or None,
+            )
+        except Exception as e:  # noqa: BLE001
+            typer.secho(f"\n✗ Plan falló: {e}", fg=typer.colors.RED, err=True)
+            raise typer.Exit(code=1) from e
+        typer.secho(
+            f"\n✓ Plan completo — job {job.job_id}",
+            fg=typer.colors.GREEN, bold=True,
+        )
+        typer.echo(f"   Title: {script.arc.title}")
+        typer.echo(f"   Intent: {script.intent.value}")
+        typer.echo(f"   Scenes: {job.total_scenes}")
+        typer.echo(f"   Shots: {job.total_shots}")
+        typer.echo(f"   Est duration: {script.estimated_duration_s/60:.1f} min")
+        typer.echo(f"   Script: {job.script_path}")
+        typer.echo("\nNext: `contenido book show " + job.job_id + "` para inspeccionar")
+        typer.echo("       `contenido book produce " + job.job_id + "` para renderizar")
+
+    asyncio.run(_run())
+
+
+@book_app.command("show")
+def book_show(
+    job_id: Annotated[str, typer.Argument(help="job_id devuelto por `plan`")],
+) -> None:
+    """Muestra el script generado de un job."""
+    try:
+        from core.long_form import Director
+    except Exception as e:  # noqa: BLE001
+        typer.secho(f"✗ {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from e
+
+    try:
+        job, script = Director.load_job(job_id)
+    except Exception as e:  # noqa: BLE001
+        typer.secho(f"✗ {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from e
+
+    typer.secho(
+        f"\n=== {script.arc.title} (job {job_id}) ===",
+        fg=typer.colors.CYAN, bold=True,
+    )
+    typer.echo(f"Intent: {script.intent.value}")
+    typer.echo(f"Logline: {script.arc.logline}")
+    typer.echo(f"Themes: {', '.join(script.arc.themes)}")
+    typer.echo("")
+    typer.secho("Act 1 — Setup:", fg=typer.colors.YELLOW, bold=True)
+    typer.echo(f"  {script.arc.act1_setup}\n")
+    typer.secho("Act 2 — Confrontation:", fg=typer.colors.YELLOW, bold=True)
+    typer.echo(f"  {script.arc.act2_confrontation}\n")
+    typer.secho("Act 3 — Resolution:", fg=typer.colors.YELLOW, bold=True)
+    typer.echo(f"  {script.arc.act3_resolution}\n")
+
+    typer.secho(
+        f"=== Scenes ({len(script.scenes)}) — Total {script.total_shots} shots ===",
+        fg=typer.colors.CYAN, bold=True,
+    )
+    for scene in script.scenes:
+        typer.secho(
+            f"\n  Scene #{scene.idx}: {scene.title}", fg=typer.colors.GREEN, bold=True,
+        )
+        typer.echo(f"    Setting: {scene.setting}")
+        typer.echo(f"    Summary: {scene.summary}")
+        typer.echo(f"    Shots: {len(scene.shots)}")
+        for sh in scene.shots[:3]:
+            speaker_str = f" [{sh.speaker}: \"{sh.dialogue[:50]}...\"]" if sh.speaker and sh.dialogue else ""
+            typer.echo(
+                f"      • Shot {sh.idx} ({sh.shot_type}/{sh.camera_movement}): "
+                f"{sh.visual_description[:80]}{'...' if len(sh.visual_description) > 80 else ''}"
+                f"{speaker_str}"
+            )
+        if len(scene.shots) > 3:
+            typer.echo(f"      ... + {len(scene.shots) - 3} more shots")
+
+
+@book_app.command("produce")
+def book_produce(
+    job_id: Annotated[str, typer.Argument(help="job_id devuelto por `plan`")],
+) -> None:
+    """Renderiza shots + stitch final del job.
+
+    Requiere GPU + ComfyUI corriendo. Ver docs/LONG_FORM.md.
+    """
+    try:
+        from core.long_form import Director, produce_long_form
+    except Exception as e:  # noqa: BLE001
+        typer.secho(f"✗ {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from e
+
+    async def _run() -> None:
+        try:
+            job, script = Director.load_job(job_id)
+        except Exception as e:  # noqa: BLE001
+            typer.secho(f"✗ {e}", fg=typer.colors.RED, err=True)
+            raise typer.Exit(code=1) from e
+        typer.secho(
+            f"\n🎬 Producing job {job_id}: {script.arc.title}",
+            fg=typer.colors.CYAN, bold=True,
+        )
+        typer.echo(f"   {job.total_shots} shots × ~{script.estimated_duration_s/job.total_shots:.1f}s each")
+        try:
+            job = await produce_long_form(job, script)
+        except Exception as e:  # noqa: BLE001
+            typer.secho(f"\n✗ Produce falló: {e}", fg=typer.colors.RED, err=True)
+            raise typer.Exit(code=1) from e
+        if job.status == "completed":
+            typer.secho(
+                f"\n✓ Video listo: {job.final_video_path}",
+                fg=typer.colors.GREEN, bold=True,
+            )
+        else:
+            typer.secho(
+                f"\n⚠ Produce devolvió status={job.status} ({job.error_message})",
+                fg=typer.colors.YELLOW,
+            )
+
+    asyncio.run(_run())
+
+
 if __name__ == "__main__":
     app()

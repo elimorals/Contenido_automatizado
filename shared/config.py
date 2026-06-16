@@ -107,6 +107,55 @@ class HiggsfieldConfig(BaseModel):
     cli_timeout_s: float = 900.0  # 15min — Seedance puede tardar
 
 
+class LongFormConfig(BaseModel):
+    """Módulo `core/long_form/` — video largo (5-60 min) inspirado en ViMax.
+
+    Pipeline: novel/idea → chunks → RAG → script (3 actos) → scenes → shots
+              → portraits → shots con reference chaining → stitch.
+
+    Backend RAG: numpy puro (default) o FAISS (faiss_enabled=true, requiere
+    `uv sync --extra longform-scale`).
+    """
+
+    enabled: bool = False
+
+    # Storage layout (todos relativos al output_dir del job)
+    working_dir: str = "./storage/long_form"
+
+    # Chunking (ViMax usa 65536/8192; tunable)
+    chunk_size_chars: int = 8000  # más chico para libros razonables
+    chunk_overlap_chars: int = 800
+
+    # Embeddings (sentence-transformers locales)
+    embedding_model_name: str = "BAAI/bge-small-en-v1.5"
+    embedding_device: str = "cpu"  # "cuda" si tienes GPU
+    embedding_cache_dir: str = "./storage/long_form/embed_cache"
+
+    # RAG backend
+    faiss_enabled: bool = False  # requiere extra `longform-scale`
+    top_k_retrieval: int = 5
+
+    # LLM defaults para agentes long-form
+    chat_model_provider: str = "openrouter"  # usa core.llm_router
+    chat_model_name: str = ""  # vacío = default del provider
+    vlm_model_provider: str = "openrouter"  # para BestImageSelector + ReferenceImageSelector
+    vlm_model_name: str = "google/gemini-2.5-flash"
+
+    # Consistency: N candidates en paralelo para best-of-N
+    candidates_per_shot: int = 3
+    max_reference_anchors: int = 8  # max images mostradas al VLM (de ViMax)
+
+    # Producción
+    default_target_minutes: float = 10.0
+    max_target_minutes: float = 60.0
+    parallel_shot_concurrency: int = 4  # cuántos shots generamos en paralelo
+
+    # Stitching final
+    final_codec: str = "libx264"
+    final_crf: int = 23
+    final_audio_codec: str = "aac"
+
+
 class ComfyTenantEntry(BaseModel):
     """Mapeo tenant_id → (lora, workflow). Se carga desde [visual.comfyui.tenants.*].
 
@@ -269,6 +318,7 @@ class Config(BaseModel):
     bgm: BGMConfig = Field(default_factory=BGMConfig)
     ui: UIConfig = Field(default_factory=UIConfig)
     upload_post: UploadPostConfig = Field(default_factory=UploadPostConfig)
+    long_form: LongFormConfig = Field(default_factory=LongFormConfig)
 
     # Aspect ratios (no es BaseModel anidado por simplicidad TOML)
     aspect_ratios: dict[str, dict[str, int]] = Field(
@@ -419,6 +469,19 @@ def _apply_env_overrides(cfg: Config) -> Config:
     cu.prefer_for_brand_frames = os.getenv(
         "COMFYUI_PREFER_FOR_BRAND_FRAMES", str(cu.prefer_for_brand_frames)
     ).lower() == "true"
+
+    # Long-form
+    lf = cfg.long_form
+    lf.enabled = os.getenv("LONG_FORM_ENABLED", str(lf.enabled)).lower() == "true"
+    if os.getenv("LONG_FORM_WORKING_DIR"):
+        lf.working_dir = os.getenv("LONG_FORM_WORKING_DIR", "")
+    if os.getenv("LONG_FORM_EMBED_MODEL"):
+        lf.embedding_model_name = os.getenv("LONG_FORM_EMBED_MODEL", "")
+    if os.getenv("LONG_FORM_EMBED_DEVICE"):
+        lf.embedding_device = os.getenv("LONG_FORM_EMBED_DEVICE", "")
+    lf.faiss_enabled = os.getenv("LONG_FORM_FAISS_ENABLED", str(lf.faiss_enabled)).lower() == "true"
+    if os.getenv("LONG_FORM_VLM_MODEL"):
+        lf.vlm_model_name = os.getenv("LONG_FORM_VLM_MODEL", "")
 
     # Stock
     if os.getenv("PEXELS_API_KEYS"):

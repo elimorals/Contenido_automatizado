@@ -320,6 +320,72 @@ ComfyUI es OPT-IN: `COMFYUI_ENABLED=false` por default. El pipeline funciona id�
 
 ---
 
+## ADR-015: Long-form video — extract from ViMax (no integration wholesale)
+
+**Fecha**: 2026-06-15 | **Estado**: Aceptado
+
+### Contexto
+[HKUDS/ViMax](https://github.com/HKUDS/ViMax) es un framework agentic para video largo (5-60 min) con 4 roles: Director, Screenwriter, Producer, Video Generator. 10.2k stars, MIT, paper en arXiv 2606.07649. Use case: novelas → video, documentales, audiolibros animados — exactamente lo que el pipeline base (`topic/article/subject` para reels 25s) NO cubre.
+
+Pregunta: ¿integrar wholesale (clone+wrap), portar selectivamente, o no integrar?
+
+### Decisión
+**Portar algoritmos + prompts canónicos**, NO el código completo. Crear `core/long_form/` como módulo nuevo paralelo al pipeline base, con 9 archivos: schemas, prompts, RAG, compressor, script planner, scenes/storyboard, consistency (ref + best image selectors), director, types.
+
+### Razón
+
+**Lo que ViMax aporta valioso**:
+- Prompts canónicos (intent router narrative/motion/montage, storyboard artist con cinematic language rules, best image selector con character+spatial+description rubric, reference image selector con 2-stage filter)
+- Arquitectura conceptual (compress chunks → RAG → arc → scenes → shots → reference chaining)
+- ~370 commits + 1.5k forks = código probado en producción académica
+
+**Lo que ViMax NO aporta**:
+- Backends de generación (Veo + Gemini + Nanobanana — todo ya está en `contenido`)
+- `novel2movie_pipeline.py` está marcado `# TODO: NOT IMPLEMENTED YET` — el pipeline más prometedor está incompleto
+- Es API-only (sin LoRA, sin ControlNet, sin IPAdapter — exactamente lo que ComfyUI multi-tenant nos da)
+- Sin cost tracking, sin numerical benchmarks publicados en readme
+
+**Riesgo de integración wholesale**: LangChain wholesale (~500MB), breaking changes anuales, duplicación con `llm_router`, dos sistemas paralelos de prompt+parse, deuda técnica desde día 1.
+
+**Solución elegida (Opción B híbrida)**:
+- `langchain-text-splitters` solo (~200KB aislado, RecursiveCharacterTextSplitter es genuinamente mejor que casero)
+- `sentence-transformers` para embeddings locales (sin API recurring cost)
+- `faiss-cpu` opt-in via `--extra longform-scale` (numpy default para ≤5k chunks)
+- Reemplazo `LangChain init_chat_model + ChatPromptTemplate + PydanticOutputParser` por `core.llm_router.complete_structured`
+- Prompts portados como string constants en `core/long_form/prompts.py` con atribución MIT
+- 2-fase: `plan_long_form()` (cheap, ~$1-4) + `produce_long_form()` (expensive, ~$15-20) — gate humano editorial natural
+
+### Consecuencias
+- ✅ Nuevo entry point `VideoParams.long_form_input` + CLI `contenido book plan/show/produce`
+- ✅ Reusa todo el pipeline existente (TTS, ComfyUI, Higgsfield, editor, distribution)
+- ✅ Multi-tenant funciona: cada tenant con su LoRA renderiza el mismo script con identidad propia
+- ✅ Cost transparency: el provider stamping del `llm_router` aplica también acá
+- ✅ ~200MB overhead (vs 500MB+ de LangChain wholesale)
+- ✅ 30 tests verde, 8 schemas nuevos, 9 archivos en `core/long_form/`
+- ❌ `produce_long_form()` queda como stub hasta validar E2E con GPU
+- ❌ Una dep más (langchain-text-splitters), pero aislada y estable
+
+### Estructura del módulo
+
+```
+core/long_form/
+├── __init__.py       # exports públicos
+├── types.py          # LongFormError, EmbeddingProvider Protocol
+├── prompts.py        # 9 prompts canónicos (atribución MIT a ViMax)
+├── rag.py            # RAGStore híbrido numpy/FAISS + chunk_text + STEmbeddingProvider
+├── compressor.py     # NovelCompressor (split + parallel compress + aggregate)
+├── script_planner.py # detect_intent + ScriptPlanner (3-act arc)
+├── scenes.py         # SceneExtractor + StoryboardArtist + visual decomposition
+├── consistency.py    # ReferenceImageSelector (2-stage) + BestImageSelector
+└── director.py       # plan_long_form + produce_long_form + Director.load_job
+```
+
+### Crédito
+- Algoritmos y prompts: HKUDS/ViMax (MIT License)
+- arXiv: 2606.07649 — *ViMax: Agentic Video Generation*
+
+---
+
 ## ADR-009: uv como package manager
 
 **Fecha**: 2026-06-15 | **Estado**: Propuesto

@@ -47,6 +47,11 @@ dependencies = [
     "httpx>=0.28.0",
     "websockets>=14.0",  # ComfyUI WS client
 
+    # === Long-form module (ViMax-inspired RAG + storyboard) ===
+    "langchain-text-splitters>=0.3.0",  # solo el splitter, ~200KB aislado
+    "sentence-transformers>=3.0.0",     # embeddings locales para RAG
+    # faiss-cpu se instala vía extra `gpu` o `longform-scale` opcional
+
     # === Storage/State (de MPT) ===
     "redis>=5.2.0",
 
@@ -72,6 +77,10 @@ dev = [
 ]
 gpu = [
     "torch>=2.5.0",
+]
+longform-scale = [
+    # Solo si vas a procesar >5k chunks (libros enciclopédicos, corpus multi-libro)
+    "faiss-cpu>=1.9.0",
 ]
 
 [project.scripts]

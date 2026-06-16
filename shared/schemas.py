@@ -479,12 +479,20 @@ class MaterialInfo(BaseModel):
 
 
 class VideoParams(BaseModel):
-    """Request unificado para los 3 entry points (url, topic, subject)."""
+    """Request unificado para los 4 entry points (url, topic, subject, long_form_input)."""
 
-    # === Entry (uno de los tres requerido) ===
+    # === Entry (uno de los cuatro requerido) ===
     url: str | None = None
     topic: str | None = None
     subject: str | None = Field(None, alias="video_subject")
+
+    # Long-form entry point: contenido de un libro/script/podcast (5-60 min video)
+    long_form_input: str | None = Field(
+        None,
+        description="Texto crudo (idea/script/novel) — dispara pipeline long_form",
+    )
+    long_form_source_kind: Literal["idea", "script", "novel", "article", "podcast_transcript"] = "idea"
+    long_form_target_minutes: float = Field(10.0, gt=0.5, le=120)
 
     # === Modo de generación ===
     mode: GenerationMode = GenerationMode.PREMIUM
@@ -546,8 +554,10 @@ class VideoParams(BaseModel):
 
     @model_validator(mode="after")
     def check_entry_point(self) -> VideoParams:
-        if not any([self.url, self.topic, self.subject]):
-            raise ValueError("Se requiere uno de: url, topic, subject")
+        if not any([self.url, self.topic, self.subject, self.long_form_input]):
+            raise ValueError(
+                "Se requiere uno de: url, topic, subject, long_form_input"
+            )
         return self
 
 
@@ -928,3 +938,172 @@ class ComfyJob(BaseModel):
         if self.completed_at_unix and self.submitted_at_unix:
             return self.completed_at_unix - self.submitted_at_unix
         return 0.0
+
+
+# =============================================================================
+# LONG-FORM SCHEMAS (ViMax-inspired — para video largo 5-60 min)
+# =============================================================================
+
+
+class LongFormIntent(str, Enum):
+    """Routing del Script Planner: distinto tono por intent."""
+
+    NARRATIVE = "narrative"   # personajes + diálogos + arc
+    MOTION = "motion"          # acción + cinematografía técnica
+    MONTAGE = "montage"        # arco emocional vía imágenes + pacing
+
+
+class CharacterProfile(BaseModel):
+    """Personaje recurrente con apariencia + persona para consistency cross-scene."""
+
+    name: str = Field(..., min_length=1, max_length=80)
+    appearance: str = Field(..., description="Rasgos físicos: género, edad, etnia, ropa, pelo, etc")
+    persona: str = Field("", description="Personalidad, motivación, arc")
+    portrait_path: str | None = Field(
+        None, description="Path a imagen-portrait generada (front view) — referencia base"
+    )
+    portrait_alt_views: list[str] = Field(
+        default_factory=list,
+        description="Paths a vistas alternativas (perfil, espalda, full body)",
+    )
+
+
+class Shot(BaseModel):
+    """Una toma — equivalente a un Beat pero a nivel long-form."""
+
+    idx: int = Field(..., ge=0)
+    scene_idx: int = Field(..., ge=0)
+    visual_description: str = Field(..., min_length=10)
+
+    # Decomposition (ViMax-inspired): first/last frame + motion
+    first_frame_desc: str = ""
+    last_frame_desc: str = ""
+    motion_desc: str = ""
+
+    # Cinematic language
+    shot_type: str = Field(
+        "medium",
+        description="close_up | medium | wide | extreme_wide | over_shoulder | pov | aerial",
+    )
+    camera_angle: str = Field(
+        "eye_level",
+        description="eye_level | high | low | dutch | overhead",
+    )
+    camera_movement: str = Field(
+        "static",
+        description="static | dolly_in | dolly_out | pan_left | pan_right | tilt | zoom | track",
+    )
+
+    # Dialogue (al menos uno por shot si narrative)
+    speaker: str | None = None
+    dialogue: str | None = None
+
+    # Duration estimate (seconds)
+    target_duration_s: float = Field(4.0, gt=0, le=60)
+
+    # Characters present in this shot (refs to CharacterProfile.name)
+    characters_present: list[str] = Field(default_factory=list)
+
+    # Provenance for VLM consistency
+    reference_frame_paths: list[str] = Field(
+        default_factory=list,
+        description="Paths a frames previos usados como reference image (IPAdapter)",
+    )
+
+
+class Scene(BaseModel):
+    """Una escena — N shots con setting + characters consistentes."""
+
+    idx: int = Field(..., ge=0)
+    title: str = Field(..., min_length=3, max_length=200)
+    setting: str = Field(..., description="Lugar + tiempo + atmósfera")
+    summary: str = Field(..., description="Qué pasa narrativamente en esta escena")
+    characters_in_scene: list[str] = Field(default_factory=list)
+    shots: list[Shot] = Field(default_factory=list)
+
+    # Continuity con la escena previa
+    continuation_from_prev: str = Field(
+        "",
+        description="Qué hereda de la escena anterior (props, location, character state)",
+    )
+
+
+class NarrativeArc(BaseModel):
+    """Arco narrativo de tres actos + plot points clave."""
+
+    title: str
+    logline: str = Field(..., max_length=400, description="Una frase con la premisa")
+    act1_setup: str = Field(..., description="Mundo + protagonista + inciting incident")
+    act2_confrontation: str = Field(..., description="Obstáculos + escalation + midpoint")
+    act3_resolution: str = Field(..., description="Climax + payoff + denouement")
+    themes: list[str] = Field(default_factory=list, max_length=5)
+    target_minutes: float = Field(10.0, gt=0.5, le=120)
+
+
+class LongFormScript(BaseModel):
+    """Script completo para video largo — listo para shoot."""
+
+    arc: NarrativeArc
+    intent: LongFormIntent = LongFormIntent.NARRATIVE
+    characters: list[CharacterProfile] = Field(default_factory=list, max_length=20)
+    scenes: list[Scene] = Field(..., min_length=1)
+
+    # Provenance del input original
+    source_kind: Literal["novel", "article", "idea", "script", "podcast_transcript"] = "idea"
+    source_text_hash: str = ""  # SHA256 corto del input para cache
+
+    @property
+    def total_shots(self) -> int:
+        return sum(len(s.shots) for s in self.scenes)
+
+    @property
+    def estimated_duration_s(self) -> float:
+        return sum(sh.target_duration_s for sc in self.scenes for sh in sc.shots)
+
+
+class ConsistencyAnchor(BaseModel):
+    """Snapshot del estado visual de un shot — usado como reference para los próximos.
+
+    El selector elige cuáles anchors mostrar al image gen del siguiente shot
+    (ej. los 3 más recientes + portraits de los characters presentes).
+    """
+
+    shot_idx: int
+    scene_idx: int
+    frame_path: str
+    description: str = Field(..., description="Texto + composición + characters present")
+    character_names: list[str] = Field(default_factory=list)
+    camera_id: str = Field(
+        "cam0", description="ID del 'camera position' — shots desde mismo cam comparten estilo"
+    )
+    created_at_unix: float = 0.0
+
+
+class LongFormJob(BaseModel):
+    """Tracking de UN job long-form de principio a fin."""
+
+    job_id: str
+    source_kind: Literal["novel", "article", "idea", "script"] = "idea"
+    target_minutes: float = 10.0
+    intent: LongFormIntent = LongFormIntent.NARRATIVE
+    status: Literal["pending", "planning", "shooting", "stitching", "completed", "failed"] = "pending"
+
+    # Artifacts
+    script_path: str | None = None      # LongFormScript serialized JSON
+    chunks_dir: str | None = None        # /chunks/*.txt (RAG store)
+    compressed_dir: str | None = None    # /compressed/*.txt
+    portraits_dir: str | None = None     # /portraits/*.jpg
+    shots_dir: str | None = None         # /shots/scene_X_shot_Y.{jpg,mp4}
+    final_video_path: str | None = None
+
+    # Metrics
+    total_chunks: int = 0
+    total_scenes: int = 0
+    total_shots: int = 0
+    actual_duration_s: float = 0.0
+
+    # Cost tracking
+    cost_breakdown: dict[str, float] = Field(default_factory=dict)
+    timings_s: dict[str, float] = Field(default_factory=dict)
+
+    error_message: str = ""
