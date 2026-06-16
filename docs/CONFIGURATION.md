@@ -315,6 +315,78 @@ soul_id = await create_soul_id(
 
 ---
 
+### ComfyUI (workflows custom + LoRAs)
+
+Provider visual nativo para casos donde los APIs templated (Veo/DoP) no alcanzan: brand identity vía LoRA entrenada, ControlNet (layout strict), IPAdapter (style transfer), AnimateDiff (video t2v). Multi-tenant: cada cliente trae su propia LoRA + workflow.
+
+```toml
+[visual.comfyui]
+enabled = false                              # true → provider habilitado
+server_url = "http://127.0.0.1:8188"        # self-hosted o managed (ViewComfy/RunComfy)
+auth_header = ""                             # ej "Bearer XYZ" para managed
+
+workflows_dir = "./workflows"                # JSONs en formato API (no GUI)
+output_subdir = "comfy"                      # dentro del out_dir del beat
+default_workflow_id = ""                     # workflow primario por default
+default_tenant_id = "default"                # tenant primario por default
+
+# Timeouts
+submit_timeout_s = 30.0
+poll_timeout_s = 600.0                       # 10 min — workflows pesados
+ws_reconnect_attempts = 3
+poll_interval_s = 2.0
+
+# Selector behaviour
+prefer_for_brand_frames = true               # ComfyUI gana sobre Gemini/Soul cuando tenant tiene LoRA
+
+# Cost estimates (USD por imagen / video) — 0.0 para self-hosted GPU propia
+cost_estimate_per_image_usd = 0.0
+cost_estimate_per_video_usd = 0.0
+
+# comfy-cli wrapper
+cli_binary_path = "comfy"
+cli_workspace_path = ""
+
+# Multi-tenant: cada tenant_id mapea workflow + LoRA + style
+[visual.comfyui.tenants.ruteo]
+primary_workflow_id = "flux_lora_brand"
+lora_name = "ruteo_brand_v1.safetensors"
+lora_strength = 0.88
+style_suffix = "cinematic still, warm natural light, 35mm film"
+```
+
+Alternativa preferida: declarar tenants en `editorial/brand-visual.json` (ver `docs/EDITORIAL.md`). El editorial registry gana sobre el TOML cuando ambos están presentes.
+
+### Env vars ComfyUI
+
+| Variable | Default | Descripción |
+|---|---|---|
+| `COMFYUI_ENABLED` | `false` | Habilita el provider |
+| `COMFYUI_SERVER_URL` | `http://127.0.0.1:8188` | Self-host local o managed remote |
+| `COMFYUI_AUTH_HEADER` | — | Para servicios managed (ej "Bearer XYZ") |
+| `COMFYUI_WORKFLOWS_DIR` | `./workflows` | Dir de JSONs |
+| `COMFYUI_DEFAULT_WORKFLOW` | — | Workflow primario por default |
+| `COMFYUI_DEFAULT_TENANT` | `default` | Tenant primario |
+| `COMFYUI_PREFER_FOR_BRAND_FRAMES` | `true` | ComfyUI gana sobre Gemini cuando hay LoRA |
+| `COMFYUI_CLI_BINARY` | `comfy` | Binario de comfy-cli |
+| `COMFYUI_CLI_WORKSPACE` | — | Workspace si custom |
+
+### Workflows incluidos (7)
+
+| Workflow | Output | Kind | VRAM | Tiempo |
+|---|---|---|---|---|
+| `flux_basic_9x16` | image | basic_t2i | 24 GB | 18s |
+| `flux_lora_brand` | image | lora_t2i | 24 GB | 22s |
+| `flux_controlnet_pose` | image | lora_controlnet | 24 GB | 28s |
+| `sdxl_ipadapter_style` | image | ipadapter_reference | 12 GB | 28s |
+| `animatediff_lora` | **video** | animatediff_lora | 16 GB | 75s |
+| `inpaint_brand` | image | inpaint | 12 GB | 30s |
+| `upscale_face_restore` | image | upscale_restore | 6 GB | 8s |
+
+Ver [`docs/COMFYUI.md`](./COMFYUI.md) para detalle completo.
+
+---
+
 ## `[stock]` — Stock footage
 
 ```toml

@@ -5,7 +5,7 @@ Plataforma de generación de reels verticales que fusiona CUATRO linajes:
 - **Industrial-horizontal** (de MoneyPrinterTurbo): API REST + colas Redis, WebUI Streamlit, 20+ proveedores LLM, 6 motores TTS, stock footage (Pexels/Pixabay/Coverr), publicación social (Upload-Post), multi-aspect ratio y multi-idioma.
 - **Cognitivo-profundo** (de reels-af): DAG de 18 reasoners (hunters → critic → narrators → judge), narrativa delayed-reveal, sample-accurate TTS, word-burst karaoke con libass, per-beat visual grounding, single-pass ffmpeg sin drift.
 - **Editorial** (de corredor-content): brand voice como código, anti-alucinación vía `facts.json`, gate humano `plan → approve → produce`, pilares de contenido rotables, specs por plataforma (TikTok/Reels/Shorts/Long/FB/LinkedIn), cost tracking USD por LLM call.
-- **Visual ownership** (ComfyUI nativo): workflows custom con LoRAs de marca entrenadas, ControlNet (pose/depth/canny), IPAdapter (style transfer), AnimateDiff. Multi-tenant: cada cliente trae su propia LoRA + workflow. Self-hosted o managed (ViewComfy/RunComfy).
+- **Visual ownership** (ComfyUI nativo): 7 workflows pre-armados (Flux LoRA, ControlNet, IPAdapter, AnimateDiff, Inpaint, Upscale), wizard de training de LoRAs (Replicate cloud o kohya local), auto-retry OOM, workflow versioning con SHA256, multi-tenant. Self-hosted o managed (ViewComfy/RunComfy).
 
 Más: integración profunda con **Higgsfield** — DoP image-to-video con 50+ camera presets cinematográficos nombrados, Soul para character consistency cross-beat, Effects VFX overlay, prompts canónicos extraídos del repo oficial de skills, y CLI fallback vía subprocess.
 
@@ -17,12 +17,20 @@ Un mismo backend permite dos modos:
 |---|---|---|---|---|
 | **Express** | 3-8 min | ~$0.01-0.05 | Buena | Volumen, canales propios |
 | **Premium** | 70-110 s | ~$0.08-1.20 | Cinematográfica | Cuentas high-end, brands |
+| **Brand-owned** | 90-180 s | ~$0.10-0.40 | Identidad de marca única (LoRA) | Multi-tenant, agencias |
 
-El usuario elige por reel — o el sistema decide automáticamente según presupuesto.
+El usuario elige por reel — o el sistema decide automáticamente según presupuesto y disponibilidad de LoRA del tenant.
 
 ## Estado
 
-✅ **Sistema completo**: 357/357 tests verde · 3 entry points operativos · DAG de 18 reasoners · 5 patrones editoriales portados · Higgsfield (DoP + Soul + Effects) integrado con CLI fallback · ComfyUI nativo (LoRAs custom + ControlNet + IPAdapter + multi-tenant).
+✅ **Sistema completo y operativo**:
+- **383 tests verde** (75 de ComfyUI, 56 de Higgsfield, 29 de editorial, +223 de pipeline base)
+- 3 entry points operativos (topic / article / subject) + workflow editorial (plan / approve / produce-week)
+- DAG de 18 reasoners (hunters → critic → narrators → judge → adapt → visual → accent)
+- 5 patrones editoriales portados (brand voice as code, facts.json, pilares, audiencias, plataformas)
+- Higgsfield integrado: DoP + Soul + Effects + CLI fallback + A/B harness
+- ComfyUI nativo: **7 workflows registrados**, 3 tenants demo (`default`/`ruteo`/`ciencia`), wizard de training, OOM auto-retry, observability
+- Cost tracking USD por LLM call (30+ modelos tabulados)
 
 Ver [`PLAN.md`](./PLAN.md) para el roadmap original y [`ARCHITECTURE.md`](./ARCHITECTURE.md) para decisiones técnicas.
 
@@ -31,9 +39,9 @@ Ver [`PLAN.md`](./PLAN.md) para el roadmap original y [`ARCHITECTURE.md`](./ARCH
 ```
 contenido/
 ├── apps/                  # Puntos de entrada
-│   ├── api/              # FastAPI REST
-│   ├── webui/            # Streamlit
-│   └── cli/              # Typer CLI (incluye plan/produce-week/brand-check)
+│   ├── api/              # FastAPI REST (14 endpoints)
+│   ├── webui/            # Streamlit (3 vistas)
+│   └── cli/              # Typer CLI (incluye plan/produce-week/brand-check/comfy)
 ├── core/                 # Lógica de dominio
 │   ├── narrative/        # 18 reasoners (de reels-af) + facts injection en hunters
 │   ├── planning/         # beats, cards, safe_zone (determinístico)
@@ -42,7 +50,7 @@ contenido/
 │   ├── tts/              # 6 engines + sample-accurate timing
 │   ├── visual/           # Stock + IA + selector híbrido
 │   │   └── generation/   # Gemini Image, Veo, Higgsfield (DoP/Soul/Effects), ken-burns, ComfyUI
-│   ├── comfy/            # Wrapper async sobre comfy-cli (install/launch/lora/node)
+│   ├── comfy/            # Wrapper async sobre comfy-cli + LoRA training wizard
 │   ├── editor/           # ffmpeg single-pass + multi-aspect + hw encoders
 │   ├── subtitles/        # Word-burst libass + SRT fallback
 │   └── distribution/     # Upload-Post (TikTok/IG)
@@ -52,14 +60,23 @@ contenido/
 │   ├── pillars/*.md      #   5 pilares de contenido
 │   ├── audiences.json    #   perfiles de audiencia
 │   ├── platforms.json    #   specs por plataforma (TikTok/Reels/Shorts/Long/FB/LI)
+│   ├── brand-visual.json #   ✨ LoRA + workflow + style por tenant (multi-tenant)
 │   └── local-events.json #   eventos del calendario (seed de planes)
+├── workflows/            # ✨ ComfyUI workflows (formato API) + index.json
+│   ├── flux_basic_9x16.json
+│   ├── flux_lora_brand.json
+│   ├── flux_controlnet_pose.json     # layout strict (logo, sujeto)
+│   ├── sdxl_ipadapter_style.json     # style transfer desde reference
+│   ├── animatediff_lora.json         # video t2v con LoRA
+│   ├── inpaint_brand.json            # producto cambia, fondo persiste
+│   ├── upscale_face_restore.json     # post-process chain
+│   └── index.json                    # registry con ComfyParameterMap
 ├── orchestration/        # Colas, estado, broker AgentField
 ├── shared/               # Schemas Pydantic, config loader
-├── workflows/            # ✨ ComfyUI workflows (formato API) + index.json
 ├── resource/             # Fuentes, BGM, assets estáticos
-├── tests/                # pytest (357 tests)
+├── tests/                # pytest (383 tests)
+├── scripts/              # A/B harnesses (Higgsfield + ComfyUI)
 ├── docs/                 # ADRs, EDITORIAL, COMFYUI, pipeline, cost model
-├── scripts/              # Batch runners (incluye Higgsfield A/B harness)
 └── .claude/skills/       # Submodule oficial higgsfield-ai/skills (dev-only)
 ```
 
@@ -71,7 +88,7 @@ cp .env.example .env       # editar con tus keys (mínimo: OPENROUTER_API_KEY + 
 cp config.example.toml config.toml
 uv sync --extra dev
 
-# 2. Verificar configuración + capa editorial
+# 2. Verificar configuración + capas
 uv run python -m apps.cli.main config-check
 uv run python -m apps.cli.main brand-check
 
@@ -85,23 +102,39 @@ uv run python -m apps.cli.main plan --ideas 7
 $EDITOR out/plans/plan-2026-W24.json   # marca "approved": true en lo que quieras
 uv run python -m apps.cli.main produce-week --mode premium
 
-# 5. (Opcional) Stack completo con WebUI + Redis
+# 5. ComfyUI con tu propia LoRA (brand identity)
+uv run python -m apps.cli.main comfy install                  # instala ComfyUI
+uv run python -m apps.cli.main comfy launch --background      # arranca server
+uv run python -m apps.cli.main comfy lora train \             # entrena LoRA
+    --name miMarca --image-dir ./fotos_brand --backend replicate
+uv run python -m apps.cli.main comfy workflow list            # 7 workflows pre-armados
+
+# 6. A/B test ComfyUI vs Gemini para validar el moat de tu marca
+uv run python scripts/comfyui_ab_test.py --quick --tenant miMarca
+
+# 7. (Opcional) Stack completo con WebUI + Redis
 make docker-up
 # WebUI: http://localhost:8501
 # API:   http://localhost:8000/docs
 ```
 
-📘 **Lee primero**: [`docs/GETTING_STARTED.md`](./docs/GETTING_STARTED.md) — tutorial paso a paso desde cero  
-✏️ **Editorial**: [`docs/EDITORIAL.md`](./docs/EDITORIAL.md) — brand voice, facts.json, gate humano, pilares  
-🎨 **ComfyUI**: [`docs/COMFYUI.md`](./docs/COMFYUI.md) — LoRAs custom, ControlNet, IPAdapter, multi-tenant  
-🔑 **API keys**: [`docs/API_KEYS.md`](./docs/API_KEYS.md) — qué keys, dónde, costos (incluye Higgsfield)  
-⚙️ **Configuración**: [`docs/CONFIGURATION.md`](./docs/CONFIGURATION.md) — TOML + env (incluye Higgsfield + ComfyUI)  
-🛠️ **Errores**: [`docs/TROUBLESHOOTING.md`](./docs/TROUBLESHOOTING.md) — errores comunes y fixes  
-🎬 **Decisiones**: [`docs/DECISIONS.md`](./docs/DECISIONS.md) — ADRs (incluye ADR-010..014)  
-💻 **Ejemplos**: [`examples/`](./examples/) — curl, Python, batch listos para copiar  
-🆚 **A/B harness**: [`scripts/higgsfield_ab_test.py`](./scripts/higgsfield_ab_test.py) — Veo vs Higgsfield DoP
+## Documentación
+
+📘 **Lee primero**: [`docs/GETTING_STARTED.md`](./docs/GETTING_STARTED.md) — tutorial paso a paso desde cero
+✏️ **Editorial**: [`docs/EDITORIAL.md`](./docs/EDITORIAL.md) — brand voice, facts.json, gate humano, pilares
+🎨 **ComfyUI**: [`docs/COMFYUI.md`](./docs/COMFYUI.md) — 7 workflows, LoRA training, multi-tenant, OOM retry, observability
+🔑 **API keys**: [`docs/API_KEYS.md`](./docs/API_KEYS.md) — qué keys, dónde, costos (incluye Higgsfield)
+⚙️ **Configuración**: [`docs/CONFIGURATION.md`](./docs/CONFIGURATION.md) — TOML + env (incluye Higgsfield + ComfyUI)
+🛠️ **Errores**: [`docs/TROUBLESHOOTING.md`](./docs/TROUBLESHOOTING.md) — errores comunes y fixes
+🎬 **Decisiones**: [`docs/DECISIONS.md`](./docs/DECISIONS.md) — ADRs 1-14 (incluye ADR-010..014 sobre Higgsfield + Editorial + ComfyUI)
+💻 **Ejemplos**: [`examples/`](./examples/) — curl, Python, batch listos para copiar
+🆚 **A/B harnesses**:
+  - [`scripts/higgsfield_ab_test.py`](./scripts/higgsfield_ab_test.py) — Veo vs Higgsfield DoP
+  - [`scripts/comfyui_ab_test.py`](./scripts/comfyui_ab_test.py) — ComfyUI (brand LoRA) vs Gemini Image
 
 ## Comandos CLI principales
+
+### Pipeline + editorial
 
 | Comando | Propósito |
 |---|---|
@@ -115,13 +148,45 @@ make docker-up
 | `produce-week [--mode ...]` | Ejecuta DAG para todas las ideas con `approved: true` |
 | `list-voices --engine <e>` | Lista voces de un TTS engine |
 | `task <task_id>` | Query state de una task (requiere Redis) |
-| `comfy status` | Health check del binario comfy-cli + server ComfyUI |
+
+### ComfyUI
+
+| Comando | Propósito |
+|---|---|
+| `comfy status` | Health check del binario comfy-cli + server ComfyUI + tenants registrados |
 | `comfy install` | Instala ComfyUI vía comfy-cli (15-30 min) |
 | `comfy launch --background` | Arranca el server ComfyUI |
-| `comfy workflow list / show <id>` | Inspecciona workflows registrados |
-| `comfy lora list / download --url ...` | Gestiona LoRAs en el server |
+| `comfy workflow list` | 7 workflows registrados con timings + VRAM estimada |
+| `comfy workflow show <id>` | Detalle + parámetros mapeados del workflow |
+| `comfy lora list` | LoRAs instaladas en el server |
+| `comfy lora download --url ...` | Descarga LoRA desde URL (CivitAI/HF/directa) |
+| `comfy lora train --name ... --image-dir ... --backend replicate\|kohya` | Wizard de training |
 | `comfy test <workflow_id>` | E2E test de un workflow con prompt de prueba |
-| `comfy models <type>` | Lista modelos en el server (checkpoints, loras, vae, ...) |
+| `comfy models <type>` | Lista modelos en el server (checkpoints/loras/vae/controlnet/...) |
+
+## Capabilities matrix por workflow ComfyUI
+
+| Workflow | Output | Brand LoRA | Layout strict | Style ref | Video | Custom nodes |
+|---|---|---|---|---|---|---|
+| `flux_basic_9x16` | image | — | — | — | — | (none) |
+| `flux_lora_brand` | image | ✓ | — | — | — | (none) |
+| `flux_controlnet_pose` | image | ✓ | ✓ (pose/depth/canny) | — | — | (none) |
+| `sdxl_ipadapter_style` | image | — | — | ✓ (reference image) | — | IPAdapter_plus |
+| `animatediff_lora` | **video** | ✓ | — | — | ✓ (16 frames) | AnimateDiff-Evolved + VideoHelperSuite |
+| `inpaint_brand` | image | ✓ | — | ✓ (mask + reference) | — | (none, requiere SDXL inpainting checkpoint) |
+| `upscale_face_restore` | image | — | — | — | — | (none, requiere upscale model) |
+
+## Tenants editoriales pre-cargados
+
+`editorial/brand-visual.json` viene con 3 tenants demo:
+
+| Tenant | LoRA | Workflow | Style |
+|---|---|---|---|
+| `default` | (sin LoRA) | `flux_basic_9x16` | genérico |
+| `ruteo` | `ruteo_brand_v1.safetensors` | `flux_lora_brand` | cinematic, central Veracruz, 35mm film, golden hour |
+| `ciencia` | `ciencia_brand_v1.safetensors` | `flux_lora_brand` | documentary research lab, sharp focus, neutral lighting |
+
+Los `.safetensors` no se incluyen — los entrenas con `comfy lora train` y los pones en `~/comfy/models/loras/`.
 
 ## Origen y créditos
 
@@ -131,9 +196,11 @@ Este proyecto integra, refactoriza y extiende código de:
 - [reels-af (agentfield)](https://github.com/agentfield/reels-af) — Apache 2.0 License (capa cognitiva: 18 reasoners DAG)
 - [corredor-content](https://github.com/elimorals/corredor-content) — (capa editorial: brand voice + facts + plan/approve)
 - [higgsfield-ai/skills](https://github.com/higgsfield-ai/skills) — submodule oficial (prompt engineering + model catalog)
+- [Comfy-Org/comfy-cli](https://github.com/Comfy-Org/comfy-cli) + [ComfyUI](https://github.com/comfyanonymous/ComfyUI) — Apache 2.0 (visual ownership)
+- [Replicate ai-toolkit](https://replicate.com/ostris/flux-dev-lora-trainer) + [kohya_ss](https://github.com/kohya-ss/sd-scripts) — backends del LoRA training wizard
 
-Ver [`docs/DECISIONS.md`](./docs/DECISIONS.md) para detalles sobre qué se conservó de cada proyecto y por qué (ADRs 1-13).
+Ver [`docs/DECISIONS.md`](./docs/DECISIONS.md) para detalles sobre qué se conservó de cada proyecto y por qué (ADRs 1-14).
 
 ## Licencia
 
-Apache 2.0 (compatible con ambos orígenes).
+Apache 2.0 (compatible con todos los orígenes).

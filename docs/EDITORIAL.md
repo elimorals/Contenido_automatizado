@@ -85,6 +85,38 @@ Modelos no tabulados → fallback conservador (`Price(1.0, 3.0)`). Mejor sobre-e
 
 `ReelIdea.platforms` valida contra estos specs y `validate_idea()` emite warning si la plataforma no tiene spec.
 
+### 6. Brand visual identity por tenant (`brand-visual.json`)
+
+Cada **tenant** declara su LoRA + workflow ComfyUI + style suffix en `editorial/brand-visual.json`. Es la pieza que cierra el moat de "todos los reels parecen tuyos" sin prompts gigantes.
+
+```json
+{
+  "tenants": [
+    {
+      "tenant_id": "ruteo",
+      "label": "Ruteo — corredor industrial Veracruz",
+      "primary_workflow_id": "flux_lora_brand",
+      "lora_name": "ruteo_brand_v1.safetensors",
+      "lora_strength": 0.88,
+      "style_suffix": "cinematic still, warm natural light, 35mm film, central Veracruz, golden hour",
+      "negative_prompt": "blurry, deformed, text, watermark, Uber, DiDi, luxury car",
+      "default_width": 720,
+      "default_height": 1280,
+      "default_steps": 25,
+      "default_cfg": 3.5
+    }
+  ]
+}
+```
+
+El registry **gana sobre el TOML**: si declaras un tenant en `config.toml` y en `brand-visual.json`, gana el editorial. Convenciones:
+- `tenant_id` se reutiliza como `BeatVisual.soul_id` por convención multi-tenant
+- `lora_name` debe existir en `~/comfy/models/loras/` (o equivalente del server)
+- `style_suffix` se concatena al `image_prompt` antes de mandar al workflow
+- Tenants pre-cargados: `default`, `ruteo`, `ciencia` (template — sin LoRAs físicos)
+
+Ver [`docs/COMFYUI.md`](./COMFYUI.md) sección "Multi-tenant" para detalle.
+
 ## Comandos CLI nuevos
 
 ```bash

@@ -1,33 +1,46 @@
-# Estado actual — Fases 0-6 completadas
+# Estado actual — ecosistema completo
 
 Fecha última actualización: 2026-06-15
 
-## 🎉 Sistema completo end-to-end
+## 🎉 Sistema operativo
 
-El monorepo `contenido` es ahora funcional como **fusión real** de MoneyPrinterTurbo (industrial) × reels-af (cognitivo). Los 3 entry points (article URL, topic, subject) están operacionales con el pipeline completo conectado.
+`contenido` es ahora un **ecosistema de creación de contenido con IA** que cubre:
 
-## 📊 Métricas finales
+1. **Pipeline industrial** (de MoneyPrinterTurbo): API REST + colas + WebUI + 20 LLM providers + 6 TTS engines
+2. **DAG cognitivo** (de reels-af): 18 reasoners con delayed-reveal narrative
+3. **Capa editorial** (de corredor-content): brand voice as code + facts.json + gate humano
+4. **Higgsfield**: DoP (i2v) + Soul (character) + Effects (VFX) + CLI fallback
+5. **ComfyUI nativo**: 7 workflows pre-armados + LoRA training wizard + multi-tenant + observability
 
-| Capa | Archivos | LOC | Procedencia |
-|---|---:|---:|---|
-| `shared/` (schemas + config) | 3 | 834 | merge MPT + reels-af |
-| `apps/api/` (FastAPI + worker + pipeline) | 4 | 1,698 | nuevo + adapt |
-| `apps/cli/` (Typer) | 2 | 387 | nuevo |
-| `apps/webui/` (Streamlit) | 2 | 608 | rediseño |
-| `core/narrative/` (18 reasoners) | 10 | 1,437 | reels-af |
-| `core/planning/` (beats, cards, font, safe_zone) | 5 | 377 | reels-af |
-| `core/llm_router/` (10 providers) | 12 | 1,271 | MPT |
-| `core/tts/` (6 engines + sample-accurate timing) | 12 | 1,677 | reels-af + MPT |
-| `core/visual/` (stock + IA + selector híbrido) | 16 | 2,124 | MPT + reels-af |
-| `core/editor/` (ffmpeg single-pass + multi-aspect + HW encoders) | 5 | 760 | reels-af + MPT |
-| `core/subtitles/` (word-burst + SRT + Whisper) | 5 | 980 | reels-af + MPT |
-| `core/distribution/` (Upload-Post) | 5 | 512 | MPT |
-| `orchestration/` (queue + state + AgentField) | 13 | 714 | MPT + reels-af |
-| `tests/` | 21 | 5,078 | nuevo |
-| **TOTAL** | **117** | **18,457** | — |
+Los 3 entry points (article URL, topic, subject) + workflow editorial (plan→approve→produce) están operacionales con el pipeline completo conectado.
 
-**Compile check global**: ✅ EXIT 0  
-**Tests verdes**: ~200+ tests pasan (entre módulos)
+## 📊 Métricas actuales
+
+| Capa | Archivos | LOC aprox | Tests |
+|---|---:|---:|---:|
+| `shared/` (schemas + config) | 2 | ~1,300 | 10 |
+| `apps/api/` (FastAPI + worker + pipeline) | 4 | ~1,700 | — |
+| `apps/cli/` (Typer + comfy subapp) | 2 | ~900 | 3 |
+| `apps/webui/` (Streamlit) | 2 | ~600 | — |
+| `core/narrative/` (18 reasoners + facts injection) | 10 | ~1,450 | (in DAG) |
+| `core/planning/` (beats, cards, font, safe_zone) | 5 | ~380 | (in DAG) |
+| `core/llm_router/` (10 providers + pricing) | 13 | ~1,400 | 25 |
+| `core/editorial/` (plan/validate/loader + brand-visual) | 4 | ~700 | 29 |
+| `core/tts/` (6 engines + sample-accurate timing) | 12 | ~1,680 | 46 |
+| `core/visual/generation/` (Gemini, Veo, Higgsfield x4, ComfyUI x3, ken-burns) | 14 | ~3,200 | 75 |
+| `core/comfy/` (wrapper + training wizard) | 3 | ~600 | (in test_comfyui) |
+| `core/editor/` (ffmpeg + multi-aspect + hw encoders) | 5 | ~760 | 12 |
+| `core/subtitles/` (word-burst + SRT + Whisper) | 5 | ~980 | 8 |
+| `core/distribution/` (Upload-Post) | 5 | ~510 | 7 |
+| `orchestration/` (queue + state + AgentField) | 13 | ~720 | 18 |
+| `editorial/` (brand-voice/facts/pillars/audiences/platforms/brand-visual) | 13 | ~700 (yaml/md) | — |
+| `workflows/` (7 JSONs + index.json + README) | 9 | ~600 (JSON) | — |
+| `scripts/` (Higgsfield AB + ComfyUI AB) | 3 | ~800 | — |
+| `tests/` | ~24 | ~6,500 | **383** |
+| `docs/` (12 archivos) | 12 | ~3,500 | — |
+
+**Compile check global**: ✅ EXIT 0
+**Tests verdes**: **383 / 383** (100%)
 
 ## 🛣️ Pipeline E2E funcional
 
@@ -39,156 +52,187 @@ Request → apps/api/main.py:POST /videos
             ├─ article: extract → compose → shared downstream (10 reasoners)
             ├─ topic:   hunters × 4 → critic → narrators × 3 → judge → adapt → shared downstream (18 reasoners)
             └─ subject: 1 LLM call → terms → shared downstream (legacy MPT)
-       
+
        Shared downstream:
          A. core/tts.synthesize             → AudioArtifact (sample-accurate)
          B. core/planning.pack_cards | plan_beats  (paralelo)
          C. core/narrative.plan_beat_visuals | plan_beat_accents  (paralelo)
-         D. core/visual.generate_all_beat_artifacts (selector híbrido)
+         D. core/visual.generate_all_beat_artifacts (selector híbrido):
+              Tier 1 first frame: ComfyUI (brand LoRA) → Higgsfield Soul → Gemini Image → placeholder
+              Tier 2 motion:      Higgsfield DoP → Veo i2v → ken-burns
+              Tier 3 effects:     Higgsfield Effects (post-step opcional)
          E. core/subtitles.write_reel_ass_with_accents
          F. core/editor.stitch_video (single-pass ffmpeg)
          G. core/distribution.upload_video (opcional)
-       
+
        → TaskInfo.state = COMPLETE
        → response: reel.mp4 + result.json (timings, costs, narration)
+
+Workflow editorial paralelo:
+   plan (LLM gen 7 ideas) → humano marca approved → produce-week itera → invoca pipeline anterior
 ```
 
-## ✅ Todo lo que está integrado
+## ✅ Lo que está integrado
 
-### Lo que MPT aportó (ya cableado)
-1. ✅ API REST con colas (FastAPI + Redis backpressure 429)
-2. ✅ WebUI Streamlit con 3 modos (Express / Premium / Avanzado)
-3. ✅ Material de stock (Pexels + Pixabay + Coverr con rotación de keys async)
-4. ✅ 10 LLM providers async (OpenAI, OpenAI-compat, Azure, Gemini, Qwen, Anthropic, OpenRouter, LiteLLM + base extensible)
-5. ✅ 6 TTS engines (Edge gratis, Gemini Flash con tags, Azure SDK, MiMo, SiliconFlow, Silent) + sample-accurate timing en TODOS
-6. ✅ Upload-Post (TikTok + Instagram)
-7. ✅ Multi-aspect ratio (9:16, 16:9, 1:1)
-8. ✅ Estado persistente (Redis state + queue, atomic con MULTI/EXEC)
+### Industrial (MPT)
+- API REST con colas + backpressure 429
+- WebUI Streamlit (3 modos)
+- 10 LLM providers async + pricing tabulado (30+ modelos)
+- 6 TTS engines (Edge gratis, Gemini Flash con tags, Azure, MiMo, SiliconFlow, Silent)
+- Sample-accurate timing universal (ffprobe + atempo + word distribution)
+- Stock Pexels/Pixabay/Coverr con rotación de keys
+- Upload-Post TikTok + Instagram
+- Multi-aspect (9:16, 16:9, 1:1)
+- Estado Redis con índices
 
-### Lo que reels-af aportó (ya cableado)
-1. ✅ DAG de 18 reasoners en `core/narrative/` (extract, compose, 4 hunters, critic, 3 narrators, judge, visual, accent)
-2. ✅ Delayed-reveal con loop-back validator Pydantic
-3. ✅ Hunters multi-ángulo con anti-clichés explícitos
-4. ✅ Sample-accurate TTS (ffprobe + atempo + word distribution por syllable count) universal para TODOS los engines
-5. ✅ Word-burst karaoke libass (170px, bottom-center, per-word timing)
-6. ✅ Per-beat visual grounding en evidence
-7. ✅ Two-tier fallback (image fail → placeholder, Veo fail → ken-burns, nunca crashea)
-8. ✅ Single-pass ffmpeg (concat + ass burn + BGM mix + AAC mux en UNA invocación)
-9. ✅ Validators Pydantic (loop-back, accent word count, schema-level invariants)
+### Cognitivo (reels-af)
+- 18 reasoners DAG (4 hunters + critic + 3 narrators + judge + adapt + extract + compose + visual + accent)
+- Delayed-reveal con loop-back validator Pydantic
+- Hunters multi-ángulo con anti-clichés + **facts injection** desde editorial
+- Word-burst karaoke libass (170px, bottom-center, per-word timing)
+- Per-beat visual grounding en evidence
+- Single-pass ffmpeg + hardware encoder fallback
 
-### Capacidades nuevas (no estaban en ninguno)
-- ✅ **Visual selector híbrido** — decide por beat stock vs IA vs mixto según mode + role + evidence
-- ✅ **Anthropic Claude provider** — no estaba en MPT
-- ✅ **3 entry points unificados** en un solo endpoint `/videos`
-- ✅ **Endpoint `/narratives`, `/hunters`** — exponer reasoners individuales
-- ✅ **Cost tracking + timings per phase** en TaskInfo
-- ✅ **Hardware encoder fallback** automático cross-OS (videotoolbox/nvenc/amf/qsv/mf/libx264)
+### Editorial (corredor-content)
+- Brand voice as code (markdown versionado)
+- `facts.json` anti-alucinación inyectado a 4 hunters
+- Plan → approve → produce-week gate humano
+- 5 pilares de contenido con rotación
+- 6 platform specs (TikTok/IG Reels/YT Shorts/YT Long/FB Reels/LinkedIn)
+- Cost transparency (LLMCostRecord agregable a TaskInfo)
+
+### Higgsfield
+- DoP image-to-video con 50+ camera presets
+- Soul para character consistency cross-beat
+- Effects VFX overlay
+- Prompts canónicos del repo oficial (submodule)
+- CLI fallback vía subprocess cuando REST falla
+- A/B harness Veo vs Higgsfield DoP
+
+### ComfyUI nativo
+- HTTP + WebSocket client async con polling fallback
+- 7 workflows registrados:
+  - `flux_basic_9x16`, `flux_lora_brand`, `flux_controlnet_pose`
+  - `sdxl_ipadapter_style`, `animatediff_lora` (video)
+  - `inpaint_brand`, `upscale_face_restore`
+- 3 tenants demo (`default`/`ruteo`/`ciencia`)
+- LoRA training wizard (Replicate cloud + kohya local) con validation
+- OOM auto-retry (POST /free + retry 1x)
+- Workflow versioning (SHA256 corto)
+- Reference image auto-upload
+- Observability (last_job + cost_record)
+- A/B harness ComfyUI brand LoRA vs Gemini Image
+- comfy-cli wrapper para install/launch/lora/node management
 
 ## 📂 Estructura final
 
 ```
 contenido/
-├── README.md, PLAN.md, ARCHITECTURE.md, STATUS.md, LICENSE
-├── pyproject.toml, Dockerfile, docker-compose.yml, Makefile, CI
-├── .env.example, config.example.toml, .gitignore, .python-version
-├── apps/
-│   ├── api/          # FastAPI 14 endpoints + worker + pipeline (1,698 LOC)
-│   ├── cli/          # Typer 6 commands (387 LOC)
-│   └── webui/        # Streamlit 3 tabs (608 LOC)
+├── apps/                  # FastAPI + WebUI + CLI (incluye `comfy` subapp)
 ├── core/
-│   ├── narrative/    # 8 reasoners + runtime AgentField adapter (1,437 LOC)
-│   ├── planning/     # beats, cards, font_metrics, safe_zone (377 LOC)
-│   ├── llm_router/   # base, router + 8 providers (1,271 LOC)
-│   ├── tts/          # base, timing, voice_names, registry + 6 engines (1,677 LOC)
-│   ├── visual/
-│   │   ├── stock/    # Pexels, Pixabay, Coverr, cache, registry
-│   │   ├── generation/ # Gemini Image, Veo, ken-burns, orchestrator
-│   │   └── selector.py # selector híbrido stock vs IA
-│   ├── editor/       # ffmpeg_stitch, aspect, encoders, bgm (760 LOC)
-│   ├── subtitles/    # word_burst, SRT, Whisper, accents (980 LOC)
-│   └── distribution/ # Upload-Post (512 LOC)
-├── orchestration/
-│   ├── queue/        # memory + Redis (714 LOC total)
-│   ├── state/        # memory + Redis con índices
-│   └── agentfield/   # adapter con fallback local
-├── shared/
-│   ├── schemas.py    # 18 enums + 22 models Pydantic 2 (522 LOC)
-│   └── config.py     # TOML + env override (312 LOC)
-├── tests/            # 21 test files, 5,078 LOC
-├── docs/             # DECISIONS, PIPELINE, COST_MODEL, CONTRIBUTING
-└── resource/         # fonts, songs, public
+│   ├── narrative/         # 18 reasoners DAG + facts injection
+│   ├── planning/          # beats, cards, safe_zone
+│   ├── llm_router/        # 10 providers + pricing.py
+│   ├── editorial/         # plan/validate/loader + brand-visual
+│   ├── tts/               # 6 engines + sample-accurate
+│   ├── visual/generation/ # Gemini + Veo + Higgsfield + ComfyUI + ken-burns
+│   ├── comfy/             # comfy-cli wrapper + training wizard
+│   ├── editor/            # ffmpeg single-pass + hw encoders
+│   ├── subtitles/         # word-burst + SRT + Whisper
+│   └── distribution/      # Upload-Post
+├── editorial/             # brand-voice + facts + pillars + audiences + platforms + brand-visual
+├── workflows/             # 7 ComfyUI JSONs + index.json
+├── orchestration/         # queue + state + AgentField
+├── shared/                # schemas + config
+├── tests/                 # 383 tests
+├── scripts/               # higgsfield_ab_test + comfyui_ab_test
+├── docs/                  # 12 archivos (incl. EDITORIAL, COMFYUI, DECISIONS)
+└── .claude/skills/        # Submodule higgsfield-ai/skills (dev-only)
 ```
 
 ## 🚀 Para correr
 
 ```bash
-# Setup
-cp .env.example .env       # editar con tus keys
+# Setup mínimo
+cp .env.example .env       # editar con tus keys (mín: OPENROUTER_API_KEY + PEXELS_API_KEYS)
 cp config.example.toml config.toml
-make install               # uv sync --extra dev
+uv sync --extra dev
 
 # Verificar
-make test-fast
-uv run contenido config-check
+uv run pytest -q --ignore=tests/integration   # 383 tests
+uv run python -m apps.cli.main config-check
+uv run python -m apps.cli.main brand-check
 
-# Single-shot CLI
-uv run contenido topic "the placebo effect" --mode premium
-uv run contenido article "https://arxiv.org/abs/2509.25541"
-uv run contenido subject "Spring flowers" --mode express
+# Single-shot reels
+uv run python -m apps.cli.main topic "the placebo effect" --mode premium
+uv run python -m apps.cli.main article "https://arxiv.org/abs/2509.25541"
+uv run python -m apps.cli.main subject "Spring flowers" --mode express
 
-# Stack completo (API + WebUI + Redis + worker)
+# Workflow editorial
+uv run python -m apps.cli.main plan --ideas 7
+$EDITOR out/plans/plan-2026-W24.json
+uv run python -m apps.cli.main produce-week --mode premium
+
+# ComfyUI (opcional, para brand identity vía LoRA)
+uv run python -m apps.cli.main comfy install
+uv run python -m apps.cli.main comfy launch --background
+uv run python -m apps.cli.main comfy lora train --name miMarca --image-dir ./fotos --backend replicate
+uv run python -m apps.cli.main comfy workflow list
+
+# Stack completo con WebUI + Redis
 make docker-up
-
-# WebUI: http://localhost:8501
-# API docs: http://localhost:8000/docs
 ```
 
 ## ⚠️ Qué falta para producción real
 
-Esto es un MVP funcional. Antes de meter usuarios reales:
+Esto es un MVP completo. Antes de meter usuarios reales:
 
-1. **Tests E2E reales** (no mocks) con ffmpeg + servicios cloud — los unit tests pasan pero falta ejecución completa con audio/video real
-2. **Cost tracker funcional** — el dict existe pero los providers no devuelven costos todavía
-3. **Métricas Prometheus** — actualmente solo Loguru
-4. **Rate limiting per-user** — API tiene backpressure global pero no per-tenant
-5. **Auth/multi-tenant** — no hay autenticación, todos los endpoints son públicos
-6. **CDN para outputs** — videos se sirven desde filesystem local
-7. **Whisper modelo cache** — el modelo se descarga la primera vez (~2GB para large-v3)
-8. **i18n WebUI completo** — solo labels básicos, faltan traducciones reales de mensajes
+1. **Tests E2E reales con servicios cloud** — los unit tests pasan con mocks; falta ejecución completa con APIs vivas
+2. **LoRA real entrenada** — los tenants `ruteo` y `ciencia` apuntan a `.safetensors` que no existen (placeholders)
+3. **ComfyUI server real corriendo** — el código asume `127.0.0.1:8188` o managed; falta validar E2E con GPU
+4. **Métricas Prometheus** — actualmente solo Loguru
+5. **Rate limiting per-user** — backpressure global pero no per-tenant
+6. **Auth/multi-tenant API** — endpoints son públicos
+7. **CDN para outputs** — videos desde filesystem local
+8. **Whisper model cache** — descarga la primera vez (~2GB para large-v3)
+9. **Anthropic + Gemini providers cost stamping** — heredan la base pero no overridean `_extract_usage`
 
 ## 🎯 Próximos pasos sugeridos
 
 | Prioridad | Tarea |
 |---|---|
-| 🔴 Alta | Correr `make docker-up` y validar pipeline end-to-end con un reel real |
-| 🔴 Alta | Validar que sample-accurate timing funciona en Edge TTS (no solo Gemini) |
-| 🟡 Media | Agregar OpenAPI examples a cada endpoint |
+| 🔴 Alta | Conseguir GPU (RTX 4090 local o RunPod) y validar pipeline ComfyUI E2E |
+| 🔴 Alta | Entrenar primera LoRA real con `comfy lora train --backend replicate` |
+| 🔴 Alta | Correr `make docker-up` y validar pipeline editorial end-to-end con un reel real |
+| 🟡 Media | Anthropic + Gemini providers overridear `_extract_usage` para cost tracking |
+| 🟡 Media | A/B harness real (ComfyUI vs Gemini) con votos humanos |
 | 🟡 Media | Configurar Sentry o Logfire para error tracking |
-| 🟢 Baja | Portar i18n completo de MPT (10 idiomas, JSON files) |
-| 🟢 Baja | Agregar GitHub Actions workflow para Docker Hub push |
+| 🟢 Baja | Portar i18n completo de MPT (10 idiomas) |
+| 🟢 Baja | Workflows ComfyUI adicionales (flux_canny, sdxl_lcm_speed, sdxl_lora_layered) |
 
-## 🧬 Origen de cada componente (mapa final)
+## 🧬 Origen de cada componente
 
 | Componente | Origen | Adaptación |
 |---|---|---|
-| Schemas Pydantic | MPT 18 modelos + reels-af 22 modelos | Merge unificado con validators |
-| Config TOML+env | MPT pattern | Loader con cache + 12-factor compliance |
-| FastAPI endpoints | MPT base | Async + nuevos endpoints (/narratives, /hunters) |
+| Schemas Pydantic | MPT 18 + reels-af 22 modelos | Merge unificado + Editorial schemas (15 nuevos) + ComfyUI schemas (8) |
+| Config TOML+env | MPT pattern | Loader con cache + 12-factor + ComfyUI tenants |
+| FastAPI endpoints | MPT base | Async + /narratives, /hunters + workflow editorial |
 | Streamlit WebUI | MPT base | Rediseñada con 3 vistas + polling API |
-| Typer CLI | reels-af base | 3 entry points + config-check |
-| 18 reasoners DAG | reels-af agents/ | Imports a shared.schemas, runtime adapter para AgentField/llm_router |
-| Planning (beats, cards) | reels-af planning/ | Imports adaptados |
-| 10 LLM providers | MPT llm.py 20+ providers | Refactor sync → async, base class compartida, Anthropic agregado |
-| 6 TTS engines | MPT voice.py + reels-af tts.py | Sample-accurate timing universal aplicado a todos |
-| Stock Pexels/Pixabay/Coverr | MPT material.py | requests → httpx async, MoviePy → ffprobe |
+| Typer CLI | reels-af base | 3 entry points + plan/produce-week/brand-check + comfy subapp |
+| 18 reasoners DAG | reels-af agents/ | Imports a shared.schemas + facts injection en hunters |
+| Planning (beats, cards) | reels-af planning/ | Sin cambios |
+| 10 LLM providers | MPT llm.py | Refactor sync → async + pricing.py + cost stamping |
+| 6 TTS engines | MPT voice.py + reels-af tts.py | Sample-accurate timing universal |
+| Stock Pexels/Pixabay/Coverr | MPT material.py | requests → httpx async + ffprobe |
 | Gemini Image + Veo | reels-af images.py + video.py | httpx directo a OpenRouter multimodal |
+| Higgsfield (DoP/Soul/Effects) | nuevo (este proyecto) | REST + CLI fallback + 50+ camera presets |
+| ComfyUI nativo | nuevo (este proyecto) | REST+WS client + 7 workflows + training wizard + multi-tenant |
+| Editorial (brand-voice/facts/plan) | corredor-content | Portado a Python + integración con DAG |
 | Ken-burns | reels-af video.py | ffmpeg directo async |
 | ffmpeg single-pass | reels-af stitch.py | + multi-aspect MPT + hardware encoder fallback |
 | Word-burst libass | reels-af subtitles.py | pysubs2 + CJK font fallback |
-| SRT subtitles | MPT subtitle.py | Compatibilidad backwards |
-| Whisper ASR | MPT subtitle.py | Lazy import, lru_cache |
+| Whisper ASR | MPT subtitle.py | Lazy import + lru_cache |
 | Redis queue + state | MPT manager/ + state.py | threading → asyncio + índices Redis |
 | Upload-Post | MPT upload_post.py | requests → httpx async + tenacity |
-| AgentField adapter | reels-af + nuevo | Local fallback si broker no disponible |
-| Visual selector | nuevo | Heurísticas por mode + role + evidence |
-| Pipeline orchestrator | nuevo | Pega los 3 entry points con timings |
+| Pipeline orchestrator | nuevo | Pega los 3 entry points + workflow editorial |
+| A/B harnesses | nuevo | Higgsfield vs Veo + ComfyUI vs Gemini |

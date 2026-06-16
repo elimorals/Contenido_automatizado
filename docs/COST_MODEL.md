@@ -4,6 +4,17 @@ Documentación viva: actualizar cuando cambien precios de providers.
 
 Última actualización: 2026-06-15.
 
+## Tabla rápida
+
+| Setup | Tiempo | Costo/reel | Brand identity | Use case |
+|---|---|---|---|---|
+| Express + Edge + Pexels | 3-8 min | ~$0.001 | — | Volumen masivo |
+| Premium + ken-burns | 70-110s | ~$0.08 | — | High-end estándar |
+| Premium + Higgsfield DoP | 90-120s | ~$1.10 | — | Top tier (50+ presets) |
+| Premium + Higgsfield Soul+DoP+FX | 110-150s | ~$1.50 | character (Soul) | Branded narrative |
+| **Premium + ComfyUI brand LoRA (self-host)** | 90-180s | **~$0.08-0.15** | **✓ marca completa** | **Multi-tenant, agencias** |
+| Premium + ComfyUI managed (ViewComfy) | 90-180s | ~$0.30-0.80 | ✓ marca completa | Multi-tenant sin GPU |
+
 ## Modo Premium
 
 ### Default (DeepSeek + Gemini Flash + Ken-burns)
@@ -56,6 +67,47 @@ DoP variants:
 
 Ventaja vs Veo: motion presets cinematográficos nombrados + character consistency cross-beat (Soul). Trade-off: ~30% más caro que Veo solo, ~5% más caro que Veo+ken-burns mix.
 
+### Con ComfyUI brand LoRA (self-hosted)
+
+| Componente | Costo |
+|---|---|
+| LLM (DAG 18 reasoners) | $0.020 |
+| TTS (Gemini Flash o Edge) | $0-0.015 |
+| ComfyUI Flux + LoRA (compute propio) | $0 (post hardware ~$2k) |
+| Ken-burns (motion) | $0 |
+| **TOTAL** | **~$0.02-0.04** |
+
+El moat real: tras pagar la GPU, **cada reel cuesta solo los LLMs**. A 100 reels/día → ~$60/mes (LLM solamente) y la identidad de marca queda baked en el output sin prompts gigantes.
+
+### Con ComfyUI managed (ViewComfy / RunComfy / Modal serverless)
+
+| Componente | Costo |
+|---|---|
+| LLM + TTS | $0.03 |
+| Hosting baseline ViewComfy | ~$50/mes / por reels = depende del volumen |
+| Por reel (Flux + LoRA, 22s GPU H100) | ~$0.04 + baseline |
+| **TOTAL típico (50 reels/mes)** | **~$1.03 + $1.00 baseline = ~$2/reel** |
+| **TOTAL volumen (500 reels/mes)** | **~$0.13/reel** |
+
+ViewComfy/RunComfy escalan inversamente: el baseline se diluye con volumen.
+
+### Training inicial de LoRA (one-time)
+
+| Backend | Costo | Tiempo | Pre-req |
+|---|---|---|---|
+| Replicate ai-toolkit (Flux LoRA) | ~$2-3 | ~25 min | Sin GPU local |
+| Kohya local (Flux LoRA) | $0 | 4-8 horas | GPU NVIDIA 16GB+ |
+| CivitAI online trainer | ~$10+ | 30-60 min | Sin GPU local, UI simple |
+
+Una LoRA buena dura 6-12 meses sin re-entrenar (si tu identidad visual no cambia).
+
+### LoRA training via `contenido comfy lora train`
+
+El wizard incluido (`core/comfy/training.py`) emite el comando bash listo. Para Replicate:
+- ~$2-3 por entrenamiento
+- ~25 minutos
+- Output: URL al `.safetensors` listo para descargar con `comfy lora download`
+
 ## Modo Express (MPT clásico)
 
 | Componente | Calls | Costo unidad | Subtotal |
@@ -85,6 +137,8 @@ Cambiar OpenAI por Claude Haiku:
 | Premium + Veo i2v | 85-110s | ~$1.20 | Cinematográfica | Top tier |
 | Premium + Higgsfield DoP | 90-120s | ~$1.10 | Cinematográfica + presets nombrados | Top tier diferenciado |
 | Premium + Higgsfield Soul+DoP | 110-150s | ~$1.50 | Cinematográfica + personaje consistente | Branded narrative |
+| **Premium + ComfyUI self-host** | 90-180s | **~$0.04** | **Brand identity baked-in** | **Marca propia, volumen** |
+| Premium + ComfyUI managed | 90-180s | ~$0.13-2.00 | Brand identity baked-in | Multi-tenant, agencias |
 
 ## Throughput por presupuesto mensual
 
@@ -102,6 +156,9 @@ Asumiendo $500/mes:
 | Brand premium (5 reels/sem) | Premium + Veo (~$24/sem) |
 | Creador high-end (1 reel/día) | Premium + ken-burns (~$2.40/mes) |
 | Volumen masivo con calidad | Premium + ken-burns ($240/mes para 100 reels/día) |
+| **Marca con identidad visual única** | **Premium + ComfyUI self-host LoRA (~$0.04/reel post hardware)** |
+| **Agencia multi-tenant** | Premium + ComfyUI managed ViewComfy (~$0.13/reel a 500/mes) |
+| **Brand narrative continua** (mismo personaje cross-reels) | Premium + Higgsfield Soul + ComfyUI ControlNet (~$1.60/reel) |
 
 ## Optimizaciones futuras
 

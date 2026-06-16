@@ -205,11 +205,65 @@ uv run contenido article "https://en.wikipedia.org/wiki/Placebo" \
 
 El reasoner `extract_essence` leerá el artículo y producirá un Essence (core_claim + mechanism + evidence). Luego `compose_script` genera el ScriptDraft con loop-back.
 
+## Paso 8 — Workflow editorial (gate humano)
+
+Inspirado en `corredor-content`. Genera plan semanal, apruebas manualmente, produce solo lo aprobado.
+
+```bash
+# Inspecciona la capa editorial cargada
+uv run contenido brand-check
+
+# Genera 7 ideas para esta semana
+uv run contenido plan --ideas 7
+
+# Edita out/plans/plan-2026-Www.json y marca "approved": true
+$EDITOR out/plans/plan-2026-W24.json
+
+# Produce TODO lo aprobado
+uv run contenido produce-week --mode premium
+```
+
+Detalles en [`EDITORIAL.md`](./EDITORIAL.md).
+
+## Paso 9 — ComfyUI con LoRA de marca (opcional, máxima identidad)
+
+Si quieres que **todos** tus reels tengan tu estética visual única (no solo "premium genérico"), entrena una LoRA con 30-50 referencias y úsala con uno de los 7 workflows pre-armados.
+
+```bash
+# 1. Instala ComfyUI (15-30 min)
+uv run contenido comfy install
+uv run contenido comfy launch --background
+
+# 2. Entrena tu LoRA (Replicate cloud, ~$2-3, 25 min)
+uv run contenido comfy lora train \
+    --name miMarca --image-dir ./fotos_brand \
+    --backend replicate --trigger mim4rca --steps 1000
+
+# 3. Cuando termine, descárgala
+uv run contenido comfy lora download --url <url> --filename miMarca_v1.safetensors
+
+# 4. Edita editorial/brand-visual.json:
+#    "tenant_id": "miMarca", "lora_name": "miMarca_v1.safetensors", ...
+
+# 5. Habilita el provider
+echo "COMFYUI_ENABLED=true" >> .env
+
+# 6. Lista workflows disponibles
+uv run contenido comfy workflow list
+
+# 7. A/B test contra Gemini Image para validar el moat
+uv run python scripts/comfyui_ab_test.py --quick --tenant miMarca
+```
+
+Detalles en [`COMFYUI.md`](./COMFYUI.md).
+
 ## Próximos pasos
 
 | Quieres… | Lee… |
 |---|---|
 | Entender cada parámetro de config | [CONFIGURATION.md](./CONFIGURATION.md) |
+| Brand voice, facts, plan/approve | [EDITORIAL.md](./EDITORIAL.md) |
+| LoRAs custom, ControlNet, multi-tenant | [COMFYUI.md](./COMFYUI.md) |
 | Ver todos los endpoints REST | [API_REFERENCE.md](./API_REFERENCE.md) |
 | Optimizar costos | [COST_MODEL.md](./COST_MODEL.md) |
 | Diagnosticar un error | [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) |
