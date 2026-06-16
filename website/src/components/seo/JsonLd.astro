@@ -1,0 +1,28 @@
+---
+/**
+ * JsonLd.astro — inyecta JSON-LD Schema.org tipado.
+ *
+ * Spec: https://schema.org/
+ * Validador: https://validator.schema.org/
+ *
+ * Usage:
+ *   <JsonLd data={[organization, webSite, softwareSourceCode]} />
+ */
+
+interface Props {
+  data: Array<Record<string, unknown>>;
+}
+
+const { data } = Astro.props;
+
+// Wrap en @graph para múltiples objetos relacionados
+const payload = {
+  "@context": "https://schema.org",
+  "@graph": data,
+};
+---
+
+<script
+  type="application/ld+json"
+  set:html={JSON.stringify(payload, null, 2)}
+/>

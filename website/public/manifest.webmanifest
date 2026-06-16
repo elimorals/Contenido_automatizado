@@ -1,0 +1,21 @@
+{
+  "name": "contenido",
+  "short_name": "contenido",
+  "description": "Plataforma open source para generación de video con IA: reels, brand-owned con LoRA, long-form 5-60 min.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#050608",
+  "theme_color": "#050608",
+  "lang": "es",
+  "dir": "ltr",
+  "categories": ["productivity", "developer", "ai"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

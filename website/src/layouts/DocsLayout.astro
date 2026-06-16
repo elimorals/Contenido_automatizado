@@ -9,6 +9,39 @@ interface Props {
 
 const { title, description, currentSlug } = Astro.props;
 
+// ─── JSON-LD adicional para docs ─────────────────────────────────────
+const siteUrl = Astro.site ?? new URL("https://contenido.vercel.app");
+const canonical = new URL(Astro.url.pathname, siteUrl).href;
+
+// TechArticle es más específico que Article para documentación técnica.
+const techArticle: Record<string, unknown> = {
+  "@type": "TechArticle",
+  "@id": canonical + "#article",
+  headline: title,
+  description: description ?? `${title} — documentación del proyecto contenido`,
+  url: canonical,
+  inLanguage: "es",
+  author: {
+    "@type": "Person",
+    name: "Elias Morales",
+    url: "https://github.com/elimorals",
+  },
+  publisher: { "@id": siteUrl.origin + "/#organization" },
+  isAccessibleForFree: true,
+  about: ["video generation", "AI", "ComfyUI", "LoRA", "multi-tenant"],
+};
+
+// BreadcrumbList — Google lo usa para mostrar el path en SERPs
+const breadcrumbList: Record<string, unknown> = {
+  "@type": "BreadcrumbList",
+  "@id": canonical + "#breadcrumbs",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Inicio", item: siteUrl.origin + "/" },
+    { "@type": "ListItem", position: 2, name: "Documentación", item: siteUrl.origin + "/docs/" },
+    { "@type": "ListItem", position: 3, name: title, item: canonical },
+  ],
+};
+
 // Orden curado de los docs en el sidebar — los importantes primero, los de
 // referencia al final. Match exacto vs slug del Content Collection.
 const nav = [
@@ -36,10 +69,18 @@ const nav = [
 ];
 ---
 
-<BaseLayout title={title} description={description}>
+<BaseLayout
+  title={title}
+  description={description}
+  ogType="article"
+  extraJsonLd={[techArticle, breadcrumbList]}
+>
   <div class="relative mx-auto max-w-7xl px-4 pt-12 sm:px-6 sm:pt-16">
-    <!-- Breadcrumb -->
-    <nav class="mb-6 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--color-ink-faded)]">
+    <!-- Breadcrumb visible (refuerzo del JSON-LD BreadcrumbList) -->
+    <nav
+      class="mb-6 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--color-ink-faded)]"
+      aria-label="Breadcrumb"
+    >
       <a href="/" class="transition-colors hover:text-[var(--color-accent)]">Inicio</a>
       <span>/</span>
       <a href="/docs" class="transition-colors hover:text-[var(--color-accent)]">Docs</a>
