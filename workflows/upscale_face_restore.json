@@ -1,0 +1,28 @@
+{
+  "5": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "input.png"
+    }
+  },
+  "9": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "contenido_upscaled",
+      "images": ["20", 0]
+    }
+  },
+  "15": {
+    "class_type": "UpscaleModelLoader",
+    "inputs": {
+      "model_name": "4x_NMKD-Siax_200k.pth"
+    }
+  },
+  "20": {
+    "class_type": "ImageUpscaleWithModel",
+    "inputs": {
+      "upscale_model": ["15", 0],
+      "image": ["5", 0]
+    }
+  }
+}

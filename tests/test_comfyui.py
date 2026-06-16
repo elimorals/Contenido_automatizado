@@ -16,11 +16,26 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
+from PIL import Image
 
+from core.comfy.training import (
+    TRAINING_MAX_IMAGES,
+    TRAINING_MIN_IMAGES,
+    TrainingValidationError,
+    kohya_training_command,
+    plan_lora_training,
+    replicate_training_command,
+    validate_training_dataset,
+)
 from core.comfy.wrapper import (
     ComfyCLIError,
     ComfyCLINotInstalled,
     check_binary,
+)
+from core.visual.generation.comfy import (
+    _is_local_path,
+    _is_oom_error,
+    _workflow_version,
 )
 from core.visual.generation.comfy import (
     ComfyUIGenerator,
@@ -496,6 +511,164 @@ class TestCLIBinaryCheck:
 
 
 # =============================================================================
+# Helpers nuevos del provider: OOM detection, workflow versioning, local path
+# =============================================================================
+
+
+class TestIsOomError:
+    @pytest.mark.parametrize("msg", [
+        "RuntimeError: CUDA out of memory",
+        "torch.cuda.OutOfMemoryError: Tried to allocate 24GiB",
+        "Not enough memory to load model",
+    ])
+    def test_detects_oom_messages(self, msg: str) -> None:
+        assert _is_oom_error(msg) is True
+
+    @pytest.mark.parametrize("msg", [
+        "Invalid prompt",
+        "Connection refused",
+        "Workflow validation failed: missing node",
+    ])
+    def test_ignores_non_oom(self, msg: str) -> None:
+        assert _is_oom_error(msg) is False
+
+
+class TestIsLocalPath:
+    def test_with_slash_is_local(self) -> None:
+        assert _is_local_path("/tmp/img.png") is True
+
+    def test_with_backslash_is_local(self) -> None:
+        assert _is_local_path(r"C:\images\img.png") is True
+
+    def test_bare_filename_is_remote(self) -> None:
+        # Sin separator + no existe localmente
+        assert _is_local_path("just_filename.png") is False
+
+    def test_empty_is_false(self) -> None:
+        assert _is_local_path("") is False
+        assert _is_local_path(None) is False  # type: ignore[arg-type]
+
+
+class TestWorkflowVersion:
+    def test_deterministic(self, sample_workflow_spec, sample_workflow_template) -> None:
+        v1 = _workflow_version(sample_workflow_spec, sample_workflow_template)
+        v2 = _workflow_version(sample_workflow_spec, sample_workflow_template)
+        assert v1 == v2
+
+    def test_changes_with_workflow(self, sample_workflow_spec, sample_workflow_template) -> None:
+        v1 = _workflow_version(sample_workflow_spec, sample_workflow_template)
+        modified = {**sample_workflow_template}
+        modified["6"] = {**modified["6"], "inputs": {"text": "OTHER"}}
+        v2 = _workflow_version(sample_workflow_spec, modified)
+        assert v1 != v2
+
+    def test_short_hex_format(self, sample_workflow_spec, sample_workflow_template) -> None:
+        v = _workflow_version(sample_workflow_spec, sample_workflow_template)
+        assert len(v) == 12
+        assert all(c in "0123456789abcdef" for c in v)
+
+
+# =============================================================================
+# Training wizard
+# =============================================================================
+
+
+class TestTrainingValidation:
+    def test_missing_dir_raises(self, tmp_path: Path) -> None:
+        missing = tmp_path / "no_existe"
+        with pytest.raises(TrainingValidationError, match="no existe"):
+            validate_training_dataset(missing)
+
+    def test_empty_dir_warns(self, tmp_path: Path) -> None:
+        d = tmp_path / "images"
+        d.mkdir()
+        valid, warnings = validate_training_dataset(d)
+        assert valid == []
+        assert any("mínimo" in w for w in warnings)
+
+    def test_strict_raises_on_too_few(self, tmp_path: Path) -> None:
+        d = tmp_path / "images"
+        d.mkdir()
+        with pytest.raises(TrainingValidationError, match="mínimo"):
+            validate_training_dataset(d, strict=True)
+
+    def test_low_res_skipped(self, tmp_path: Path) -> None:
+        d = tmp_path / "images"
+        d.mkdir()
+        # Crear 5 imágenes pequeñas (< 1024)
+        for i in range(5):
+            Image.new("RGB", (512, 512), (i*40, 0, 0)).save(d / f"img{i}.jpg")
+        valid, warnings = validate_training_dataset(d)
+        assert valid == []
+        assert any("1024 mínimo" in w for w in warnings)
+
+    def test_valid_images_pass(self, tmp_path: Path) -> None:
+        d = tmp_path / "images"
+        d.mkdir()
+        for i in range(10):
+            Image.new("RGB", (1024, 1024), (i*20, 0, 0)).save(d / f"img{i}.jpg")
+        valid, warnings = validate_training_dataset(d)
+        assert len(valid) == 10
+        # 10 está fuera del sweet spot 20-30
+        assert any("sweet spot" in w for w in warnings)
+
+
+class TestReplicateTraining:
+    def test_command_includes_dataset_path(self, tmp_path: Path) -> None:
+        d = tmp_path / "imgs"
+        d.mkdir()
+        result = replicate_training_command(
+            name="test_brand", image_dir=d, trigger_word="tb",
+        )
+        assert "test_brand" in result["cli_command"]
+        assert "tb" in result["cli_command"]
+        assert result["plan"].steps == 1000
+        assert result["plan"].estimated_cost_usd > 0
+
+    def test_includes_instructions(self, tmp_path: Path) -> None:
+        d = tmp_path / "imgs"
+        d.mkdir()
+        result = replicate_training_command(name="test", image_dir=d)
+        assert len(result["instructions"]) >= 5
+        assert any("API token" in i for i in result["instructions"])
+
+
+class TestKohyaTraining:
+    def test_flux_uses_correct_script(self, tmp_path: Path) -> None:
+        d = tmp_path / "imgs"
+        d.mkdir()
+        result = kohya_training_command(name="b", image_dir=d, base_model="flux")
+        assert "flux_train_network.py" in result["cli_command"]
+        assert "flux1-dev" in result["cli_command"]
+
+    def test_sdxl_uses_correct_script(self, tmp_path: Path) -> None:
+        d = tmp_path / "imgs"
+        d.mkdir()
+        result = kohya_training_command(name="b", image_dir=d, base_model="sdxl")
+        assert "sdxl_train_network.py" in result["cli_command"]
+
+
+class TestPlanLoraTraining:
+    def test_invalid_dataset_raises(self, tmp_path: Path) -> None:
+        d = tmp_path / "empty"
+        d.mkdir()
+        with pytest.raises(TrainingValidationError, match="0 imágenes"):
+            plan_lora_training(name="b", image_dir=d)
+
+    def test_replicate_returns_plan(self, tmp_path: Path) -> None:
+        d = tmp_path / "imgs"
+        d.mkdir()
+        for i in range(8):
+            Image.new("RGB", (1024, 1024), (i*30, 0, 0)).save(d / f"img{i}.jpg")
+        result = plan_lora_training(
+            name="b", image_dir=d, backend="replicate",
+        )
+        assert result["backend"] == "replicate"
+        assert len(result["valid_images"]) == 8
+        assert "cli_command" in result["plan"]
+
+
+# =============================================================================
 # Brand-visual editorial integration
 # =============================================================================
 
@@ -507,6 +680,24 @@ class TestEditorialBrandVisual:
         r = reload_editorial()
         # editorial/brand-visual.json del repo trae "default" tenant
         assert "default" in r.brand_visual
+
+    def test_loader_finds_real_tenants(self) -> None:
+        from core.editorial import reload_editorial
+
+        r = reload_editorial()
+        # Ahora tenemos también ruteo y ciencia
+        assert "ruteo" in r.brand_visual
+        assert "ciencia" in r.brand_visual
+
+    def test_ruteo_has_lora_configured(self) -> None:
+        from core.editorial import reload_editorial
+
+        r = reload_editorial()
+        bv = r.get_visual_for_tenant("ruteo")
+        assert bv is not None
+        assert bv.lora_name == "ruteo_brand_v1.safetensors"
+        assert bv.primary_workflow_id == "flux_lora_brand"
+        assert "Veracruz" in bv.style_suffix
 
     def test_get_visual_for_tenant_known(self) -> None:
         from core.editorial import reload_editorial

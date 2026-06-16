@@ -1,0 +1,81 @@
+{
+  "3": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 0,
+      "steps": 25,
+      "cfg": 7.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1.0,
+      "model": ["20", 0],
+      "positive": ["6", 0],
+      "negative": ["7", 0],
+      "latent_image": ["5", 0]
+    }
+  },
+  "4": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": {
+      "ckpt_name": "sd_xl_base_1.0.safetensors"
+    }
+  },
+  "5": {
+    "class_type": "EmptyLatentImage",
+    "inputs": {
+      "width": 720,
+      "height": 1280,
+      "batch_size": 16
+    }
+  },
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "a cinematic scene, brand identity locked",
+      "clip": ["10", 1]
+    }
+  },
+  "7": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "blurry, low quality, deformed, text, watermark, logo, flickering",
+      "clip": ["10", 1]
+    }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["3", 0],
+      "vae": ["4", 2]
+    }
+  },
+  "9": {
+    "class_type": "VHS_VideoCombine",
+    "inputs": {
+      "frame_rate": 8.0,
+      "loop_count": 0,
+      "filename_prefix": "contenido_animatediff",
+      "format": "video/h264-mp4",
+      "pingpong": false,
+      "save_output": true,
+      "images": ["8", 0]
+    }
+  },
+  "10": {
+    "class_type": "LoraLoader",
+    "inputs": {
+      "lora_name": "brand_v1.safetensors",
+      "strength_model": 0.85,
+      "strength_clip": 0.85,
+      "model": ["4", 0],
+      "clip": ["4", 1]
+    }
+  },
+  "20": {
+    "class_type": "LoadAnimateDiffModel",
+    "inputs": {
+      "model_name": "mm_sd_v15_v2.ckpt",
+      "ad_settings": ["10", 0]
+    }
+  }
+}

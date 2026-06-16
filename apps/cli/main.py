@@ -690,13 +690,21 @@ def comfy_launch_cmd(
 
 @comfy_app.command("lora")
 def comfy_lora_cmd(
-    action: Annotated[str, typer.Argument(help="list | download")],
+    action: Annotated[str, typer.Argument(help="list | download | train")],
     url: Annotated[str, typer.Option(help="URL del LoRA (download)")] = "",
     filename: Annotated[str, typer.Option(help="Nombre destino (download)")] = "",
+    name: Annotated[str, typer.Option(help="Nombre del LoRA (train)")] = "brand",
+    image_dir: Annotated[Path, typer.Option(help="Dir con imágenes (train)")] = Path("./training_images"),
+    backend: Annotated[str, typer.Option(help="replicate | kohya (train)")] = "replicate",
+    trigger: Annotated[str, typer.Option(help="Trigger word única (train)")] = "",
+    base: Annotated[str, typer.Option(help="flux | sdxl (train)")] = "flux",
+    steps: Annotated[int, typer.Option(help="Steps de training")] = 1000,
 ) -> None:
-    """Gestiona LoRAs: list (instalados) o download <url>."""
+    """Gestiona LoRAs: list | download | train (wizard)."""
     try:
-        from core.comfy import download_lora, list_loras
+        from core.comfy import (
+            TrainingValidationError, download_lora, list_loras, plan_lora_training,
+        )
     except Exception as e:  # noqa: BLE001
         typer.secho(f"✗ {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=1) from e
@@ -708,8 +716,8 @@ def comfy_lora_cmd(
                 typer.echo("(sin LoRAs instaladas)")
                 return
             typer.secho(f"=== LoRAs ({len(loras)}) ===", fg=typer.colors.CYAN, bold=True)
-            for name in loras:
-                typer.echo(f"  • {name}")
+            for nm in loras:
+                typer.echo(f"  • {nm}")
         elif action == "download":
             if not url:
                 typer.secho("✗ --url requerido para download", fg=typer.colors.RED)
@@ -717,9 +725,50 @@ def comfy_lora_cmd(
             typer.echo(f"⏳ Descargando LoRA desde {url}...")
             await download_lora(url, filename=filename or None)
             typer.secho("✓ LoRA descargada", fg=typer.colors.GREEN, bold=True)
+        elif action == "train":
+            try:
+                result = plan_lora_training(
+                    name=name, image_dir=image_dir,
+                    backend=backend, trigger_word=trigger,
+                    base_model=base, steps=steps,
+                )
+            except TrainingValidationError as e:
+                typer.secho(f"✗ Dataset inválido: {e}", fg=typer.colors.RED, err=True)
+                raise typer.Exit(code=1) from e
+
+            typer.secho(
+                f"\n=== Plan de training: {name} ({backend}) ===",
+                fg=typer.colors.CYAN, bold=True,
+            )
+            typer.echo(f"  Imágenes válidas: {len(result['valid_images'])}")
+            if result["warnings"]:
+                typer.secho(f"  ⚠ Warnings:", fg=typer.colors.YELLOW)
+                for w in result["warnings"][:5]:
+                    typer.echo(f"    • {w}")
+            typer.echo("")
+
+            plan = result["plan"]
+            if backend == "replicate":
+                p = plan["plan"]
+                typer.echo(f"  Estimated: {p.estimated_minutes} min, ${p.estimated_cost_usd}")
+                typer.echo(f"  Trigger word: {p.trigger_word}")
+                typer.echo(f"  Steps: {p.steps}\n")
+                typer.secho("=== Pasos manuales ===", fg=typer.colors.CYAN, bold=True)
+                for inst in plan["instructions"]:
+                    typer.echo(f"  {inst}")
+                typer.secho("\n=== Comando bash ===", fg=typer.colors.CYAN, bold=True)
+                typer.echo(plan["cli_command"])
+            else:  # kohya
+                typer.echo(f"  Estimated: {plan['estimated_hours']} hours, GPU local")
+                typer.echo(f"  Trigger word: {plan['trigger_word']}\n")
+                typer.secho("=== Pasos manuales ===", fg=typer.colors.CYAN, bold=True)
+                for inst in plan["instructions"]:
+                    typer.echo(f"  {inst}")
+                typer.secho("\n=== Comando bash ===", fg=typer.colors.CYAN, bold=True)
+                typer.echo(plan["cli_command"])
         else:
             typer.secho(
-                f"✗ acción desconocida '{action}'. Usa: list | download",
+                f"✗ acción desconocida '{action}'. Usa: list | download | train",
                 fg=typer.colors.RED,
             )
             raise typer.Exit(code=2)

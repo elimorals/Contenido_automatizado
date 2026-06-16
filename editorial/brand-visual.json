@@ -15,6 +15,36 @@
       "default_steps": 25,
       "default_cfg": 3.5,
       "reference_images": []
+    },
+    {
+      "tenant_id": "ruteo",
+      "label": "Ruteo — corredor industrial Córdoba/Fortín/Orizaba (Veracruz)",
+      "primary_workflow_id": "flux_lora_brand",
+      "fallback_workflow_ids": ["flux_basic_9x16"],
+      "lora_name": "ruteo_brand_v1.safetensors",
+      "lora_strength": 0.88,
+      "style_suffix": "cinematic still, warm natural light, 35mm film grain, real Mexican people from central Veracruz, white compact cars (no luxury), golden hour, palm trees and mountains background, 35mm lens shallow depth of field, no stock-photo smiles",
+      "negative_prompt": "blurry, low quality, deformed, text, watermark, logo, signature, Uber, DiDi, yellow taxi, luxury car, european setting",
+      "default_width": 720,
+      "default_height": 1280,
+      "default_steps": 25,
+      "default_cfg": 3.5,
+      "reference_images": []
+    },
+    {
+      "tenant_id": "ciencia",
+      "label": "Canal de divulgación de neurociencia/ciencia",
+      "primary_workflow_id": "flux_lora_brand",
+      "fallback_workflow_ids": ["flux_basic_9x16"],
+      "lora_name": "ciencia_brand_v1.safetensors",
+      "lora_strength": 0.85,
+      "style_suffix": "documentary photograph from a working research lab, sharp focus throughout, neutral white-balanced lighting (overhead fluorescent or single bright desk lamp), realistic colors, vertical 9:16 composition with artifact (plot/paper/interface/instrument) occupying upper two-thirds, looks like a phone snapshot of an actual research workspace, no text or letters in frame",
+      "negative_prompt": "blurry, low quality, deformed, text, watermark, logo, signature, cartoon, illustration, AI-generated look, perfect lighting, studio shot",
+      "default_width": 720,
+      "default_height": 1280,
+      "default_steps": 30,
+      "default_cfg": 4.0,
+      "reference_images": []
     }
   ]
 }

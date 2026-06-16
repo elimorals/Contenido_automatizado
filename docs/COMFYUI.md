@@ -89,6 +89,17 @@ Los workflows viven en `workflows/*.json` en **formato API** (no GUI). El regist
 | `flux_basic_9x16` | basic_t2i | Flux dev txt2img vertical (sin LoRA) |
 | `flux_lora_brand` | lora_t2i | Flux + brand LoRA (multi-tenant) |
 | `sdxl_ipadapter_style` | ipadapter_reference | SDXL + IPAdapter (style transfer) |
+| `flux_controlnet_pose` | lora_controlnet | Flux + LoRA + ControlNet (layout strict: logo en esquina, sujeto centrado) |
+| `animatediff_lora` | animatediff_lora | AnimateDiff + LoRA → **video MP4** (multi-tenant) |
+| `inpaint_brand` | inpaint | Producto cambia, fondo persiste (SDXL inpainting) |
+| `upscale_face_restore` | upscale_restore | Post-process: 4× upscale + face restore |
+
+**Custom nodes requeridos** (instalar antes de usar):
+- `flux_controlnet_pose`: ninguno (built-in)
+- `sdxl_ipadapter_style`: `ComfyUI_IPAdapter_plus`
+- `animatediff_lora`: `ComfyUI-AnimateDiff-Evolved` + `ComfyUI-VideoHelperSuite`
+- `inpaint_brand`: ninguno (built-in, requiere checkpoint inpainting)
+- `upscale_face_restore`: ninguno (built-in, requiere upscale model en `models/upscale_models/`)
 
 ### Inspeccionar
 
@@ -180,16 +191,35 @@ visual = BeatVisual(
 
 Si `soul_id` está vacío, usa `cfg.visual.comfyui.default_tenant_id`.
 
-## LoRA training (fuera de este repo)
+## LoRA training (wizard incluido)
 
-Este pipeline NO entrena LoRAs — eso requiere infraestructura distinta. Recomendaciones:
+`contenido` incluye un wizard que valida tu dataset, genera el plan y emite el comando concreto:
+
+```bash
+# Replicate (cloud, ~$2-3/train, 25 min, sin GPU local)
+uv run python -m apps.cli.main comfy lora train \
+    --name ruteo --image-dir ./training_images/ruteo \
+    --backend replicate --trigger rt0brand --steps 1000
+
+# Kohya local (gratis, requiere GPU 16GB+, 4-8h)
+uv run python -m apps.cli.main comfy lora train \
+    --name ruteo --image-dir ./training_images/ruteo \
+    --backend kohya --base flux --steps 1500
+```
+
+El wizard:
+1. Valida 5-50 imágenes en el dir (sweet spot 20-30)
+2. Verifica resolución mínima 1024×1024
+3. Genera el comando bash listo para copy-paste
+4. Si Replicate: incluye snippet Python con el SDK
+5. Instrucciones paso a paso (crear destino, descargar output, etc.)
 
 | Tool | Cuándo | Notas |
 |---|---|---|
-| **kohya_ss** | LoRA de estilo o personaje, GUI amigable | https://github.com/bmaltais/kohya_ss |
-| **ai-toolkit** | Flux LoRA training optimizado | https://github.com/ostris/ai-toolkit |
-| **Replicate trainer** | Sin GPU local, pay-per-train (~$5-15) | https://replicate.com/lucataco/ai-toolkit |
-| **CivitAI online trainer** | Mismo que arriba, UI simple | https://civitai.com/training |
+| **Replicate ai-toolkit** | Sin GPU local, pay-per-train (~$2-3) | Default del wizard |
+| **kohya_ss** | GPU local 16GB+, gratis, control fino | `--backend kohya` |
+| **ai-toolkit local** | Self-host avanzado | https://github.com/ostris/ai-toolkit |
+| **CivitAI online trainer** | UI simple, $10+ | https://civitai.com/training |
 
 ### Dataset mínimo
 
@@ -296,9 +326,54 @@ contenido comfy lora download --url ... --filename ...
 - **NO**: no tienes GPU y no quieres pagar managed
 - **NO**: solo necesitas i2v simple — Veo/DoP cubren sin LoRA
 
+## Observabilidad
+
+Cada ejecución genera un `ComfyJob` con timings + workflow_version (SHA256 corto del JSON parametrizado). El provider expone:
+
+```python
+gen = ComfyUIGenerator()
+artifact = await gen.generate(beat, visual, "general", out_dir)
+
+# Inspeccionar última ejecución
+gen.last_job.duration_s
+gen.last_job.status         # ComfyJobStatus
+gen.last_workflow_version    # ej "f3a8e2b1c5d6"
+gen.cost_record(phase="visual")
+#   → {"comfyui_flux_lora_brand": 0.0, "comfyui_flux_lora_brand_duration_s": 22.3,
+#      "comfyui_flux_lora_brand_version": "f3a8e2b1c5d6"}
+```
+
+El `cost_record()` es agregable directamente a `TaskInfo.cost_breakdown`.
+
+## Auto-retry OOM
+
+Cuando el server reporta OOM (CUDA out of memory, etc.), el provider:
+
+1. Detecta el patrón en el `execution_error` message
+2. Llama `POST /free` para liberar VRAM
+3. Reintenta el workflow UNA VEZ
+4. Si el segundo intento también falla → soft-fail al orchestrator (fallback a Gemini/Soul)
+
+No requiere configuración. Es automático para workflows pesados (Flux + LoRA + ControlNet).
+
+## A/B harness ComfyUI vs Gemini
+
+```bash
+# Smoke test (1 topic × 3 beats × 2 providers = 6 outputs)
+uv run python scripts/comfyui_ab_test.py --quick --tenant ruteo
+
+# 10 topics × 3 beats × 2 providers = 60 outputs
+uv run python scripts/comfyui_ab_test.py --topics 10 --tenant ruteo
+```
+
+Output: `output/ab_comfyui/runs.csv` con columnas vacías `identity_consistency_1_5` y `style_alignment_1_5` para que las llenes a mano comparando lado-a-lado.
+
+Decisión go/no-go:
+- ComfyUI gana ≥4/5 en identity → mantén `prefer_for_brand_frames=true`
+- ComfyUI gana <3/5 → tu LoRA necesita más training o style_suffix no es claro
+
 ## Próximos pasos sugeridos
 
-- Workflows adicionales: `flux_controlnet_pose`, `animatediff_lora`, `inpaint_brand`
-- Auto-fallback OOM: cuando el server devuelve OOM, llamar `POST /free` y reintentar
-- Workflow versioning: incluir hash del JSON en el cost_breakdown para tracking de qué versión generó qué reel
 - Multi-server load balancing: cuando tengas N tenants concurrentes, distribuir entre múltiples GPUs
+- Workflow caching server-side: detectar prompts idénticos y reusar outputs sin re-generar
+- Continuous evaluation: scheduled comparison runs midiendo identity_consistency vía CLIP embedding similarity

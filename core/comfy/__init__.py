@@ -14,6 +14,13 @@ Diferencia clara:
 """
 from __future__ import annotations
 
+from core.comfy.training import (
+    TrainingValidationError,
+    kohya_training_command,
+    plan_lora_training,
+    replicate_training_command,
+    validate_training_dataset,
+)
 from core.comfy.wrapper import (
     ComfyCLIError,
     ComfyCLINotInstalled,
@@ -32,6 +39,7 @@ from core.comfy.wrapper import (
 __all__ = [
     "ComfyCLIError",
     "ComfyCLINotInstalled",
+    "TrainingValidationError",
     "check_binary",
     "cli_install",
     "cli_launch",
@@ -39,7 +47,11 @@ __all__ = [
     "download_lora",
     "download_model",
     "install_custom_node",
+    "kohya_training_command",
     "list_loras",
     "list_models",
     "list_workflows",
+    "plan_lora_training",
+    "replicate_training_command",
+    "validate_training_dataset",
 ]

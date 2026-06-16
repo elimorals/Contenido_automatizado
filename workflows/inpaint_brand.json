@@ -1,0 +1,76 @@
+{
+  "3": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 0,
+      "steps": 30,
+      "cfg": 7.0,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "karras",
+      "denoise": 1.0,
+      "model": ["10", 0],
+      "positive": ["6", 0],
+      "negative": ["7", 0],
+      "latent_image": ["25", 0]
+    }
+  },
+  "4": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": {
+      "ckpt_name": "sd_xl_base_1.0_inpainting_0.1.safetensors"
+    }
+  },
+  "5": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "scene_with_mask.png"
+    }
+  },
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "a new product on the same scene, photorealistic",
+      "clip": ["10", 1]
+    }
+  },
+  "7": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "blurry, low quality, deformed, text, watermark, mismatched lighting",
+      "clip": ["10", 1]
+    }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["3", 0],
+      "vae": ["4", 2]
+    }
+  },
+  "9": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "contenido_inpaint",
+      "images": ["8", 0]
+    }
+  },
+  "10": {
+    "class_type": "LoraLoader",
+    "inputs": {
+      "lora_name": "brand_v1.safetensors",
+      "strength_model": 0.85,
+      "strength_clip": 0.85,
+      "model": ["4", 0],
+      "clip": ["4", 1]
+    }
+  },
+  "25": {
+    "class_type": "VAEEncodeForInpaint",
+    "inputs": {
+      "pixels": ["5", 0],
+      "vae": ["4", 2],
+      "mask": ["5", 1],
+      "grow_mask_by": 6
+    }
+  }
+}

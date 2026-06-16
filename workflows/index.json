@@ -1,6 +1,6 @@
 {
   "$schema": "Workflows registry. Cada entry mapea un ComfyWorkflowSpec.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "workflows": [
     {
       "id": "flux_basic_9x16",
@@ -71,6 +71,110 @@
       "required_custom_nodes": ["ComfyUI_IPAdapter_plus"],
       "estimated_seconds": 28.0,
       "estimated_vram_gb": 12.0,
+      "estimated_cost_usd": 0.0
+    },
+    {
+      "id": "flux_controlnet_pose",
+      "name": "Flux + Brand LoRA + ControlNet (pose/depth/canny — layout strict)",
+      "kind": "lora_controlnet",
+      "output_type": "image",
+      "json_path": "flux_controlnet_pose.json",
+      "parameters": {
+        "prompt": "6-inputs-text",
+        "negative_prompt": "7-inputs-text",
+        "seed": "3-inputs-seed",
+        "width": "5-inputs-width",
+        "height": "5-inputs-height",
+        "steps": "3-inputs-steps",
+        "cfg": "3-inputs-cfg",
+        "checkpoint": "4-inputs-ckpt_name",
+        "lora_name": "10-inputs-lora_name",
+        "lora_strength": "10-inputs-strength_model",
+        "controlnet_image": "25-inputs-image",
+        "custom": {
+          "controlnet_strength": "30-inputs-strength",
+          "controlnet_start": "30-inputs-start_percent",
+          "controlnet_end": "30-inputs-end_percent",
+          "controlnet_name": "20-inputs-control_net_name"
+        }
+      },
+      "output_nodes": ["9"],
+      "required_checkpoints": ["flux1-dev.safetensors"],
+      "required_loras": ["brand_v1.safetensors"],
+      "estimated_seconds": 28.0,
+      "estimated_vram_gb": 24.0,
+      "estimated_cost_usd": 0.0
+    },
+    {
+      "id": "animatediff_lora",
+      "name": "AnimateDiff + Brand LoRA — vertical video 9:16 (multi-tenant)",
+      "kind": "animatediff_lora",
+      "output_type": "video",
+      "json_path": "animatediff_lora.json",
+      "parameters": {
+        "prompt": "6-inputs-text",
+        "negative_prompt": "7-inputs-text",
+        "seed": "3-inputs-seed",
+        "width": "5-inputs-width",
+        "height": "5-inputs-height",
+        "steps": "3-inputs-steps",
+        "cfg": "3-inputs-cfg",
+        "checkpoint": "4-inputs-ckpt_name",
+        "lora_name": "10-inputs-lora_name",
+        "lora_strength": "10-inputs-strength_model",
+        "frames": "5-inputs-batch_size",
+        "fps": "9-inputs-frame_rate"
+      },
+      "output_nodes": ["9"],
+      "required_checkpoints": ["sd_xl_base_1.0.safetensors"],
+      "required_loras": ["brand_v1.safetensors"],
+      "required_custom_nodes": [
+        "ComfyUI-AnimateDiff-Evolved",
+        "ComfyUI-VideoHelperSuite"
+      ],
+      "estimated_seconds": 75.0,
+      "estimated_vram_gb": 16.0,
+      "estimated_cost_usd": 0.0
+    },
+    {
+      "id": "inpaint_brand",
+      "name": "Inpaint + Brand LoRA (producto cambia, fondo persiste)",
+      "kind": "inpaint",
+      "output_type": "image",
+      "json_path": "inpaint_brand.json",
+      "parameters": {
+        "prompt": "6-inputs-text",
+        "negative_prompt": "7-inputs-text",
+        "seed": "3-inputs-seed",
+        "steps": "3-inputs-steps",
+        "cfg": "3-inputs-cfg",
+        "checkpoint": "4-inputs-ckpt_name",
+        "lora_name": "10-inputs-lora_name",
+        "lora_strength": "10-inputs-strength_model",
+        "reference_image": "5-inputs-image"
+      },
+      "output_nodes": ["9"],
+      "required_checkpoints": ["sd_xl_base_1.0_inpainting_0.1.safetensors"],
+      "required_loras": ["brand_v1.safetensors"],
+      "estimated_seconds": 30.0,
+      "estimated_vram_gb": 12.0,
+      "estimated_cost_usd": 0.0
+    },
+    {
+      "id": "upscale_face_restore",
+      "name": "Upscale 4x + Face restore (post-process chain)",
+      "kind": "upscale_restore",
+      "output_type": "image",
+      "json_path": "upscale_face_restore.json",
+      "parameters": {
+        "reference_image": "5-inputs-image",
+        "custom": {
+          "upscale_model": "15-inputs-model_name"
+        }
+      },
+      "output_nodes": ["9"],
+      "estimated_seconds": 8.0,
+      "estimated_vram_gb": 6.0,
       "estimated_cost_usd": 0.0
     }
   ]
