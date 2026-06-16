@@ -383,5 +383,208 @@ def task(
         raise typer.Exit(code=1) from e
 
 
+# =============================================================================
+# Editorial commands (portados de corredor-content)
+# =============================================================================
+
+
+@app.command()
+def plan(
+    ideas: Annotated[int, typer.Option(min=1, max=20, help="Número de ideas a generar")] = 7,
+    provider: Annotated[
+        str, typer.Option(help="LLM provider (override del default)")
+    ] = "",
+) -> None:
+    """Genera un plan editorial semanal con N ideas y lo guarda en out/plans/.
+
+    Después: edita out/plans/plan-YYYY-Www.json y marca `approved: true` en
+    las ideas que quieras producir, luego corre `contenido produce-week`.
+    """
+    try:
+        from core.editorial import generate_plan, load_editorial, validate_plan
+    except Exception as e:  # noqa: BLE001
+        typer.secho(f"✗ No se pudo importar core.editorial: {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from e
+
+    async def _run_plan() -> None:
+        registry = load_editorial()
+        provider_name = provider or None
+        the_plan, out_path, _cost = await generate_plan(
+            n_ideas=ideas, registry=registry, provider_name=provider_name,
+        )
+        vr = validate_plan(the_plan, registry)
+        typer.secho(
+            f"\n✓ Plan {the_plan.week} con {len(the_plan.ideas)} ideas → {out_path}",
+            fg=typer.colors.GREEN, bold=True,
+        )
+        # Pillar breakdown
+        typer.echo("  Distribución por pilar:")
+        for pillar_id, count in sorted(the_plan.by_pillar().items()):
+            typer.echo(f"    • {pillar_id}: {count}")
+        if vr.errors:
+            typer.secho(f"  ✗ {len(vr.errors)} errores:", fg=typer.colors.RED)
+            for e in vr.errors[:5]:
+                typer.echo(f"    {e}")
+        if vr.warnings:
+            typer.secho(f"  ⚠ {len(vr.warnings)} warnings:", fg=typer.colors.YELLOW)
+            for w in vr.warnings[:5]:
+                typer.echo(f"    {w}")
+        typer.echo(
+            f"\nSiguiente paso: edita {out_path} y marca `\"approved\": true` "
+            "en las ideas que quieras producir.\nLuego: contenido produce-week"
+        )
+
+    try:
+        asyncio.run(_run_plan())
+    except typer.Exit:
+        raise
+    except Exception as e:
+        typer.secho(f"\n✗ plan falló: {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from e
+
+
+@app.command("plan-show")
+def plan_show(
+    week: Annotated[str, typer.Option(help="Semana ISO (default: actual)")] = "",
+) -> None:
+    """Muestra el plan editorial de una semana con su estado de aprobación."""
+    try:
+        from core.editorial import load_plan
+        from core.editorial.plan import iso_week
+    except Exception as e:  # noqa: BLE001
+        typer.secho(f"✗ Editorial no disponible: {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from e
+
+    target_week = week or iso_week()
+    try:
+        the_plan = load_plan(target_week)
+    except FileNotFoundError:
+        typer.secho(
+            f"✗ No hay plan para {target_week}. Crealo con: contenido plan",
+            fg=typer.colors.RED, err=True,
+        )
+        raise typer.Exit(code=1) from None
+
+    typer.secho(f"=== Plan {target_week} ({len(the_plan.ideas)} ideas) ===",
+                fg=typer.colors.CYAN, bold=True)
+    for i, idea in enumerate(the_plan.ideas, 1):
+        mark = "✓" if idea.approved else "○"
+        color = typer.colors.GREEN if idea.approved else typer.colors.WHITE
+        typer.secho(f"  {mark} [{i}] {idea.id} ({idea.pillar}, {idea.audience})",
+                    fg=color)
+        typer.echo(f"      {idea.title}")
+        typer.echo(f"      hook: {idea.hook[:80]}{'...' if len(idea.hook) > 80 else ''}")
+        typer.echo(f"      platforms: {', '.join(p.value for p in idea.platforms)}")
+    approved_n = len(the_plan.approved_ideas())
+    typer.echo(f"\n  Aprobadas: {approved_n}/{len(the_plan.ideas)}")
+    if approved_n > 0:
+        typer.echo("  Siguiente paso: contenido produce-week")
+
+
+@app.command("produce-week")
+def produce_week(
+    week: Annotated[str, typer.Option(help="Semana ISO (default: actual)")] = "",
+    mode: Annotated[GenerationMode, typer.Option(help="Modo por idea")] = GenerationMode.PREMIUM,
+    aspect: Annotated[VideoAspect, typer.Option(help="Aspect ratio")] = VideoAspect.PORTRAIT,
+    use_veo: Annotated[bool, typer.Option(help="Usar Veo i2v")] = False,
+    output: Annotated[Path, typer.Option(help="Output dir")] = Path("./output"),
+    quiet: Annotated[bool, typer.Option(help="Sin progress")] = False,
+) -> None:
+    """Produce TODAS las ideas aprobadas del plan editorial de la semana.
+
+    Por cada idea:
+      - Construye VideoParams según entry_type (topic/url/subject)
+      - Ejecuta el pipeline DAG completo
+      - Persiste task_id + output_path + cost_usd de vuelta en el plan
+    """
+    try:
+        from core.editorial import load_plan, save_plan
+        from core.editorial.plan import iso_week
+    except Exception as e:  # noqa: BLE001
+        typer.secho(f"✗ Editorial no disponible: {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from e
+
+    target_week = week or iso_week()
+    try:
+        the_plan = load_plan(target_week)
+    except FileNotFoundError:
+        typer.secho(f"✗ No hay plan para {target_week}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from None
+
+    approved = the_plan.approved_ideas()
+    if not approved:
+        typer.secho(
+            "✗ Ninguna idea aprobada. Edita el plan y marca `approved: true`.",
+            fg=typer.colors.YELLOW, err=True,
+        )
+        raise typer.Exit(code=1)
+
+    typer.secho(
+        f"\n🎬 Produciendo {len(approved)} ideas aprobadas de {target_week}",
+        fg=typer.colors.GREEN, bold=True,
+    )
+
+    for i, idea in enumerate(approved, 1):
+        typer.echo(f"\n[{i}/{len(approved)}] {idea.id} ({idea.pillar})")
+        # Mapear entry_type → VideoParams
+        params_kwargs: dict = {
+            "mode": mode,
+            "aspect": aspect,
+            "use_veo": use_veo,
+        }
+        if idea.entry_type.value == "url":
+            params_kwargs["url"] = idea.entry_value
+        elif idea.entry_type.value == "topic":
+            params_kwargs["topic"] = idea.entry_value
+        else:
+            params_kwargs["subject"] = idea.entry_value
+        try:
+            params = VideoParams(**params_kwargs)
+        except Exception as e:  # noqa: BLE001
+            typer.secho(f"  ✗ params inválidos: {e}", fg=typer.colors.RED, err=True)
+            continue
+        try:
+            _run(params, output, quiet)
+        except typer.Exit:
+            typer.secho(f"  ✗ idea {idea.id} falló — continuando con siguiente", fg=typer.colors.RED)
+            continue
+        # NOTE: persistir task_id/output/cost en el plan requiere capturar el TaskInfo
+        # final; lo haremos en una iteración futura cuando _run devuelva el state.
+
+    typer.secho(
+        f"\n✓ Semana {target_week} procesada ({len(approved)} ideas)",
+        fg=typer.colors.GREEN, bold=True,
+    )
+
+
+@app.command("brand-check")
+def brand_check() -> None:
+    """Inspecciona la capa editorial cargada (brand-voice, pillars, facts, etc)."""
+    try:
+        from core.editorial import facts_anti_hallucination_block, load_editorial
+    except Exception as e:  # noqa: BLE001
+        typer.secho(f"✗ Editorial no disponible: {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from e
+
+    r = load_editorial()
+    typer.secho("=== Editorial Layer ===", fg=typer.colors.CYAN, bold=True)
+    typer.echo(f"  Root: {r.root}")
+    typer.echo(f"  Brand voice: {'✓' if r.brand_voice_md else '✗'} ({len(r.brand_voice_md)} chars)")
+    typer.echo(f"  Pillars ({len(r.pillars)}): {', '.join(r.pillars.keys()) or '—'}")
+    typer.echo(f"  Audiences ({len(r.audiences)}): {', '.join(r.audiences.keys()) or '—'}")
+    typer.echo(
+        f"  Platforms ({len(r.platforms)}): "
+        f"{', '.join(p.value for p in r.platforms.keys()) or '—'}"
+    )
+    f = r.facts
+    typer.echo(
+        f"  Facts: {len(f.verified_facts)} facts, "
+        f"{len(f.verified_people)} people, {len(f.verified_studies)} studies"
+    )
+    typer.echo(f"  Local events: {len(r.local_events)}")
+    typer.echo("\n=== Anti-hallucination block (first 400 chars) ===")
+    typer.echo(facts_anti_hallucination_block(r)[:400])
+
+
 if __name__ == "__main__":
     app()

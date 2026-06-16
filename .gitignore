@@ -67,6 +67,10 @@ output/
 materials_cache/
 tasks/
 
+# Editorial plans (semanales, no comprometer al repo)
+# La carpeta out/plans/ se genera con `contenido plan`
+out/plans/
+
 # Modelos pesados
 *.pt
 *.bin

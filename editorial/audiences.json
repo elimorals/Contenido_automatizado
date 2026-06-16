@@ -1,0 +1,32 @@
+{
+  "$schema": "Audiencias. Plantilla genérica — reemplaza con las tuyas.",
+  "audiences": [
+    {
+      "id": "general",
+      "label": "Audiencia general",
+      "age_range": [18, 45],
+      "interests": ["curiosidad", "ciencia accesible", "cultura general"],
+      "register": "tuteo",
+      "language": "es-MX",
+      "notes": "Sin jerga. Ejemplos cotidianos. Frases cortas."
+    },
+    {
+      "id": "profesional",
+      "label": "Profesional/experto",
+      "age_range": [25, 55],
+      "interests": ["rigor", "fuentes verificables", "análisis profundo"],
+      "register": "usted",
+      "language": "es-MX",
+      "notes": "Lenguaje técnico aceptable. Citar fuentes."
+    },
+    {
+      "id": "estudiante",
+      "label": "Estudiante",
+      "age_range": [14, 22],
+      "interests": ["aprender rápido", "memorización", "ejemplos prácticos"],
+      "register": "tuteo",
+      "language": "es-MX",
+      "notes": "Humor moderado. Mnemotécnicas. Retention-first."
+    }
+  ]
+}

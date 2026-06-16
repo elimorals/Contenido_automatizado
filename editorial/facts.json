@@ -1,0 +1,25 @@
+{
+  "$schema": "Plantilla. Reemplaza con tus hechos verificables.",
+  "brand": {
+    "name": "Tu Marca",
+    "tagline": "Frase ancla principal",
+    "url": "https://tumarca.com",
+    "founded": 2024,
+    "region": "Latam"
+  },
+  "rules_for_hunters": {
+    "must": [
+      "Citar SOLO claims que aparezcan en este archivo o sean conocimiento público bien documentado (Wikipedia-tier).",
+      "Cuando uses un número/nombre/año, incluirlo en `evidence[]` exactamente como aparece aquí.",
+      "Si el tema no está cubierto en facts.json, marcar `evidence[]` con prefijo 'PUBLIC: ' para indicar que viene de conocimiento general verificable."
+    ],
+    "must_not": [
+      "Inventar números, porcentajes, años, nombres de personas reales que no estén en este archivo.",
+      "Decir 'studies show' / 'researchers found' sin nombre + año específicos.",
+      "Atribuir descubrimientos a personajes famosos cuando no es de ellos."
+    ]
+  },
+  "verified_facts": [],
+  "verified_people": [],
+  "verified_studies": []
+}

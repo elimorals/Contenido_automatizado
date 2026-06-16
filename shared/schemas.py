@@ -217,6 +217,30 @@ class TaskState(int, Enum):
 
 
 # =============================================================================
+# EDITORIAL LAYER (portado de corredor-content)
+# =============================================================================
+
+
+class DistributionPlatform(str, Enum):
+    """Plataforma destino del reel (distinto de VideoSource, que es stock origin)."""
+
+    TIKTOK = "tiktok"
+    INSTAGRAM_REELS = "instagram_reels"
+    YOUTUBE_SHORTS = "youtube_shorts"
+    YOUTUBE_LONG = "youtube_long"
+    FACEBOOK_REELS = "facebook_reels"
+    LINKEDIN_VIDEO = "linkedin_video"
+
+
+class EntryType(str, Enum):
+    """Entry point del pipeline DAG (mismas 3 puertas que /videos)."""
+
+    TOPIC = "topic"
+    URL = "url"
+    SUBJECT = "subject"
+
+
+# =============================================================================
 # NARRATIVE MODELS (de reels-af)
 # =============================================================================
 
@@ -542,3 +566,194 @@ class BaseResponse(BaseModel):
     status: int = 200
     message: str = "success"
     data: dict | None = None
+
+
+# =============================================================================
+# EDITORIAL SCHEMAS (Pillar, Audience, PlatformSpec, ReelIdea, EditorialPlan)
+# =============================================================================
+
+
+class Pillar(BaseModel):
+    """Pilar editorial. id kebab-case = nombre del .md en editorial/pillars/."""
+
+    id: str = Field(..., pattern=r"^[a-z][a-z0-9-]*$", max_length=40)
+    label: str = Field(..., min_length=2, max_length=80)
+    description: str = Field("", max_length=400)
+
+
+class Audience(BaseModel):
+    """Perfil de audiencia (de editorial/audiences.json)."""
+
+    id: str = Field(..., pattern=r"^[a-z][a-z0-9-]*$", max_length=40)
+    label: str = Field(..., min_length=2, max_length=80)
+    age_range: tuple[int, int] = Field(..., description="[min, max]")
+    interests: list[str] = Field(default_factory=list)
+    voice_register: Literal["tuteo", "usted"] = Field("tuteo", alias="register")
+    language: str = "es-MX"
+    notes: str = ""
+
+    model_config = {"populate_by_name": True}
+
+    @field_validator("age_range")
+    @classmethod
+    def check_age_range(cls, v: tuple[int, int]) -> tuple[int, int]:
+        if v[0] < 0 or v[1] > 120 or v[0] >= v[1]:
+            raise ValueError(f"age_range inválido: {v}")
+        return v
+
+
+class VideoDurationSpec(BaseModel):
+    """Duración válida por plataforma (segundos)."""
+
+    min_s: int = Field(..., ge=1, le=3600, alias="min")
+    max_s: int = Field(..., ge=1, le=3600, alias="max")
+    recommended: tuple[int, int] = Field(...)
+
+    model_config = {"populate_by_name": True}
+
+    @model_validator(mode="after")
+    def check_range(self) -> VideoDurationSpec:
+        if self.min_s >= self.max_s:
+            raise ValueError(f"min_s ({self.min_s}) >= max_s ({self.max_s})")
+        lo, hi = self.recommended
+        if lo < self.min_s or hi > self.max_s or lo >= hi:
+            raise ValueError(
+                f"recommended {self.recommended} fuera de [min={self.min_s}, max={self.max_s}]"
+            )
+        return self
+
+
+class PlatformSpec(BaseModel):
+    """Specs editoriales y técnicas de una plataforma destino."""
+
+    id: DistributionPlatform
+    aspect_ratio: VideoAspect
+    video_duration_s: VideoDurationSpec
+    caption_max_chars: int = Field(..., ge=1, le=100_000)
+    caption_recommended_chars: tuple[int, int]
+    hashtags_min: int = Field(0, ge=0, le=50)
+    hashtags_max: int = Field(0, ge=0, le=50)
+    notes: str = ""
+
+    @model_validator(mode="after")
+    def check_chars(self) -> PlatformSpec:
+        lo, hi = self.caption_recommended_chars
+        if lo > hi or hi > self.caption_max_chars:
+            raise ValueError(
+                f"caption_recommended_chars {self.caption_recommended_chars} fuera de max {self.caption_max_chars}"
+            )
+        if self.hashtags_min > self.hashtags_max:
+            raise ValueError(
+                f"hashtags_min ({self.hashtags_min}) > max ({self.hashtags_max})"
+            )
+        return self
+
+
+class ReelIdea(BaseModel):
+    """Una idea de reel del plan editorial — gate humano antes de producir."""
+
+    id: str = Field(..., pattern=r"^[a-z0-9][a-z0-9-]{0,79}$")
+    title: str = Field(..., min_length=8, max_length=120)
+    pillar: str = Field(..., pattern=r"^[a-z][a-z0-9-]*$")
+    audience: str = Field(..., pattern=r"^[a-z][a-z0-9-]*$")
+    hook: str = Field(..., min_length=10, max_length=280)
+    rationale: str = Field(..., min_length=10, max_length=400)
+    platforms: list[DistributionPlatform] = Field(..., min_length=1)
+
+    # Cómo entra al DAG existente (uno de los 3 entry points)
+    entry_type: EntryType = EntryType.TOPIC
+    entry_value: str = Field(..., min_length=3)
+
+    # Gate humano
+    approved: bool = False
+
+    # Producción (se llena post-produce)
+    task_id: str | None = None
+    output_path: str | None = None
+    cost_usd: float | None = None
+
+
+class EditorialPlan(BaseModel):
+    """Plan editorial semanal (uno por semana ISO)."""
+
+    week: str = Field(..., pattern=r"^\d{4}-W\d{2}$")
+    generated_at: str
+    ideas: list[ReelIdea] = Field(..., min_length=1, max_length=20)
+
+    def approved_ideas(self) -> list[ReelIdea]:
+        return [i for i in self.ideas if i.approved]
+
+    def by_pillar(self) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for idea in self.ideas:
+            counts[idea.pillar] = counts.get(idea.pillar, 0) + 1
+        return counts
+
+
+class Fact(BaseModel):
+    """Un hecho verificable referenciable por evidence[]."""
+
+    id: str = Field(..., pattern=r"^[a-z0-9][a-z0-9_-]*$")
+    claim: str = Field(..., min_length=10, max_length=400)
+    source: str = Field("", description="URL, paper, libro")
+    year: int | None = None
+    tags: list[str] = Field(default_factory=list)
+
+
+class Person(BaseModel):
+    """Persona referenciable por hunters (specific_figure)."""
+
+    id: str
+    name: str
+    years_active: str | None = None  # "1957-1972" o "1967"
+    field: str
+    relevance: str = Field(..., min_length=10, max_length=300)
+
+
+class Study(BaseModel):
+    """Estudio/paper referenciable por hunters (temporal)."""
+
+    id: str
+    title: str
+    authors: list[str]
+    year: int
+    journal: str = ""
+    sample_size: int | None = None
+    key_finding: str = Field(..., min_length=10, max_length=400)
+
+
+class FactsDocument(BaseModel):
+    """Contenido completo de editorial/facts.json."""
+
+    brand: dict = Field(default_factory=dict)
+    rules_for_hunters: dict = Field(default_factory=dict)
+    verified_facts: list[Fact] = Field(default_factory=list)
+    verified_people: list[Person] = Field(default_factory=list)
+    verified_studies: list[Study] = Field(default_factory=list)
+
+
+class LocalEvent(BaseModel):
+    """Evento del calendario para seedeo del plan editorial."""
+
+    name: str
+    location: str = ""
+    start_month: int = Field(..., ge=1, le=12)
+    end_month: int = Field(..., ge=1, le=12)
+    yearly: bool = True
+    angles: list[str] = Field(default_factory=list)
+
+
+# =============================================================================
+# COST TRACKING (priceOf pattern de corredor-content)
+# =============================================================================
+
+
+class LLMCostRecord(BaseModel):
+    """Costo de UN LLM call — agregable a TaskInfo.cost_breakdown."""
+
+    provider: str
+    model: str
+    input_tokens: int = Field(..., ge=0)
+    output_tokens: int = Field(..., ge=0)
+    cost_usd: float = Field(..., ge=0)
+    phase: str = Field("", description="hunt|critic|narrate|judge|extract|compose|visual|accent|other")

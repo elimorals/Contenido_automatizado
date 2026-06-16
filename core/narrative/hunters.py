@@ -59,6 +59,20 @@ If your candidate fits any of these patterns, scrap it and try again.
 """
 
 
+def _facts_block() -> str:
+    """Bloque anti-alucinación inyectado en system prompts.
+
+    Carga editorial/facts.json via `core.editorial.loader`. Si la capa editorial
+    no está disponible (módulo ausente, error de import), devuelve string vacío
+    — los hunters siguen funcionando como antes.
+    """
+    try:
+        from core.editorial.loader import facts_anti_hallucination_block
+        return "\n" + facts_anti_hallucination_block() + "\n"
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 _OUTPUT_SHAPE = """
 OUTPUT: exactly 3 EssenceCandidates. Each:
   • core_claim       — ≤25 words, specific (named entity / specific
@@ -99,6 +113,7 @@ BAD examples:
   • "Plato, 380 BCE" (overdone)
 
 {_ANTI_CLICHE}
+{_facts_block()}
 {_OUTPUT_SHAPE}
 """
 
@@ -124,6 +139,7 @@ BAD examples:
   • "Most people don't realize X" without naming the source
 
 {_ANTI_CLICHE}
+{_facts_block()}
 {_OUTPUT_SHAPE}
 """
 
@@ -150,6 +166,7 @@ BAD:
   • "In 1969, humans landed on the moon" (overdone)
 
 {_ANTI_CLICHE}
+{_facts_block()}
 {_OUTPUT_SHAPE}
 """
 
@@ -176,6 +193,7 @@ BAD:
   • "Philosophy is connected to all other fields" (vague)
 
 {_ANTI_CLICHE}
+{_facts_block()}
 {_OUTPUT_SHAPE}
 """
 

@@ -82,6 +82,37 @@ class LLMProvider(ABC):
         self.max_retries = max_retries if max_retries is not None else self.default_max_retries
         self.extra: dict[str, Any] = kwargs
 
+        # Cost tracking (portado de corredor-content priceOf pattern).
+        # Stamped por cada complete() / complete_structured() call.
+        self.last_input_tokens: int = 0
+        self.last_output_tokens: int = 0
+        self.last_cost_usd: float = 0.0
+        self.total_cost_usd: float = 0.0
+        self.total_calls: int = 0
+
+    def _stamp_cost(self, input_tokens: int, output_tokens: int) -> float:
+        """Stampa tokens + costo en self después de un call. Devuelve el costo USD."""
+        from core.llm_router.pricing import calculate_cost
+        self.last_input_tokens = input_tokens
+        self.last_output_tokens = output_tokens
+        cost = calculate_cost(self.model_name, input_tokens, output_tokens)
+        self.last_cost_usd = cost
+        self.total_cost_usd += cost
+        self.total_calls += 1
+        return cost
+
+    def get_cost_record(self, phase: str = "") -> Any:
+        """Devuelve `LLMCostRecord` del último call. Import lazy para evitar ciclos."""
+        from shared.schemas import LLMCostRecord
+        return LLMCostRecord(
+            provider=self.name,
+            model=self.model_name,
+            input_tokens=self.last_input_tokens,
+            output_tokens=self.last_output_tokens,
+            cost_usd=self.last_cost_usd,
+            phase=phase,
+        )
+
     @abstractmethod
     async def complete(
         self,

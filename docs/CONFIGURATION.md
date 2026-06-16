@@ -576,6 +576,37 @@ Lista completa de todas las env vars soportadas. Ver `.env.example` para templat
 
 ---
 
+---
+
+## Capa Editorial (`editorial/`)
+
+Patrón portado de `corredor-content`. Provee brand voice, pilares, facts verificables, audiencias y specs por plataforma — TODO versionado en git. Ver `docs/EDITORIAL.md` para detalle completo.
+
+```
+editorial/
+├── brand-voice.md          # fuente de verdad del tono (cargado por reasoners)
+├── facts.json              # anti-alucinación inyectada a hunters
+├── audiences.json          # perfiles de audiencia
+├── platforms.json          # specs por plataforma (TikTok/Reels/Shorts/…)
+├── local-events.json       # eventos del calendario para seed de planes
+└── pillars/*.md            # 5 pilares default editables
+```
+
+### Comandos relacionados
+
+| Comando | Propósito |
+|---|---|
+| `contenido brand-check` | Inspecciona la capa editorial cargada |
+| `contenido plan --ideas 7` | Genera plan semanal con N ideas en `out/plans/` |
+| `contenido plan-show [--week ...]` | Muestra plan + estado de aprobación |
+| `contenido produce-week` | Ejecuta DAG para todas las ideas con `approved: true` |
+
+### Cost tracking
+
+`core/llm_router/pricing.py` tabula 30+ modelos en USD/M tokens. Cada provider stampa `last_cost_usd`, `total_cost_usd`, `total_calls` tras cada call. Llamar `provider.get_cost_record(phase="hunt")` devuelve un `LLMCostRecord` agregable.
+
+---
+
 ## Validar tu configuración
 
 ```bash

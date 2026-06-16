@@ -80,6 +80,19 @@ class OpenAICompatibleProvider(LLMProvider):
             raise LLMProviderError("response message has no `content`")
         return content
 
+    @staticmethod
+    def _extract_usage(data: dict[str, Any]) -> tuple[int, int]:
+        """(input_tokens, output_tokens) del usage del response.
+
+        OpenAI estilo: data['usage'] = {prompt_tokens, completion_tokens, total_tokens}
+        Si el provider no lo devuelve, retorna (0, 0).
+        """
+        usage = data.get("usage") or {}
+        return (
+            int(usage.get("prompt_tokens") or usage.get("input_tokens") or 0),
+            int(usage.get("completion_tokens") or usage.get("output_tokens") or 0),
+        )
+
     async def complete(
         self,
         prompt: str,
@@ -103,6 +116,9 @@ class OpenAICompatibleProvider(LLMProvider):
         async def _do() -> str:
             data = await self._post(payload)
             text = self._extract_text(data)
+            # Stamp cost (sin error si usage no viene)
+            in_tok, out_tok = self._extract_usage(data)
+            self._stamp_cost(in_tok, out_tok)
             return strip_think_blocks(text, self.name)
 
         return await self._with_retry(_do, label="chat.completions")
@@ -140,6 +156,8 @@ class OpenAICompatibleProvider(LLMProvider):
         async def _do() -> T:
             data = await self._post(payload)
             text = self._extract_text(data)
+            in_tok, out_tok = self._extract_usage(data)
+            self._stamp_cost(in_tok, out_tok)
             cleaned = strip_think_blocks(text, self.name)
             try:
                 return schema.model_validate_json(cleaned)

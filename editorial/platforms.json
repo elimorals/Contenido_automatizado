@@ -1,0 +1,65 @@
+{
+  "$schema": "Specs por plataforma. Estos overrides amplían lo que el código sabe.",
+  "platforms": {
+    "tiktok": {
+      "id": "tiktok",
+      "aspect_ratio": "9:16",
+      "video_duration_s": {"min": 7, "max": 60, "recommended": [21, 25]},
+      "caption_max_chars": 2200,
+      "caption_recommended_chars": [80, 150],
+      "hashtags_min": 3,
+      "hashtags_max": 5,
+      "notes": "Hook visual en 3s. CTA en bio. Sin links clickeables en caption."
+    },
+    "instagram_reels": {
+      "id": "instagram_reels",
+      "aspect_ratio": "9:16",
+      "video_duration_s": {"min": 7, "max": 90, "recommended": [20, 25]},
+      "caption_max_chars": 2200,
+      "caption_recommended_chars": [125, 500],
+      "hashtags_min": 15,
+      "hashtags_max": 25,
+      "notes": "Hashtags amplios funcionan. 'Link en bio'."
+    },
+    "youtube_shorts": {
+      "id": "youtube_shorts",
+      "aspect_ratio": "9:16",
+      "video_duration_s": {"min": 15, "max": 60, "recommended": [25, 45]},
+      "caption_max_chars": 100,
+      "caption_recommended_chars": [40, 80],
+      "hashtags_min": 1,
+      "hashtags_max": 3,
+      "notes": "Título separado. Tags en metadata, no en caption."
+    },
+    "youtube_long": {
+      "id": "youtube_long",
+      "aspect_ratio": "16:9",
+      "video_duration_s": {"min": 60, "max": 600, "recommended": [180, 480]},
+      "caption_max_chars": 5000,
+      "caption_recommended_chars": [200, 1500],
+      "hashtags_min": 1,
+      "hashtags_max": 3,
+      "notes": "Description = SEO. Cap intros corto."
+    },
+    "facebook_reels": {
+      "id": "facebook_reels",
+      "aspect_ratio": "9:16",
+      "video_duration_s": {"min": 7, "max": 90, "recommended": [25, 35]},
+      "caption_max_chars": 63206,
+      "caption_recommended_chars": [400, 800],
+      "hashtags_min": 1,
+      "hashtags_max": 3,
+      "notes": "Links sí funcionan. Audiencia 35+."
+    },
+    "linkedin_video": {
+      "id": "linkedin_video",
+      "aspect_ratio": "16:9",
+      "video_duration_s": {"min": 30, "max": 600, "recommended": [60, 180]},
+      "caption_max_chars": 3000,
+      "caption_recommended_chars": [800, 2000],
+      "hashtags_min": 3,
+      "hashtags_max": 5,
+      "notes": "Profesional. Long-form funciona. Citar fuentes."
+    }
+  }
+}
