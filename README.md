@@ -1,10 +1,11 @@
 # contenido
 
-Plataforma de generación de reels verticales que fusiona TRES linajes:
+Plataforma de generación de reels verticales que fusiona CUATRO linajes:
 
 - **Industrial-horizontal** (de MoneyPrinterTurbo): API REST + colas Redis, WebUI Streamlit, 20+ proveedores LLM, 6 motores TTS, stock footage (Pexels/Pixabay/Coverr), publicación social (Upload-Post), multi-aspect ratio y multi-idioma.
 - **Cognitivo-profundo** (de reels-af): DAG de 18 reasoners (hunters → critic → narrators → judge), narrativa delayed-reveal, sample-accurate TTS, word-burst karaoke con libass, per-beat visual grounding, single-pass ffmpeg sin drift.
 - **Editorial** (de corredor-content): brand voice como código, anti-alucinación vía `facts.json`, gate humano `plan → approve → produce`, pilares de contenido rotables, specs por plataforma (TikTok/Reels/Shorts/Long/FB/LinkedIn), cost tracking USD por LLM call.
+- **Visual ownership** (ComfyUI nativo): workflows custom con LoRAs de marca entrenadas, ControlNet (pose/depth/canny), IPAdapter (style transfer), AnimateDiff. Multi-tenant: cada cliente trae su propia LoRA + workflow. Self-hosted o managed (ViewComfy/RunComfy).
 
 Más: integración profunda con **Higgsfield** — DoP image-to-video con 50+ camera presets cinematográficos nombrados, Soul para character consistency cross-beat, Effects VFX overlay, prompts canónicos extraídos del repo oficial de skills, y CLI fallback vía subprocess.
 
@@ -21,7 +22,7 @@ El usuario elige por reel — o el sistema decide automáticamente según presup
 
 ## Estado
 
-✅ **Sistema completo**: 308/308 tests verde · 3 entry points operativos · DAG de 18 reasoners · 5 patrones editoriales portados · Higgsfield (DoP + Soul + Effects) integrado con CLI fallback.
+✅ **Sistema completo**: 357/357 tests verde · 3 entry points operativos · DAG de 18 reasoners · 5 patrones editoriales portados · Higgsfield (DoP + Soul + Effects) integrado con CLI fallback · ComfyUI nativo (LoRAs custom + ControlNet + IPAdapter + multi-tenant).
 
 Ver [`PLAN.md`](./PLAN.md) para el roadmap original y [`ARCHITECTURE.md`](./ARCHITECTURE.md) para decisiones técnicas.
 
@@ -40,7 +41,8 @@ contenido/
 │   ├── editorial/        # Plan/approve/produce + brand voice + facts (de corredor-content)
 │   ├── tts/              # 6 engines + sample-accurate timing
 │   ├── visual/           # Stock + IA + selector híbrido
-│   │   └── generation/   # Gemini Image, Veo, Higgsfield (DoP/Soul/Effects), ken-burns
+│   │   └── generation/   # Gemini Image, Veo, Higgsfield (DoP/Soul/Effects), ken-burns, ComfyUI
+│   ├── comfy/            # Wrapper async sobre comfy-cli (install/launch/lora/node)
 │   ├── editor/           # ffmpeg single-pass + multi-aspect + hw encoders
 │   ├── subtitles/        # Word-burst libass + SRT fallback
 │   └── distribution/     # Upload-Post (TikTok/IG)
@@ -53,9 +55,10 @@ contenido/
 │   └── local-events.json #   eventos del calendario (seed de planes)
 ├── orchestration/        # Colas, estado, broker AgentField
 ├── shared/               # Schemas Pydantic, config loader
+├── workflows/            # ✨ ComfyUI workflows (formato API) + index.json
 ├── resource/             # Fuentes, BGM, assets estáticos
-├── tests/                # pytest (308 tests)
-├── docs/                 # ADRs, EDITORIAL, pipeline, cost model
+├── tests/                # pytest (357 tests)
+├── docs/                 # ADRs, EDITORIAL, COMFYUI, pipeline, cost model
 ├── scripts/              # Batch runners (incluye Higgsfield A/B harness)
 └── .claude/skills/       # Submodule oficial higgsfield-ai/skills (dev-only)
 ```
@@ -90,10 +93,11 @@ make docker-up
 
 📘 **Lee primero**: [`docs/GETTING_STARTED.md`](./docs/GETTING_STARTED.md) — tutorial paso a paso desde cero  
 ✏️ **Editorial**: [`docs/EDITORIAL.md`](./docs/EDITORIAL.md) — brand voice, facts.json, gate humano, pilares  
+🎨 **ComfyUI**: [`docs/COMFYUI.md`](./docs/COMFYUI.md) — LoRAs custom, ControlNet, IPAdapter, multi-tenant  
 🔑 **API keys**: [`docs/API_KEYS.md`](./docs/API_KEYS.md) — qué keys, dónde, costos (incluye Higgsfield)  
-⚙️ **Configuración**: [`docs/CONFIGURATION.md`](./docs/CONFIGURATION.md) — TOML + env (incluye Higgsfield DoP/Soul/Effects)  
+⚙️ **Configuración**: [`docs/CONFIGURATION.md`](./docs/CONFIGURATION.md) — TOML + env (incluye Higgsfield + ComfyUI)  
 🛠️ **Errores**: [`docs/TROUBLESHOOTING.md`](./docs/TROUBLESHOOTING.md) — errores comunes y fixes  
-🎬 **Decisiones**: [`docs/DECISIONS.md`](./docs/DECISIONS.md) — ADRs (incluye ADR-010..013 sobre Higgsfield + Editorial)  
+🎬 **Decisiones**: [`docs/DECISIONS.md`](./docs/DECISIONS.md) — ADRs (incluye ADR-010..014)  
 💻 **Ejemplos**: [`examples/`](./examples/) — curl, Python, batch listos para copiar  
 🆚 **A/B harness**: [`scripts/higgsfield_ab_test.py`](./scripts/higgsfield_ab_test.py) — Veo vs Higgsfield DoP
 
@@ -111,6 +115,13 @@ make docker-up
 | `produce-week [--mode ...]` | Ejecuta DAG para todas las ideas con `approved: true` |
 | `list-voices --engine <e>` | Lista voces de un TTS engine |
 | `task <task_id>` | Query state de una task (requiere Redis) |
+| `comfy status` | Health check del binario comfy-cli + server ComfyUI |
+| `comfy install` | Instala ComfyUI vía comfy-cli (15-30 min) |
+| `comfy launch --background` | Arranca el server ComfyUI |
+| `comfy workflow list / show <id>` | Inspecciona workflows registrados |
+| `comfy lora list / download --url ...` | Gestiona LoRAs en el server |
+| `comfy test <workflow_id>` | E2E test de un workflow con prompt de prueba |
+| `comfy models <type>` | Lista modelos en el server (checkpoints, loras, vae, ...) |
 
 ## Origen y créditos
 

@@ -174,6 +174,56 @@ cli_default_video_model = "seedance_2_0"  # modelo canónico Higgsfield (SOTA)
 cli_timeout_s = 900.0
 
 # =============================================================================
+# COMFYUI — workflows custom (LoRAs, ControlNet, AnimateDiff, IPAdapter)
+# =============================================================================
+# Para qué usarlo:
+# - Brand identity vía LoRA entrenada (todos los reels parecen tuyos)
+# - ControlNet (pose/depth/canny) para layout strict
+# - IPAdapter para style transfer desde reference image
+# - AnimateDiff para video t2v con LoRA
+# Self-hosted: arranca con `contenido comfy install && contenido comfy launch`
+# Managed: setea server_url + auth_header para ViewComfy/RunComfy
+
+[visual.comfyui]
+enabled = false                                # true → habilita provider
+server_url = "http://127.0.0.1:8188"          # self-hosted local o managed remote
+auth_header = ""                               # ej "Bearer XYZ" para managed
+
+workflows_dir = "./workflows"                  # JSONs en formato API (no GUI)
+output_subdir = "comfy"                        # dentro del out_dir del beat
+default_workflow_id = ""                       # workflow primario por default
+default_tenant_id = "default"                  # tenant primario por default
+
+# Timeouts
+submit_timeout_s = 30.0
+poll_timeout_s = 600.0                         # 10 min — workflows pesados
+ws_reconnect_attempts = 3
+poll_interval_s = 2.0
+
+# Selector
+prefer_for_brand_frames = true                 # cuando tenant tiene LoRA, ComfyUI gana
+
+# Cost estimates (USD por imagen / video) — 0.0 para self-hosted GPU propia
+cost_estimate_per_image_usd = 0.0
+cost_estimate_per_video_usd = 0.0
+
+# comfy-cli wrapper (opcional, para `contenido comfy install/launch/...`)
+cli_binary_path = "comfy"
+cli_workspace_path = ""
+
+# Multi-tenant: cada tenant_id tiene su workflow + LoRA
+# [visual.comfyui.tenants.ruteo]
+# primary_workflow_id = "flux_lora_brand"
+# lora_name = "ruteo_brand_v1.safetensors"
+# lora_strength = 0.85
+# style_suffix = "cinematic still, warm natural light, 35mm film"
+#
+# [visual.comfyui.tenants.tu_canal]
+# primary_workflow_id = "sdxl_ipadapter_style"
+# lora_name = "tu_canal_v2.safetensors"
+# lora_strength = 0.9
+
+# =============================================================================
 # STOCK FOOTAGE
 # =============================================================================
 

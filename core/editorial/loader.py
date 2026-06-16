@@ -22,6 +22,7 @@ from shared.schemas import (
     LocalEvent,
     Pillar,
     PlatformSpec,
+    BrandVisualConfig,
     VideoAspect,
     VideoDurationSpec,
 )
@@ -50,6 +51,7 @@ class EditorialRegistry(BaseModel):
     platforms: dict[DistributionPlatform, PlatformSpec] = Field(default_factory=dict)
     facts: FactsDocument = Field(default_factory=FactsDocument)
     local_events: list[LocalEvent] = Field(default_factory=list)
+    brand_visual: dict[str, BrandVisualConfig] = Field(default_factory=dict)
 
     model_config = {"arbitrary_types_allowed": True}
 
@@ -61,6 +63,18 @@ class EditorialRegistry(BaseModel):
 
     def get_pillar_doc(self, pillar_id: str) -> str:
         return self.pillar_docs.get(pillar_id, "")
+
+    def get_visual_for_tenant(self, tenant_id: str) -> BrandVisualConfig | None:
+        """Devuelve la config visual del tenant, o None si no registrado.
+
+        Fallback strategy: si `tenant_id` no existe, intenta `default`. Si
+        tampoco, devuelve None y el caller usa los defaults del config TOML.
+        """
+        if tenant_id in self.brand_visual:
+            return self.brand_visual[tenant_id]
+        if "default" in self.brand_visual:
+            return self.brand_visual["default"]
+        return None
 
 
 def _read_text(p: Path) -> str:
@@ -177,6 +191,23 @@ def _load_events(root: Path) -> list[LocalEvent]:
     return out
 
 
+def _load_brand_visual(root: Path) -> dict[str, BrandVisualConfig]:
+    """Carga `editorial/brand-visual.json` → {tenant_id: BrandVisualConfig}."""
+    path = root / "brand-visual.json"
+    if not path.is_file():
+        return {}
+    raw = _read_json(path)
+    items = raw.get("tenants", [])
+    out: dict[str, BrandVisualConfig] = {}
+    for item in items:
+        try:
+            bv = BrandVisualConfig(**item)
+            out[bv.tenant_id] = bv
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"[editorial] brand-visual entry inválido: {e}")
+    return out
+
+
 @lru_cache(maxsize=1)
 def load_editorial(root: Path | str | None = None) -> EditorialRegistry:
     """Carga la capa editorial con cache. Llamar `reload_editorial()` para invalidar."""
@@ -194,6 +225,7 @@ def load_editorial(root: Path | str | None = None) -> EditorialRegistry:
     platforms = _load_platforms(resolved)
     facts = _load_facts(resolved)
     events = _load_events(resolved)
+    brand_visual = _load_brand_visual(resolved)
 
     registry = EditorialRegistry(
         root=resolved,
@@ -204,11 +236,13 @@ def load_editorial(root: Path | str | None = None) -> EditorialRegistry:
         platforms=platforms,
         facts=facts,
         local_events=events,
+        brand_visual=brand_visual,
     )
     logger.debug(
         f"[editorial] cargado: {len(pillars)} pilares, "
         f"{len(audiences)} audiencias, {len(platforms)} platforms, "
-        f"{len(facts.verified_facts)} facts, {len(events)} events"
+        f"{len(facts.verified_facts)} facts, {len(events)} events, "
+        f"{len(brand_visual)} brand-visual tenants"
     )
     return registry
 

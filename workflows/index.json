@@ -1,0 +1,77 @@
+{
+  "$schema": "Workflows registry. Cada entry mapea un ComfyWorkflowSpec.",
+  "version": "0.1.0",
+  "workflows": [
+    {
+      "id": "flux_basic_9x16",
+      "name": "Flux dev — vertical 9:16 (sin LoRA)",
+      "kind": "basic_t2i",
+      "output_type": "image",
+      "json_path": "flux_basic_9x16.json",
+      "parameters": {
+        "prompt": "6-inputs-text",
+        "negative_prompt": "7-inputs-text",
+        "seed": "3-inputs-seed",
+        "width": "5-inputs-width",
+        "height": "5-inputs-height",
+        "steps": "3-inputs-steps",
+        "cfg": "3-inputs-cfg",
+        "checkpoint": "4-inputs-ckpt_name"
+      },
+      "output_nodes": ["9"],
+      "required_checkpoints": ["flux1-dev.safetensors"],
+      "estimated_seconds": 18.0,
+      "estimated_vram_gb": 24.0,
+      "estimated_cost_usd": 0.0
+    },
+    {
+      "id": "flux_lora_brand",
+      "name": "Flux dev + Brand LoRA — vertical 9:16",
+      "kind": "lora_t2i",
+      "output_type": "image",
+      "json_path": "flux_lora_brand.json",
+      "parameters": {
+        "prompt": "6-inputs-text",
+        "negative_prompt": "7-inputs-text",
+        "seed": "3-inputs-seed",
+        "width": "5-inputs-width",
+        "height": "5-inputs-height",
+        "steps": "3-inputs-steps",
+        "cfg": "3-inputs-cfg",
+        "checkpoint": "4-inputs-ckpt_name",
+        "lora_name": "10-inputs-lora_name",
+        "lora_strength": "10-inputs-strength_model"
+      },
+      "output_nodes": ["9"],
+      "required_checkpoints": ["flux1-dev.safetensors"],
+      "required_loras": ["brand_v1.safetensors"],
+      "estimated_seconds": 22.0,
+      "estimated_vram_gb": 24.0,
+      "estimated_cost_usd": 0.0
+    },
+    {
+      "id": "sdxl_ipadapter_style",
+      "name": "SDXL + IPAdapter (style transfer desde reference image)",
+      "kind": "ipadapter_reference",
+      "output_type": "image",
+      "json_path": "sdxl_ipadapter_style.json",
+      "parameters": {
+        "prompt": "6-inputs-text",
+        "negative_prompt": "7-inputs-text",
+        "seed": "3-inputs-seed",
+        "width": "5-inputs-width",
+        "height": "5-inputs-height",
+        "steps": "3-inputs-steps",
+        "cfg": "3-inputs-cfg",
+        "checkpoint": "4-inputs-ckpt_name",
+        "reference_image": "17-inputs-image"
+      },
+      "output_nodes": ["9"],
+      "required_checkpoints": ["sd_xl_base_1.0.safetensors"],
+      "required_custom_nodes": ["ComfyUI_IPAdapter_plus"],
+      "estimated_seconds": 28.0,
+      "estimated_vram_gb": 12.0,
+      "estimated_cost_usd": 0.0
+    }
+  ]
+}

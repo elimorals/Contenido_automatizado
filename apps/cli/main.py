@@ -586,5 +586,280 @@ def brand_check() -> None:
     typer.echo(facts_anti_hallucination_block(r)[:400])
 
 
+# =============================================================================
+# ComfyUI subcommands — `contenido comfy ...`
+# =============================================================================
+
+comfy_app = typer.Typer(
+    name="comfy",
+    help="ComfyUI: install, launch, status, lora, workflow, test",
+    no_args_is_help=True,
+)
+app.add_typer(comfy_app, name="comfy")
+
+
+@comfy_app.command("status")
+def comfy_status() -> None:
+    """Estado del binario comfy-cli + server ComfyUI."""
+    try:
+        from core.comfy import cli_status
+        from core.visual.generation.comfy import is_comfyui_available
+    except Exception as e:  # noqa: BLE001
+        typer.secho(f"✗ Imports fallaron: {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from e
+
+    async def _run() -> None:
+        cli_info = await cli_status()
+        cfg = load_config().visual.comfyui
+        typer.secho("=== comfy-cli ===", fg=typer.colors.CYAN, bold=True)
+        typer.echo(f"  Installed: {'✓' if cli_info.get('installed') else '✗'}")
+        if cli_info.get("binary"):
+            typer.echo(f"  Binary:    {cli_info['binary']}")
+        if cli_info.get("workspace"):
+            typer.echo(f"  Workspace: {cli_info['workspace']}")
+        if cli_info.get("version"):
+            typer.echo(f"  Version:   {cli_info['version']}")
+        typer.secho("\n=== ComfyUI Server ===", fg=typer.colors.CYAN, bold=True)
+        typer.echo(f"  URL:       {cfg.server_url}")
+        typer.echo(f"  Enabled:   {'✓' if cfg.enabled else '✗'}")
+        alive = await is_comfyui_available()
+        typer.echo(f"  Alive:     {'✓' if alive else '✗'}")
+        if cfg.tenants:
+            typer.secho("\n=== Tenants registrados ===", fg=typer.colors.CYAN, bold=True)
+            for tid, entry in cfg.tenants.items():
+                typer.echo(
+                    f"  • {tid}: workflow={entry.primary_workflow_id or '—'}, "
+                    f"lora={entry.lora_name or '—'}@{entry.lora_strength:.2f}"
+                )
+
+    asyncio.run(_run())
+
+
+@comfy_app.command("install")
+def comfy_install_cmd(
+    workspace: Annotated[str, typer.Option(help="Path al workspace destino")] = "",
+    cpu_only: Annotated[bool, typer.Option(help="Sin CUDA (lento, solo dev)")] = False,
+) -> None:
+    """Descarga e instala ComfyUI vía comfy-cli (tarda 15-30 min)."""
+    try:
+        from core.comfy import cli_install
+    except Exception as e:  # noqa: BLE001
+        typer.secho(f"✗ {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from e
+
+    typer.secho(
+        "⏳ Instalando ComfyUI... (15-30 min, depende del ancho de banda)",
+        fg=typer.colors.YELLOW,
+    )
+    try:
+        asyncio.run(cli_install(workspace=workspace or None, cuda=not cpu_only))
+        typer.secho("✓ ComfyUI instalado", fg=typer.colors.GREEN, bold=True)
+    except Exception as e:  # noqa: BLE001
+        typer.secho(f"✗ install falló: {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from e
+
+
+@comfy_app.command("launch")
+def comfy_launch_cmd(
+    workspace: Annotated[str, typer.Option(help="Workspace")] = "",
+    port: Annotated[int, typer.Option(help="Puerto del server")] = 8188,
+    background: Annotated[bool, typer.Option(help="Spawn en background")] = True,
+) -> None:
+    """Lanza el server ComfyUI."""
+    try:
+        from core.comfy import cli_launch
+    except Exception as e:  # noqa: BLE001
+        typer.secho(f"✗ {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from e
+
+    try:
+        pid = asyncio.run(
+            cli_launch(workspace=workspace or None, port=port, background=background)
+        )
+        if pid is not None:
+            typer.secho(
+                f"✓ ComfyUI arrancando en background (PID {pid}) → http://127.0.0.1:{port}",
+                fg=typer.colors.GREEN, bold=True,
+            )
+        else:
+            typer.echo("ComfyUI cerrado (foreground)")
+    except Exception as e:  # noqa: BLE001
+        typer.secho(f"✗ launch falló: {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from e
+
+
+@comfy_app.command("lora")
+def comfy_lora_cmd(
+    action: Annotated[str, typer.Argument(help="list | download")],
+    url: Annotated[str, typer.Option(help="URL del LoRA (download)")] = "",
+    filename: Annotated[str, typer.Option(help="Nombre destino (download)")] = "",
+) -> None:
+    """Gestiona LoRAs: list (instalados) o download <url>."""
+    try:
+        from core.comfy import download_lora, list_loras
+    except Exception as e:  # noqa: BLE001
+        typer.secho(f"✗ {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from e
+
+    async def _run() -> None:
+        if action == "list":
+            loras = await list_loras()
+            if not loras:
+                typer.echo("(sin LoRAs instaladas)")
+                return
+            typer.secho(f"=== LoRAs ({len(loras)}) ===", fg=typer.colors.CYAN, bold=True)
+            for name in loras:
+                typer.echo(f"  • {name}")
+        elif action == "download":
+            if not url:
+                typer.secho("✗ --url requerido para download", fg=typer.colors.RED)
+                raise typer.Exit(code=2)
+            typer.echo(f"⏳ Descargando LoRA desde {url}...")
+            await download_lora(url, filename=filename or None)
+            typer.secho("✓ LoRA descargada", fg=typer.colors.GREEN, bold=True)
+        else:
+            typer.secho(
+                f"✗ acción desconocida '{action}'. Usa: list | download",
+                fg=typer.colors.RED,
+            )
+            raise typer.Exit(code=2)
+
+    asyncio.run(_run())
+
+
+@comfy_app.command("workflow")
+def comfy_workflow_cmd(
+    action: Annotated[str, typer.Argument(help="list | show <id>")] = "list",
+    workflow_id: Annotated[str, typer.Argument(help="ID del workflow (show)")] = "",
+) -> None:
+    """Inspecciona workflows registrados en workflows/index.json."""
+    try:
+        from core.visual.generation.comfy_workflows import get_workflow_spec, load_registry
+    except Exception as e:  # noqa: BLE001
+        typer.secho(f"✗ {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from e
+
+    if action == "list":
+        reg = load_registry()
+        if not reg:
+            typer.echo("(sin workflows registrados — agrega entries en workflows/index.json)")
+            return
+        typer.secho(
+            f"=== Workflows registrados ({len(reg)}) ===",
+            fg=typer.colors.CYAN, bold=True,
+        )
+        for wid, spec in reg.items():
+            typer.echo(f"  • {wid}: {spec.name}")
+            typer.echo(
+                f"      kind={spec.kind.value}, output={spec.output_type.value}, "
+                f"~{spec.estimated_seconds}s, {spec.estimated_vram_gb}GB VRAM"
+            )
+    elif action == "show":
+        if not workflow_id:
+            typer.secho("✗ workflow_id requerido", fg=typer.colors.RED)
+            raise typer.Exit(code=2)
+        try:
+            spec = get_workflow_spec(workflow_id)
+        except KeyError as e:
+            typer.secho(f"✗ {e}", fg=typer.colors.RED, err=True)
+            raise typer.Exit(code=1) from e
+        typer.secho(f"=== {spec.name} ===", fg=typer.colors.CYAN, bold=True)
+        typer.echo(f"  ID:         {spec.id}")
+        typer.echo(f"  Kind:       {spec.kind.value}")
+        typer.echo(f"  Output:     {spec.output_type.value}")
+        typer.echo(f"  JSON:       {spec.json_path}")
+        typer.echo(f"  Output nodes: {spec.output_nodes}")
+        typer.echo(f"  Checkpoints: {spec.required_checkpoints}")
+        typer.echo(f"  LoRAs:       {spec.required_loras}")
+        typer.echo(f"  Custom nodes: {spec.required_custom_nodes}")
+        typer.echo(f"  Estimated:  {spec.estimated_seconds}s, {spec.estimated_vram_gb}GB VRAM")
+        typer.echo("\n  Parámetros mapeados:")
+        pmap = spec.parameters
+        for field_name in ("prompt", "seed", "width", "height", "lora_name", "lora_strength"):
+            v = getattr(pmap, field_name, None)
+            if v:
+                typer.echo(f"    {field_name:18s} → {v}")
+    else:
+        typer.secho(f"✗ acción desconocida '{action}'", fg=typer.colors.RED)
+        raise typer.Exit(code=2)
+
+
+@comfy_app.command("test")
+def comfy_test_cmd(
+    workflow_id: Annotated[str, typer.Argument(help="ID del workflow a probar")],
+    prompt: Annotated[
+        str, typer.Option(help="Prompt de prueba")
+    ] = "a beautiful mountain landscape at golden hour, cinematic",
+    output: Annotated[Path, typer.Option(help="Output dir")] = Path("./output"),
+) -> None:
+    """Ejecuta UN workflow end-to-end con un prompt de prueba.
+
+    Útil para validar que el workflow está bien parametrizado y el server responde.
+    """
+    try:
+        from core.visual.generation.comfy import ComfyUIGenerator
+        from shared.schemas import Beat, BeatRole, BeatVisual, MotionHint
+    except Exception as e:  # noqa: BLE001
+        typer.secho(f"✗ {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from e
+
+    async def _run() -> None:
+        beat = Beat(
+            idx=0, role=BeatRole.HOOK,
+            text="test", target_duration_s=4.0, veo_duration=4,
+        )
+        visual = BeatVisual(
+            image_prompt=prompt, motion_hint=MotionHint.STATIC, visual_anchor="test",
+        )
+        gen = ComfyUIGenerator(workflow_id=workflow_id)
+        # Forzar enabled para el test
+        gen.cfg = gen.cfg.model_copy(update={"enabled": True})
+        typer.echo(f"⏳ Ejecutando workflow '{workflow_id}'...")
+        try:
+            artifact = await gen.generate(
+                beat=beat, visual=visual, content_mode="general",
+                out_dir=output,
+            )
+            typer.secho(
+                f"\n✓ Generado: {artifact.first_frame_path or artifact.video_path}",
+                fg=typer.colors.GREEN, bold=True,
+            )
+            typer.echo(f"  Source: {artifact.source.value}")
+        except Exception as e:  # noqa: BLE001
+            typer.secho(f"✗ test falló: {e}", fg=typer.colors.RED, err=True)
+            raise typer.Exit(code=1) from e
+
+    asyncio.run(_run())
+
+
+@comfy_app.command("models")
+def comfy_models_cmd(
+    model_type: Annotated[
+        str, typer.Argument(help="checkpoints|loras|vae|controlnet|embeddings|...")
+    ] = "checkpoints",
+) -> None:
+    """Lista modelos instalados (consulta al server via HTTP, no comfy-cli)."""
+    try:
+        from core.visual.generation.comfy_client import ComfyClient
+    except Exception as e:  # noqa: BLE001
+        typer.secho(f"✗ {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from e
+
+    async def _run() -> None:
+        async with ComfyClient() as cli:
+            models = await cli.list_models(model_type)
+        if not models:
+            typer.echo(f"(sin {model_type} instalados, o server no responde)")
+            return
+        typer.secho(
+            f"=== {model_type} ({len(models)}) ===",
+            fg=typer.colors.CYAN, bold=True,
+        )
+        for m in models:
+            typer.echo(f"  • {m}")
+
+    asyncio.run(_run())
+
+
 if __name__ == "__main__":
     app()

@@ -46,6 +46,26 @@ class VideoSource(str, Enum):
     HIGGSFIELD_DOP = "higgsfield_dop"
     HIGGSFIELD_SOUL = "higgsfield_soul"
     HIGGSFIELD_EFFECT = "higgsfield_effect"
+    COMFYUI = "comfyui"  # Local ComfyUI: LoRA + ControlNet + grafos custom
+
+
+class ComfyOutputType(str, Enum):
+    """¿Qué produce este workflow? Importa para wiring downstream."""
+
+    IMAGE = "image"  # first frame para Veo/DoP
+    VIDEO = "video"  # AnimateDiff / SVD / WAN-Video direct output
+
+
+class ComfyWorkflowKind(str, Enum):
+    """Categoría semántica del workflow — usada por el selector."""
+
+    BASIC_T2I = "basic_t2i"          # Flux/SDXL puro txt2img
+    LORA_T2I = "lora_t2i"            # Brand LoRA + txt2img
+    LORA_CONTROLNET = "lora_controlnet"  # LoRA + ControlNet (pose/depth/canny)
+    IPADAPTER_REFERENCE = "ipadapter_reference"  # Style transfer desde reference image
+    ANIMATEDIFF_LORA = "animatediff_lora"  # video t2v con LoRA
+    INPAINT = "inpaint"              # producto cambia, fondo persiste
+    UPSCALE_RESTORE = "upscale_restore"  # post-step: subir res + face restore
 
 
 class HiggsfieldModel(str, Enum):
@@ -757,3 +777,154 @@ class LLMCostRecord(BaseModel):
     output_tokens: int = Field(..., ge=0)
     cost_usd: float = Field(..., ge=0)
     phase: str = Field("", description="hunt|critic|narrate|judge|extract|compose|visual|accent|other")
+
+
+# =============================================================================
+# COMFYUI SCHEMAS (workflows custom + multi-tenant LoRA)
+# =============================================================================
+
+
+class ComfyParameterMap(BaseModel):
+    """Mapeo de parámetros customizables de un workflow → nodos concretos.
+
+    Permite que el caller use nombres semánticos (`prompt`, `negative_prompt`,
+    `seed`, `width`, `height`, `lora_name`, `lora_strength`, `reference_image`)
+    sin saber qué node_id los implementa en ESTE workflow específico.
+
+    El loader (`comfy_workflows.py`) traduce a las llaves planas
+    `{node_id}-inputs-{param_name}` que usa el JSON.
+    """
+
+    prompt: str | None = None              # ej: "6-inputs-text"
+    negative_prompt: str | None = None     # ej: "7-inputs-text"
+    seed: str | None = None                # ej: "3-inputs-seed"
+    width: str | None = None               # ej: "5-inputs-width"
+    height: str | None = None              # ej: "5-inputs-height"
+    steps: str | None = None               # ej: "3-inputs-steps"
+    cfg: str | None = None                 # ej: "3-inputs-cfg"
+    checkpoint: str | None = None          # ej: "4-inputs-ckpt_name"
+    lora_name: str | None = None           # ej: "10-inputs-lora_name"
+    lora_strength: str | None = None       # ej: "10-inputs-strength_model"
+    reference_image: str | None = None     # ej: "52-inputs-image"
+    controlnet_image: str | None = None    # ej: "30-inputs-image"
+    frames: str | None = None              # animatediff: "20-inputs-frame_count"
+    fps: str | None = None                 # animatediff: "20-inputs-fps"
+
+    # Custom overrides (escape hatch): {"42-inputs-custom_value": "..."}
+    custom: dict[str, str] = Field(default_factory=dict)
+
+
+class ComfyWorkflowSpec(BaseModel):
+    """Spec de un workflow ComfyUI registrado en `workflows/`.
+
+    Un workflow es un JSON en formato API (no GUI) + metadata que dice
+    qué hace y cómo parametrizarlo.
+    """
+
+    id: str = Field(..., pattern=r"^[a-z][a-z0-9_-]*$", max_length=60)
+    name: str = Field(..., min_length=3, max_length=120)
+    kind: ComfyWorkflowKind
+    output_type: ComfyOutputType = ComfyOutputType.IMAGE
+
+    # Path al JSON template (relativo a workflows/ o absoluto)
+    json_path: str
+
+    # Mapping de parámetros lógicos → node-input keys del JSON específico
+    parameters: ComfyParameterMap = Field(default_factory=ComfyParameterMap)
+
+    # Nodos cuya `images`/`gifs`/`videos` output capturamos
+    output_nodes: list[str] = Field(
+        default_factory=lambda: ["9"],
+        description="Lista de node_ids de SaveImage/VHS_VideoCombine cuyos outputs descargar",
+    )
+
+    # Requisitos: modelos, custom nodes, RAM
+    required_checkpoints: list[str] = Field(default_factory=list)
+    required_loras: list[str] = Field(default_factory=list)
+    required_custom_nodes: list[str] = Field(default_factory=list)
+    estimated_seconds: float = 30.0  # cost estimate por run
+    estimated_vram_gb: float = 12.0
+
+    # Cost estimate USD (compute, no providers managed)
+    estimated_cost_usd: float = 0.0
+
+
+class BrandVisualConfig(BaseModel):
+    """Configuración visual por tenant/marca: qué LoRA + workflow usar.
+
+    Se carga desde `editorial/brand-visual.json` o se pasa per-request.
+    Multi-tenant: cada `tenant_id` apunta a su propia LoRA + workflow.
+    """
+
+    tenant_id: str = Field("default", pattern=r"^[a-z0-9][a-z0-9_-]*$")
+    label: str = "Default tenant"
+
+    # Workflow primario para first frames con identidad de marca
+    primary_workflow_id: str | None = None  # ej: "flux_lora_brand"
+    # Workflow secundario para casos especiales (inpaint, controlnet)
+    fallback_workflow_ids: list[str] = Field(default_factory=list)
+
+    # LoRA principal de marca (path o nombre relativo a ComfyUI/models/loras/)
+    lora_name: str | None = None
+    lora_strength: float = Field(0.85, ge=0.0, le=2.0)
+
+    # Style block que se appendea al image_prompt antes de mandar
+    style_suffix: str = ""
+
+    # Negative prompt baseline
+    negative_prompt: str = (
+        "blurry, low quality, deformed, text, watermark, logo, signature"
+    )
+
+    # Defaults técnicos
+    default_width: int = 720
+    default_height: int = 1280
+    default_steps: int = 25
+    default_cfg: float = 7.0
+
+    # Reference images (IPAdapter) — paths absolutos o nombres en ComfyUI/input/
+    reference_images: list[str] = Field(default_factory=list)
+
+
+class ComfyJobStatus(str, Enum):
+    """Estado interno de un job ComfyUI tracked por el cliente."""
+
+    QUEUED = "queued"
+    EXECUTING = "executing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    INTERRUPTED = "interrupted"
+    TIMEOUT = "timeout"
+
+
+class ComfyJob(BaseModel):
+    """Tracking de UN job de ComfyUI desde submit hasta retrieval."""
+
+    prompt_id: str
+    client_id: str
+    workflow_id: str
+    status: ComfyJobStatus = ComfyJobStatus.QUEUED
+
+    # Progreso WebSocket
+    current_node: str | None = None
+    progress_value: int = 0
+    progress_max: int = 0
+
+    # Outputs (filename + subfolder + type) recuperados de /history
+    images: list[dict[str, str]] = Field(default_factory=list)
+    videos: list[dict[str, str]] = Field(default_factory=list)
+    gifs: list[dict[str, str]] = Field(default_factory=list)
+
+    # Error info si status=failed
+    error_message: str = ""
+    error_node: str | None = None
+
+    # Timings
+    submitted_at_unix: float = 0.0
+    completed_at_unix: float = 0.0
+
+    @property
+    def duration_s(self) -> float:
+        if self.completed_at_unix and self.submitted_at_unix:
+            return self.completed_at_unix - self.submitted_at_unix
+        return 0.0

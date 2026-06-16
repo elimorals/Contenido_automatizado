@@ -1,0 +1,20 @@
+{
+  "$schema": "Visual identity por tenant. Cada entry define qué LoRA + workflow + style usar.",
+  "tenants": [
+    {
+      "tenant_id": "default",
+      "label": "Generic (no brand LoRA)",
+      "primary_workflow_id": "flux_basic_9x16",
+      "fallback_workflow_ids": [],
+      "lora_name": null,
+      "lora_strength": 0.85,
+      "style_suffix": "",
+      "negative_prompt": "blurry, low quality, deformed, text, watermark, logo, signature",
+      "default_width": 720,
+      "default_height": 1280,
+      "default_steps": 25,
+      "default_cfg": 3.5,
+      "reference_images": []
+    }
+  ]
+}

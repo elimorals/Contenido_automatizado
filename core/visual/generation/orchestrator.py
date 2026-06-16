@@ -32,6 +32,7 @@ from core.visual.generation.base import VisualGenerationError
 from core.visual.generation.gemini_image import GeminiImageGenerator
 from core.visual.generation.higgsfield import HiggsfieldDopGenerator
 from core.visual.generation.higgsfield_effects import HiggsfieldEffectsGenerator
+from core.visual.generation.comfy import ComfyUIGenerator
 from core.visual.generation.higgsfield_soul import HiggsfieldSoulGenerator
 from core.visual.generation.ken_burns import (
     KenBurnsGenerator,
@@ -48,6 +49,7 @@ from shared.schemas import Beat, BeatArtifact, BeatVisual, VideoSource
 
 
 async def _generate_first_frame_with_fallback(
+    comfy_gen: ComfyUIGenerator | None,
     soul_gen: HiggsfieldSoulGenerator | None,
     image_gen: GeminiImageGenerator,
     beat: Beat,
@@ -57,10 +59,24 @@ async def _generate_first_frame_with_fallback(
 ) -> tuple[Path, bool, VideoSource]:
     """Genera first frame; devuelve (path, is_real, source).
 
-    Si soul_gen está habilitado Y el beat trae soul_id (o hay default), intenta Soul.
-    Si Soul falla, intenta Gemini Image.
-    Si Gemini Image falla, devuelve placeholder.
+    Cadena de fallback (tier 1 de la jerarquía):
+    1. ComfyUI (workflow custom con brand LoRA) — moat de identidad de marca
+    2. HiggsfieldSoul (character consistency cross-beat)
+    3. Gemini Image (default genérico)
+    4. Placeholder sólido (último recurso)
     """
+    # ComfyUI tier — preferido cuando tenant tiene LoRA configurada
+    if comfy_gen is not None:
+        try:
+            artifact = await comfy_gen.generate(beat, visual, content_mode, out_dir)
+            if artifact.first_frame_path is not None:
+                return artifact.first_frame_path, True, VideoSource.COMFYUI
+        except Exception as e:  # noqa: BLE001
+            logger.warning(
+                f"[visual.orchestrator] beat {beat.idx} ComfyUI falló ({e}); "
+                "fallback a Soul/Gemini."
+            )
+
     # Soul tier
     if soul_gen is not None and (visual.soul_id or soul_gen.cfg.soul_default_reference_id):
         try:
@@ -102,6 +118,7 @@ async def _generate_one(
     out_dir: Path,
     content_mode: str,
     *,
+    comfy_gen: ComfyUIGenerator | None,
     soul_gen: HiggsfieldSoulGenerator | None,
     image_gen: GeminiImageGenerator,
     hf_dop_gen: HiggsfieldDopGenerator | None,
@@ -109,12 +126,12 @@ async def _generate_one(
     ken_burns_gen: KenBurnsGenerator,
     effects_gen: HiggsfieldEffectsGenerator | None,
 ) -> BeatArtifact:
-    """Pipeline por beat: 3-tier fallback."""
+    """Pipeline por beat: 3-tier fallback (con ComfyUI como nuevo top de tier 1)."""
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # === Tier 1: first frame ===
     frame_path, frame_is_real, frame_source = await _generate_first_frame_with_fallback(
-        soul_gen, image_gen, beat, visual, content_mode, out_dir
+        comfy_gen, soul_gen, image_gen, beat, visual, content_mode, out_dir
     )
 
     # === Tier 2: motion ===
@@ -199,11 +216,13 @@ async def generate_beat_videos(
     use_higgsfield: bool | None = None,
     use_higgsfield_soul: bool | None = None,
     use_higgsfield_effects: bool | None = None,
+    use_comfyui: bool | None = None,
     image_gen: GeminiImageGenerator | None = None,
     veo_gen: VeoGenerator | None = None,
     hf_dop_gen: HiggsfieldDopGenerator | None = None,
     soul_gen: HiggsfieldSoulGenerator | None = None,
     effects_gen: HiggsfieldEffectsGenerator | None = None,
+    comfy_gen: ComfyUIGenerator | None = None,
     ken_burns_gen: KenBurnsGenerator | None = None,
 ) -> list[BeatArtifact]:
     """Genera un video por beat en paralelo (asyncio.gather), con 3-tier fallback.
@@ -238,6 +257,7 @@ async def generate_beat_videos(
 
     cfg = load_config()
     hf_cfg = cfg.visual.higgsfield
+    cu_cfg = cfg.visual.comfyui
 
     veo_enabled = cfg.visual.veo_enabled if use_veo is None else use_veo
     hf_enabled = hf_cfg.enabled if use_higgsfield is None else use_higgsfield
@@ -249,8 +269,14 @@ async def generate_beat_videos(
         if use_higgsfield_effects is None
         else use_higgsfield_effects
     )
+    comfy_enabled = cu_cfg.enabled if use_comfyui is None else use_comfyui
 
     img = image_gen or GeminiImageGenerator()
+
+    # ComfyUI (brand identity vía LoRA + workflow custom)
+    comfy = comfy_gen
+    if comfy is None and comfy_enabled:
+        comfy = ComfyUIGenerator()
 
     # Soul (first-frame consistency)
     soul = soul_gen
@@ -292,6 +318,7 @@ async def generate_beat_videos(
                 visual,
                 out_dir,
                 content_mode,
+                comfy_gen=comfy,
                 soul_gen=soul,
                 image_gen=img,
                 hf_dop_gen=primary_dop,

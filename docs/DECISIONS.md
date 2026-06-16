@@ -277,6 +277,49 @@ Higgsfield publica un repo `higgsfield-ai/skills` con SKILL.md files que documen
 
 ---
 
+## ADR-014: ComfyUI como provider visual nativo (no solo wrapper)
+
+**Fecha**: 2026-06-15 | **Estado**: Aceptado
+
+### Contexto
+Higgsfield Soul resuelve character consistency. Veo/DoP resuelven motion. Pero ninguno resuelve **identidad visual de marca**: el estilo único que hace que todos los reels parezcan tuyos. La única vía es LoRAs entrenadas + workflows compuestos, y la herramienta canónica para eso es ComfyUI.
+
+Pregunta clave: ¿integrar como wrapper de comfy-cli (passthrough a partner nodes managed) o como provider nativo de la API REST/WS del server?
+
+### Decisión
+**Provider nativo de la API server** (HTTP + WebSocket). `comfy-cli` se mantiene como herramienta auxiliar de instalación/gestión (install, launch, lora download, node install), no como ruta de generación.
+
+### Razón
+- Los "partner nodes" de comfy-cli son los mismos providers que ya tenemos (Flux, Luma, Kling, Seedance) vía Higgsfield + OpenRouter — sería duplicación
+- El valor REAL de ComfyUI es lo que no hace ningún provider managed: workflows custom con LoRAs propias, ControlNet, IPAdapter, AnimateDiff
+- Self-host vs managed se resuelve con un solo flag (`server_url`) sin código diferente
+- Multi-tenant trivial: `client_id` UUID en WS por sesión, mismo server atiende N tenants
+
+### Implementación
+- `core/visual/generation/comfy_client.py` — REST + WS async con polling fallback
+- `core/visual/generation/comfy_workflows.py` — registry + parameterizer `{node_id}-inputs-{param}`
+- `core/visual/generation/comfy.py` — `ComfyUIGenerator` (extiende `VisualGenerator`)
+- `core/comfy/wrapper.py` — subprocess wrapper sobre comfy-cli (install/launch/lora/node)
+- `workflows/` dir con 3 templates iniciales (flux_basic, flux_lora_brand, sdxl_ipadapter_style)
+- `editorial/brand-visual.json` para mapping multi-tenant
+
+### Consecuencias
+- ✅ Brand identity vía LoRA entrenada (moat real vs APIs templated)
+- ✅ Multi-tenant nativo (cada cliente con su LoRA + workflow)
+- ✅ Self-host (RTX 4090) o managed (ViewComfy) — mismo código
+- ✅ Soft fail: server down → orchestrator cae a Soul/Gemini sin abortar
+- ✅ Selector decide automáticamente: ComfyUI gana cuando tenant tiene LoRA
+- ❌ Tier extra en el orchestrator (4 tiers vs 3) — testing de fallback más complejo
+- ❌ Dependencia de websockets lib + comfy-cli (opcional)
+
+### Trade-off explícito
+ComfyUI es OPT-IN: `COMFYUI_ENABLED=false` por default. El pipeline funciona idéntico sin ComfyUI configurado. Habilitar solo cuando tienes:
+1. LoRA entrenada (30-50 referencias) o
+2. Caso específico de ControlNet/IPAdapter/AnimateDiff o
+3. Multi-tenant con LoRAs distintas por cliente
+
+---
+
 ## ADR-009: uv como package manager
 
 **Fecha**: 2026-06-15 | **Estado**: Propuesto

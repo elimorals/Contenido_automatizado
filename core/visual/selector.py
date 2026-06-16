@@ -57,6 +57,7 @@ _COST_ESTIMATES: dict[VideoSource, float] = {
     VideoSource.HIGGSFIELD_DOP: 0.20,  # DoP turbo (default)
     VideoSource.HIGGSFIELD_SOUL: 0.05,  # SoulId-guided image
     VideoSource.HIGGSFIELD_EFFECT: 0.10,  # Effect overlay post-step
+    VideoSource.COMFYUI: 0.0,  # self-hosted = compute propio; managed override en config
 }
 
 
@@ -78,6 +79,22 @@ def _ia_source(cfg: object | None = None) -> VideoSource:
     """
     c = cfg or load_config()
     hf = c.visual.higgsfield
+    cu = c.visual.comfyui
+
+    # Prioridad 1: ComfyUI cuando habilitado, prefer_for_brand_frames=true,
+    # y el tenant default tiene LoRA configurada (= moat de marca).
+    cu_on = bool(getattr(cu, "enabled", False))
+    cu_prefer = bool(getattr(cu, "prefer_for_brand_frames", False))
+    default_tenant = getattr(cu, "default_tenant_id", "default")
+    cu_tenants = getattr(cu, "tenants", {}) or {}
+    cu_has_lora = False
+    if default_tenant in cu_tenants:
+        entry = cu_tenants[default_tenant]
+        cu_has_lora = bool(getattr(entry, "lora_name", ""))
+    if cu_on and cu_prefer and cu_has_lora:
+        return VideoSource.COMFYUI
+
+    # Prioridad 2: Higgsfield Soul si está completamente configurado
     soul_on = bool(getattr(hf, "soul_enabled", False)) is True
     creds = bool(
         getattr(hf, "credentials", "") or (
@@ -87,6 +104,8 @@ def _ia_source(cfg: object | None = None) -> VideoSource:
     default_soul_id = bool(getattr(hf, "soul_default_reference_id", ""))
     if soul_on and creds and default_soul_id:
         return VideoSource.HIGGSFIELD_SOUL
+
+    # Prioridad 3: Gemini Image (fallback genérico siempre disponible)
     return VideoSource.GEMINI_IMAGE
 
 

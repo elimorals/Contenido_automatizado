@@ -107,6 +107,64 @@ class HiggsfieldConfig(BaseModel):
     cli_timeout_s: float = 900.0  # 15min — Seedance puede tardar
 
 
+class ComfyTenantEntry(BaseModel):
+    """Mapeo tenant_id → (lora, workflow). Se carga desde [visual.comfyui.tenants.*].
+
+    El BrandVisualConfig de runtime puede sobreescribir cualquier campo;
+    esto es solo el default global por tenant.
+    """
+
+    primary_workflow_id: str = ""
+    lora_name: str = ""
+    lora_strength: float = 0.85
+    style_suffix: str = ""
+
+
+class ComfyUIConfig(BaseModel):
+    """ComfyUI server + workflows + multi-tenant.
+
+    Soporta dos modos de ejecución:
+    1. Self-hosted local (`server_url=http://127.0.0.1:8188`)
+    2. Managed remoto (`server_url=https://api.viewcomfy.com/...`) con `auth_header`
+    """
+
+    enabled: bool = False
+    server_url: str = "http://127.0.0.1:8188"
+    # Auth opcional para servicios managed (ViewComfy, RunComfy, propio reverse proxy)
+    auth_header: str = ""  # ej "Bearer XYZ" o "Basic abc:xyz"
+
+    # Directorios
+    workflows_dir: str = "./workflows"  # JSONs en formato API
+    output_subdir: str = "comfy"  # dentro del out_dir del beat
+
+    # Timeouts y polling
+    submit_timeout_s: float = 30.0  # POST /prompt
+    poll_timeout_s: float = 600.0   # esperar a que termine (10 min default)
+    ws_reconnect_attempts: int = 3
+    poll_interval_s: float = 2.0    # cuando WS no está disponible
+
+    # Default workflow cuando no se especifica spec en el spec request
+    default_workflow_id: str = ""
+
+    # Tenants → workflow + lora
+    tenants: dict[str, ComfyTenantEntry] = Field(default_factory=dict)
+    default_tenant_id: str = "default"
+
+    # Selector behaviour
+    # Cuando True y tenant tiene LoRA configurada, ComfyUI gana sobre Gemini/Soul
+    # para first frames (es el moat de identidad de marca).
+    prefer_for_brand_frames: bool = True
+
+    # Cost estimate (USD) por imagen generada — solo informativo (compute propio).
+    # Para servicios managed, sobreescribir según pricing real.
+    cost_estimate_per_image_usd: float = 0.0
+    cost_estimate_per_video_usd: float = 0.0
+
+    # comfy-cli wrapper (opcional, para `contenido comfy install/launch/...`)
+    cli_binary_path: str = "comfy"  # asume PATH; usar full path en prod
+    cli_workspace_path: str = ""    # ej "~/.config/comfy/workspaces/default"
+
+
 class VisualConfig(BaseModel):
     default_strategy: str = "hybrid"
     gemini_image_model: str = "openrouter/google/gemini-2.5-flash-image"
@@ -116,6 +174,7 @@ class VisualConfig(BaseModel):
     veo_model: str = "openrouter/google/veo-3.1-lite"
     ken_burns_zoom: float = 1.15
     higgsfield: HiggsfieldConfig = Field(default_factory=HiggsfieldConfig)
+    comfyui: ComfyUIConfig = Field(default_factory=ComfyUIConfig)
 
 
 class StockConfig(BaseModel):
@@ -340,6 +399,27 @@ def _apply_env_overrides(cfg: Config) -> Config:
     if os.getenv("HIGGSFIELD_CLI_MODEL"):
         hf.cli_default_video_model = os.getenv("HIGGSFIELD_CLI_MODEL", "")
 
+    # ComfyUI overrides
+    cu = cfg.visual.comfyui
+    cu.enabled = os.getenv("COMFYUI_ENABLED", str(cu.enabled)).lower() == "true"
+    if os.getenv("COMFYUI_SERVER_URL"):
+        cu.server_url = os.getenv("COMFYUI_SERVER_URL", "")
+    if os.getenv("COMFYUI_AUTH_HEADER"):
+        cu.auth_header = os.getenv("COMFYUI_AUTH_HEADER", "")
+    if os.getenv("COMFYUI_WORKFLOWS_DIR"):
+        cu.workflows_dir = os.getenv("COMFYUI_WORKFLOWS_DIR", "")
+    if os.getenv("COMFYUI_DEFAULT_WORKFLOW"):
+        cu.default_workflow_id = os.getenv("COMFYUI_DEFAULT_WORKFLOW", "")
+    if os.getenv("COMFYUI_DEFAULT_TENANT"):
+        cu.default_tenant_id = os.getenv("COMFYUI_DEFAULT_TENANT", "")
+    if os.getenv("COMFYUI_CLI_BINARY"):
+        cu.cli_binary_path = os.getenv("COMFYUI_CLI_BINARY", "")
+    if os.getenv("COMFYUI_CLI_WORKSPACE"):
+        cu.cli_workspace_path = os.getenv("COMFYUI_CLI_WORKSPACE", "")
+    cu.prefer_for_brand_frames = os.getenv(
+        "COMFYUI_PREFER_FOR_BRAND_FRAMES", str(cu.prefer_for_brand_frames)
+    ).lower() == "true"
+
     # Stock
     if os.getenv("PEXELS_API_KEYS"):
         cfg.stock.pexels_api_keys = [k.strip() for k in os.getenv("PEXELS_API_KEYS", "").split(",") if k.strip()]
@@ -374,6 +454,21 @@ def _build_visual_config(raw_visual: dict[str, Any]) -> VisualConfig:
     hf_raw = raw_visual.get("higgsfield", {})
     if isinstance(hf_raw, dict) and hf_raw:
         flat["higgsfield"] = HiggsfieldConfig(**hf_raw)
+    # ComfyUI sub-section (con tenants anidados)
+    cu_raw = raw_visual.get("comfyui", {})
+    if isinstance(cu_raw, dict) and cu_raw:
+        # Extraer [visual.comfyui.tenants.<id>] dict → ComfyTenantEntry instances
+        tenants_raw = cu_raw.pop("tenants", {}) if isinstance(cu_raw.get("tenants"), dict) else {}
+        tenants: dict[str, ComfyTenantEntry] = {}
+        for tid, traw in tenants_raw.items():
+            if isinstance(traw, dict):
+                try:
+                    tenants[tid] = ComfyTenantEntry(**traw)
+                except Exception:  # noqa: BLE001
+                    pass
+        cu_kwargs = {k: v for k, v in cu_raw.items() if not isinstance(v, dict)}
+        cu_kwargs["tenants"] = tenants
+        flat["comfyui"] = ComfyUIConfig(**cu_kwargs)
     # Flatten legacy [visual.gemini_image] / [visual.veo] / [visual.ken_burns]
     if isinstance(raw_visual.get("gemini_image"), dict):
         gi = raw_visual["gemini_image"]
