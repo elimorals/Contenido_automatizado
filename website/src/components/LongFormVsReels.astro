@@ -1,0 +1,153 @@
+---
+// Comparativa visual entre reel 25s y long-form 5-60min.
+// Pattern: diptych horizontal con dos columnas — cada una un "show, don't tell"
+// del mismo input procesado por dos pipelines distintos.
+
+const reelFlow = [
+  { phase: "Input", value: "topic: 'el efecto placebo'", mono: true },
+  { phase: "Hunters × 4", value: "12 candidatos paralelos (specific_figure, reversal, temporal, cross_domain)" },
+  { phase: "Critic + Narrators", value: "top 3 → 3 scripts delayed-reveal → judge elige winner" },
+  { phase: "Visual + Audio", value: "5 beats × (Higgsfield DoP + Gemini Image + Gemini Flash TTS)" },
+  { phase: "Stitch", value: "single-pass ffmpeg + word-burst libass", mono: true },
+];
+
+const longFormFlow = [
+  { phase: "Input", value: "novel: 50,000 palabras / script / idea", mono: true },
+  { phase: "Compress + RAG", value: "N chunks paralelo → LLM compresión → store BAAI/bge embedding" },
+  { phase: "Script Planner", value: "intent router (narrative/motion/montage) → NarrativeArc 3 actos" },
+  { phase: "Scenes + Storyboard", value: "SceneExtractor → 6-12 escenas → StoryboardArtist → 30-100 shots" },
+  { phase: "Shoot + Consistency", value: "ComfyUI + Reference selector + Best-of-N VLM × cada shot" },
+  { phase: "Stitch", value: "ffmpeg single-pass + narration + subs", mono: true },
+];
+---
+
+<section id="long-form" class="scroll-mt-20 relative border-t border-[var(--color-line)] bg-[var(--color-surface-1)]/40">
+  <div class="mx-auto max-w-7xl px-4 py-24 sm:px-6 sm:py-32">
+    <div class="mb-14 max-w-3xl space-y-4">
+      <p class="cinema-label">Dos pipelines · misma columna vertebral</p>
+      <h2
+        class="text-balance font-display text-[clamp(2rem,4.5vw,3.6rem)] leading-[1.05] text-[var(--color-ink-primary)]"
+      >
+        De{" "}
+        <span class="italic accent" style="font-variation-settings: 'opsz' 144, 'SOFT' 100;">25 segundos</span>{" "}
+        a sesenta minutos, sin cambiar de stack.
+      </h2>
+      <p class="max-w-2xl text-[16px] leading-relaxed text-[var(--color-ink-secondary)]">
+        Reels y long-form reutilizan el mismo LLM router, las mismas LoRAs ComfyUI, el mismo TTS sample-accurate y el mismo editor ffmpeg. Cambia solo la capa de orquestación narrativa. Esto NO existe en MoneyPrinterTurbo ni en ViMax por separado.
+      </p>
+    </div>
+
+    <div class="grid gap-6 lg:grid-cols-2">
+      <!-- ─── REEL CARD ─── -->
+      <article class="relative overflow-hidden rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-surface-base)] p-6 sm:p-8">
+        <!-- Aspect-ratio mock — vertical 9:16 mini visual -->
+        <div class="absolute right-6 top-6 hidden h-24 w-[54px] overflow-hidden rounded-[2px] border border-[var(--color-line-strong)] bg-gradient-to-br from-[var(--color-accent-deep)]/30 to-[var(--color-surface-3)] sm:block">
+          <div class="absolute inset-x-0 bottom-1.5 mx-1 h-3 rounded-sm bg-[var(--color-ink-primary)]/40"></div>
+          <p class="absolute left-1.5 top-1.5 font-mono text-[8px] uppercase tracking-wider text-[var(--color-ink-faded)]">9:16</p>
+        </div>
+
+        <header class="mb-6 space-y-2">
+          <p class="cinema-label">Reel · 25 segundos</p>
+          <h3
+            class="font-display text-[clamp(1.5rem,2.6vw,2.1rem)] leading-tight text-[var(--color-ink-primary)]"
+            style="font-variation-settings: 'opsz' 96, 'SOFT' 70;"
+          >
+            DAG cognitivo · delayed-reveal
+          </h3>
+        </header>
+
+        <ol class="space-y-3 border-l border-[var(--color-line)] pl-5">
+          {
+            reelFlow.map((step, i) => (
+              <li class="relative pb-2">
+                <span class="absolute -left-[27px] flex size-[18px] items-center justify-center rounded-full border border-[var(--color-accent-deep)] bg-[var(--color-surface-base)] font-mono text-[9px] text-[var(--color-accent)]">
+                  {i + 1}
+                </span>
+                <p class="cinema-label !text-[9px]">{step.phase}</p>
+                <p class={`mt-0.5 leading-snug ${step.mono ? "font-mono text-[12.5px] text-[var(--color-ink-secondary)]" : "text-[14px] text-[var(--color-ink-secondary)]"}`}>
+                  {step.value}
+                </p>
+              </li>
+            ))
+          }
+        </ol>
+
+        <div class="mt-6 grid grid-cols-3 gap-3 border-t border-[var(--color-line-faint)] pt-5 font-mono text-[11px]">
+          <div>
+            <dt class="text-[9.5px] uppercase tracking-wider text-[var(--color-ink-faded)]">Wall-clock</dt>
+            <dd class="mt-0.5 text-[var(--color-ink-primary)]">70–110s</dd>
+          </div>
+          <div>
+            <dt class="text-[9.5px] uppercase tracking-wider text-[var(--color-ink-faded)]">Costo</dt>
+            <dd class="mt-0.5 text-[var(--color-ink-primary)]">$0.08–1.20</dd>
+          </div>
+          <div>
+            <dt class="text-[9.5px] uppercase tracking-wider text-[var(--color-ink-faded)]">Entry</dt>
+            <dd class="mt-0.5 text-[var(--color-ink-primary)]">topic / url / subject</dd>
+          </div>
+        </div>
+      </article>
+
+      <!-- ─── LONG-FORM CARD ─── -->
+      <article class="relative overflow-hidden rounded-[var(--radius-sm)] border border-[var(--color-accent-deep)] bg-[var(--color-surface-base)] p-6 sm:p-8">
+        <!-- Aspect-ratio mock — horizontal 16:9 -->
+        <div class="absolute right-6 top-6 hidden h-[54px] w-24 overflow-hidden rounded-[2px] border border-[var(--color-accent-deep)] bg-gradient-to-br from-[var(--color-accent-deep)]/40 to-[var(--color-surface-3)] sm:block">
+          <div class="absolute bottom-1.5 left-1.5 right-1.5 h-2 rounded-sm bg-[var(--color-ink-primary)]/40"></div>
+          <p class="absolute left-1.5 top-1.5 font-mono text-[8px] uppercase tracking-wider text-[var(--color-accent)]">16:9</p>
+        </div>
+
+        <header class="mb-6 space-y-2">
+          <p class="cinema-label">
+            <span class="text-[var(--color-accent)]">●</span>
+            Long-form · 5–60 min
+          </p>
+          <h3
+            class="font-display text-[clamp(1.5rem,2.6vw,2.1rem)] leading-tight text-[var(--color-ink-primary)]"
+            style="font-variation-settings: 'opsz' 96, 'SOFT' 70;"
+          >
+            ViMax-inspired · 2 fases con gate humano
+          </h3>
+        </header>
+
+        <ol class="space-y-3 border-l border-[var(--color-accent-deep)] pl-5">
+          {
+            longFormFlow.map((step, i) => (
+              <li class="relative pb-2">
+                <span class="absolute -left-[27px] flex size-[18px] items-center justify-center rounded-full border border-[var(--color-accent)] bg-[var(--color-surface-base)] font-mono text-[9px] text-[var(--color-accent)]">
+                  {i + 1}
+                </span>
+                <p class="cinema-label !text-[9px]">{step.phase}</p>
+                <p class={`mt-0.5 leading-snug ${step.mono ? "font-mono text-[12.5px] text-[var(--color-ink-secondary)]" : "text-[14px] text-[var(--color-ink-secondary)]"}`}>
+                  {step.value}
+                </p>
+              </li>
+            ))
+          }
+        </ol>
+
+        <div class="mt-6 grid grid-cols-3 gap-3 border-t border-[var(--color-line-faint)] pt-5 font-mono text-[11px]">
+          <div>
+            <dt class="text-[9.5px] uppercase tracking-wider text-[var(--color-ink-faded)]">Wall-clock</dt>
+            <dd class="mt-0.5 text-[var(--color-ink-primary)]">45–300 min</dd>
+          </div>
+          <div>
+            <dt class="text-[9.5px] uppercase tracking-wider text-[var(--color-ink-faded)]">Costo</dt>
+            <dd class="mt-0.5 text-[var(--color-ink-primary)]">$16–80</dd>
+          </div>
+          <div>
+            <dt class="text-[9.5px] uppercase tracking-wider text-[var(--color-ink-faded)]">Entry</dt>
+            <dd class="mt-0.5 text-[var(--color-ink-primary)]">book / script / idea</dd>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <!-- Shared stack note -->
+    <div class="mt-10 flex flex-col items-start gap-3 border-l-2 border-[var(--color-accent)] pl-5 sm:flex-row sm:items-center sm:gap-6">
+      <p class="cinema-label !text-[10px] shrink-0">Stack compartido</p>
+      <p class="text-[14px] text-[var(--color-ink-secondary)]">
+        <code class="font-mono text-[12.5px] text-[var(--color-accent)]">core.llm_router</code> · <code class="font-mono text-[12.5px] text-[var(--color-accent)]">core.visual.generation</code> · <code class="font-mono text-[12.5px] text-[var(--color-accent)]">core.tts</code> · <code class="font-mono text-[12.5px] text-[var(--color-accent)]">core.editor</code> · <code class="font-mono text-[12.5px] text-[var(--color-accent)]">core.editorial</code>
+      </p>
+    </div>
+  </div>
+</section>

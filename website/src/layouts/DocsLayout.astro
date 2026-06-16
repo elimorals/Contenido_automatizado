@@ -1,0 +1,92 @@
+---
+import BaseLayout from "./BaseLayout.astro";
+
+interface Props {
+  title: string;
+  description?: string;
+  currentSlug: string;
+}
+
+const { title, description, currentSlug } = Astro.props;
+
+// Orden curado de los docs en el sidebar — los importantes primero, los de
+// referencia al final. Match exacto vs slug del Content Collection.
+const nav = [
+  { group: "Empezar", items: [
+    { slug: "getting_started", label: "Getting Started" },
+    { slug: "api_keys", label: "API Keys" },
+    { slug: "configuration", label: "Configuración" },
+  ]},
+  { group: "Capas del sistema", items: [
+    { slug: "editorial", label: "Editorial layer" },
+    { slug: "comfyui", label: "ComfyUI multi-tenant" },
+    { slug: "long_form", label: "Long-form video" },
+  ]},
+  { group: "Operación", items: [
+    { slug: "pipeline", label: "Pipeline en detalle" },
+    { slug: "cost_model", label: "Cost model" },
+    { slug: "troubleshooting", label: "Troubleshooting" },
+    { slug: "api_reference", label: "API REST Reference" },
+  ]},
+  { group: "Decisiones & migración", items: [
+    { slug: "decisions", label: "ADRs · Decisiones" },
+    { slug: "migration_from_mpt", label: "Migración desde MPT" },
+    { slug: "contributing", label: "Contribuir" },
+  ]},
+];
+---
+
+<BaseLayout title={title} description={description}>
+  <div class="relative mx-auto max-w-7xl px-4 pt-12 sm:px-6 sm:pt-16">
+    <!-- Breadcrumb -->
+    <nav class="mb-6 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--color-ink-faded)]">
+      <a href="/" class="transition-colors hover:text-[var(--color-accent)]">Inicio</a>
+      <span>/</span>
+      <a href="/docs" class="transition-colors hover:text-[var(--color-accent)]">Docs</a>
+      <span>/</span>
+      <span class="text-[var(--color-ink-tertiary)]">{currentSlug}</span>
+    </nav>
+  </div>
+
+  <div class="relative mx-auto grid max-w-7xl gap-12 px-4 pb-24 sm:px-6 lg:grid-cols-[260px_1fr] lg:gap-16">
+    <!-- ─── Sidebar ─── -->
+    <aside class="hidden lg:block">
+      <div class="sticky top-24 space-y-8">
+        {
+          nav.map((group) => (
+            <div>
+              <p class="cinema-label mb-3">{group.group}</p>
+              <ul class="space-y-1.5 border-l border-[var(--color-line)]">
+                {group.items.map((item) => {
+                  const isActive = item.slug === currentSlug;
+                  return (
+                    <li class="relative">
+                      {isActive && (
+                        <span class="absolute -left-px top-0 h-full w-px bg-[var(--color-accent)]" />
+                      )}
+                      <a
+                        href={`/docs/${item.slug}`}
+                        class={`block pl-4 py-1 font-mono text-[12.5px] tracking-wide transition-colors ${
+                          isActive
+                            ? "text-[var(--color-accent)]"
+                            : "text-[var(--color-ink-secondary)] hover:text-[var(--color-ink-primary)]"
+                        }`}
+                      >
+                        {item.label}
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))
+        }
+      </div>
+    </aside>
+
+    <!-- ─── Article ─── -->
+    <article class="prose max-w-3xl">
+      <slot />
+    </article>
+  </div>
+</BaseLayout>

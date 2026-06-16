@@ -1,0 +1,191 @@
+---
+import { capabilities, familyMeta } from "../data/workflows";
+
+// Las capabilities están en data/workflows.ts.
+// La matriz se filtra client-side con CSS attribute selectors (sin JS framework).
+const tags = [
+  { id: "all", label: "Todas" },
+  { id: "brand", label: "Brand LoRA", filter: "brand" },
+  { id: "video", label: "Video", filter: "video" },
+  { id: "character", label: "Character consistency", filter: "character" },
+  { id: "layout-strict", label: "Layout strict", filter: "layout-strict" },
+  { id: "long_form", label: "Long-form", filter: "long_form" },
+];
+---
+
+<section
+  id="capabilities"
+  class="scroll-mt-20 relative border-t border-[var(--color-line)]"
+>
+  <!-- Decorative serif giant 'C' anchor letter -->
+  <div
+    aria-hidden="true"
+    class="pointer-events-none absolute -left-20 top-32 select-none font-display text-[clamp(14rem,28vw,28rem)] leading-none text-[var(--color-line-faint)] opacity-50"
+    style="font-variation-settings: 'opsz' 144, 'SOFT' 100;"
+  >
+    M
+  </div>
+
+  <div class="relative mx-auto max-w-7xl px-4 py-24 sm:px-6 sm:py-32">
+    <div class="mb-12 max-w-3xl space-y-4">
+      <p class="cinema-label">Capacidades — 13 backends</p>
+      <h2
+        class="text-balance font-display text-[clamp(2rem,4.5vw,3.6rem)] leading-[1.05] text-[var(--color-ink-primary)]"
+      >
+        Una matriz de <span class="italic accent" style="font-variation-settings: 'opsz' 144, 'SOFT' 100;">trece</span> caminos para llegar al frame correcto.
+      </h2>
+      <p class="max-w-2xl text-[16px] leading-relaxed text-[var(--color-ink-secondary)]">
+        El selector híbrido decide automáticamente cuál usar según presupuesto, brand identity disponible y tipo de output. Filtra abajo para entender el espacio de decisión.
+      </p>
+    </div>
+
+    <!-- Filter chips -->
+    <div class="mb-8 flex flex-wrap gap-2" data-filter-bar>
+      {
+        tags.map((t, i) => (
+          <button
+            data-filter={t.filter ?? "all"}
+            class={`group inline-flex items-center gap-1.5 rounded-[var(--radius-chip)] border border-[var(--color-line)] px-4 py-2 font-mono text-[11.5px] uppercase tracking-[0.14em] transition-all hover:border-[var(--color-accent-deep)] hover:text-[var(--color-ink-primary)] ${
+              i === 0
+                ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent)]"
+                : "text-[var(--color-ink-tertiary)]"
+            }`}
+            data-default={i === 0 ? "true" : undefined}
+          >
+            {t.label}
+          </button>
+        ))
+      }
+    </div>
+
+    <!-- Grid -->
+    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3" data-matrix>
+      {
+        capabilities.map((cap) => {
+          const family = familyMeta[cap.family];
+          const filterTags = [
+            cap.family,
+            cap.output,
+            cap.brandLora ? "brand" : "",
+            cap.layoutStrict ? "layout-strict" : "",
+            cap.charConsistency ? "character" : "",
+            ...cap.tags,
+          ]
+            .filter(Boolean)
+            .join(" ");
+          return (
+            <article
+              data-tags={filterTags}
+              class="group relative flex flex-col gap-4 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-surface-1)]/60 p-5 transition-all hover:border-[var(--color-accent-deep)] hover:bg-[var(--color-surface-1)]"
+            >
+              <!-- Family ribbon -->
+              <div class="flex items-center justify-between gap-2">
+                <span
+                  class="font-mono text-[10px] uppercase tracking-[0.22em]"
+                  style={`color: ${family.color}`}
+                >
+                  ◆ {family.label}
+                </span>
+                <span class="font-mono text-[10.5px] uppercase tracking-wider text-[var(--color-ink-faded)]">
+                  {cap.output}
+                </span>
+              </div>
+
+              <!-- Name -->
+              <h3
+                class="font-display text-[19px] leading-tight text-[var(--color-ink-primary)] transition-colors group-hover:text-[var(--color-accent)]"
+                style="font-variation-settings: 'opsz' 48, 'SOFT' 50;"
+              >
+                {cap.name}
+              </h3>
+
+              <!-- Capability flags -->
+              <ul class="flex flex-wrap gap-1.5 text-[10.5px] uppercase tracking-wider">
+                {cap.brandLora && (
+                  <li class="rounded-[var(--radius-chip)] border border-[var(--color-accent-deep)] bg-[var(--color-accent)]/10 px-2 py-0.5 font-mono text-[var(--color-accent)]">
+                    Brand LoRA
+                  </li>
+                )}
+                {cap.layoutStrict && (
+                  <li class="rounded-[var(--radius-chip)] border border-[var(--color-line-strong)] bg-[var(--color-surface-2)] px-2 py-0.5 font-mono text-[var(--color-ink-secondary)]">
+                    Layout strict
+                  </li>
+                )}
+                {cap.styleRef && (
+                  <li class="rounded-[var(--radius-chip)] border border-[var(--color-line-strong)] bg-[var(--color-surface-2)] px-2 py-0.5 font-mono text-[var(--color-ink-secondary)]">
+                    Style ref
+                  </li>
+                )}
+                {cap.charConsistency && (
+                  <li class="rounded-[var(--radius-chip)] border border-[var(--color-line-strong)] bg-[var(--color-surface-2)] px-2 py-0.5 font-mono text-[var(--color-ink-secondary)]">
+                    Character ✓
+                  </li>
+                )}
+              </ul>
+
+              <!-- Spec rail -->
+              <dl class="mt-auto grid grid-cols-3 gap-3 border-t border-[var(--color-line-faint)] pt-3 font-mono text-[11px]">
+                <div>
+                  <dt class="text-[9.5px] uppercase tracking-wider text-[var(--color-ink-faded)]">
+                    Duración
+                  </dt>
+                  <dd class="mt-0.5 text-[var(--color-ink-secondary)]">{cap.videoLen}</dd>
+                </div>
+                <div>
+                  <dt class="text-[9.5px] uppercase tracking-wider text-[var(--color-ink-faded)]">
+                    Costo
+                  </dt>
+                  <dd class="mt-0.5 text-[var(--color-ink-secondary)]">{cap.vramOrCost}</dd>
+                </div>
+                <div>
+                  <dt class="text-[9.5px] uppercase tracking-wider text-[var(--color-ink-faded)]">
+                    Tiempo
+                  </dt>
+                  <dd class="mt-0.5 text-[var(--color-ink-secondary)]">{cap.timeEstimate}</dd>
+                </div>
+              </dl>
+
+              {cap.customNodes && (
+                <p class="font-mono text-[10px] text-[var(--color-ink-faded)]">
+                  Custom: {cap.customNodes.join(", ")}
+                </p>
+              )}
+            </article>
+          );
+        })
+      }
+    </div>
+  </div>
+</section>
+
+<script>
+  // Filtro client-side sin framework — pura DOM
+  const matrix = document.querySelector("[data-matrix]") as HTMLElement | null;
+  const filterBar = document.querySelector("[data-filter-bar]") as HTMLElement | null;
+  if (matrix && filterBar) {
+    const items = Array.from(matrix.querySelectorAll<HTMLElement>("article[data-tags]"));
+    const buttons = Array.from(filterBar.querySelectorAll<HTMLButtonElement>("button[data-filter]"));
+
+    function applyFilter(active: string) {
+      items.forEach((el) => {
+        const tags = el.dataset.tags ?? "";
+        const show = active === "all" || tags.includes(active);
+        el.style.display = show ? "" : "none";
+      });
+      buttons.forEach((b) => {
+        const isActive = b.dataset.filter === active;
+        b.classList.toggle("border-[var(--color-accent)]", isActive);
+        b.classList.toggle("bg-[var(--color-accent)]/10", isActive);
+        b.classList.toggle("text-[var(--color-accent)]", isActive);
+        b.classList.toggle("text-[var(--color-ink-tertiary)]", !isActive);
+      });
+    }
+
+    buttons.forEach((b) => {
+      b.addEventListener("click", () => {
+        const f = b.dataset.filter ?? "all";
+        applyFilter(f);
+      });
+    });
+  }
+</script>

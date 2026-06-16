@@ -1,0 +1,97 @@
+---
+const lineages = [
+  {
+    n: "01",
+    name: "Industrial-horizontal",
+    origin: "MoneyPrinterTurbo",
+    desc: "API REST + colas Redis, WebUI Streamlit, 20+ proveedores LLM, 6 motores TTS, stock footage, publicación social, multi-aspect.",
+    capability: "El esqueleto que permite servir muchos requests en paralelo.",
+  },
+  {
+    n: "02",
+    name: "Cognitivo-profundo",
+    origin: "reels-af",
+    desc: "DAG de 18 reasoners (hunters → critic → narrators → judge), narrativa delayed-reveal, sample-accurate TTS, word-burst karaoke.",
+    capability: "La diferencia entre 'genera un guión' y 'encuentra el ángulo viral'.",
+  },
+  {
+    n: "03",
+    name: "Editorial",
+    origin: "corredor-content",
+    desc: "Brand voice como código, anti-alucinación vía facts.json, gate humano plan → approve → produce, pilares rotables.",
+    capability: "Convierte el sistema en una redacción, no solo en un generador.",
+  },
+  {
+    n: "04",
+    name: "Visual ownership",
+    origin: "ComfyUI · Comfy-Org",
+    desc: "7 workflows pre-armados (Flux LoRA, ControlNet, IPAdapter, AnimateDiff, Inpaint, Upscale), training wizard, multi-tenant, OOM auto-retry.",
+    capability: "El moat real: identidad visual única vía LoRA propia.",
+  },
+  {
+    n: "05",
+    name: "Long-form video",
+    origin: "HKUDS/ViMax",
+    desc: "NovelCompressor + RAGStore + ScriptPlanner 3 actos + SceneExtractor + StoryboardArtist + VLM consistency selectors.",
+    capability: "Video de 5–60 min: documentales, libros animados, audiolibros.",
+  },
+];
+---
+
+<section class="relative border-t border-[var(--color-line)]">
+  <div class="relative mx-auto max-w-7xl px-4 py-24 sm:px-6 sm:py-32">
+    <div class="mb-14 max-w-3xl space-y-4">
+      <p class="cinema-label">Linajes — qué resuelve cada uno</p>
+      <h2
+        class="text-balance font-display text-[clamp(2rem,4.5vw,3.6rem)] leading-[1.05] text-[var(--color-ink-primary)]"
+      >
+        Cinco proyectos open source, una sola{" "}
+        <span class="italic accent" style="font-variation-settings: 'opsz' 144, 'SOFT' 100;">columna vertebral</span>.
+      </h2>
+      <p class="max-w-2xl text-[16px] leading-relaxed text-[var(--color-ink-secondary)]">
+        Cada linaje aporta una capacidad específica que el resto NO tiene. No es un fork de uno con plugins; es una fusión arquitectónica deliberada con ADRs documentados.
+      </p>
+    </div>
+
+    <ul class="grid gap-px overflow-hidden rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-line-faint)] md:grid-cols-1">
+      {
+        lineages.map((l, i) => (
+          <li class="group relative bg-[var(--color-surface-1)]/60 transition-colors hover:bg-[var(--color-surface-1)]">
+            <div class="grid items-start gap-6 px-5 py-7 sm:grid-cols-[120px_1fr_1.2fr] sm:items-center sm:gap-10 sm:px-8 sm:py-9">
+              <!-- Number -->
+              <div class="flex items-baseline gap-2">
+                <span
+                  class="font-display text-[clamp(2.5rem,5vw,3.5rem)] leading-none text-[var(--color-accent)]"
+                  style="font-variation-settings: 'opsz' 144, 'SOFT' 100; font-style: italic;"
+                >
+                  {l.n}
+                </span>
+              </div>
+
+              <!-- Name + origin -->
+              <div class="space-y-1.5">
+                <h3
+                  class="font-display text-[clamp(1.4rem,2.6vw,1.95rem)] leading-tight text-[var(--color-ink-primary)] transition-colors group-hover:text-[var(--color-accent)]"
+                  style="font-variation-settings: 'opsz' 96, 'SOFT' 60;"
+                >
+                  {l.name}
+                </h3>
+                <p class="cinema-label !text-[10px]">
+                  Origen · <span class="text-[var(--color-ink-secondary)]">{l.origin}</span>
+                </p>
+              </div>
+
+              <!-- Description + capability -->
+              <div class="space-y-3 text-[14.5px] text-[var(--color-ink-secondary)]">
+                <p class="leading-relaxed">{l.desc}</p>
+                <p class="border-l-2 border-[var(--color-accent-deep)] pl-3 italic text-[13.5px] leading-relaxed text-[var(--color-ink-tertiary)]">
+                  {l.capability}
+                </p>
+              </div>
+            </div>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>

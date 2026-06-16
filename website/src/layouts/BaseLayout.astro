@@ -1,0 +1,71 @@
+---
+import "../styles/global.css";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+
+interface Props {
+  title?: string;
+  description?: string;
+  showHeader?: boolean;
+}
+
+const {
+  title,
+  description = "Plataforma de generación de video con IA: reels, brand-owned content, long-form, ComfyUI multi-tenant, Higgsfield, editorial layer.",
+  showHeader = true,
+} = Astro.props;
+
+const SITE_NAME = "contenido";
+const fullTitle = !title ? `${SITE_NAME} — plataforma de generación de video con IA` : `${title} · ${SITE_NAME}`;
+const canonical = new URL(Astro.url.pathname, Astro.site ?? "https://contenido.vercel.app").href;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="description" content={description} />
+    <meta
+      name="robots"
+      content="index, follow, max-image-preview:large, max-snippet:-1"
+    />
+    <meta name="theme-color" content="#050608" />
+    <meta name="color-scheme" content="dark" />
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="canonical" href={canonical} />
+
+    <!-- OpenGraph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={SITE_NAME} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:locale" content="es_ES" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={description} />
+
+    <!-- Fuentes: Fraunces (display, axes SOFT/opsz para feel cinema),
+                  Manrope (sans, no overused), JetBrains Mono. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..900,30..100;1,9..144,300..900,30..100&family=Manrope:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    />
+
+    <title>{fullTitle}</title>
+  </head>
+  <body class="relative">
+    {showHeader && <Header />}
+    <main class="relative z-[2]">
+      <slot />
+    </main>
+    <Footer />
+  </body>
+</html>

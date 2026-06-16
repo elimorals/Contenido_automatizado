@@ -1,0 +1,91 @@
+---
+const lineages = [
+  { label: "MoneyPrinterTurbo", note: "industrial", href: "https://github.com/harry0703/MoneyPrinterTurbo" },
+  { label: "reels-af", note: "cognitivo", href: "https://github.com/agentfield/reels-af" },
+  { label: "corredor-content", note: "editorial", href: "https://github.com/elimorals/corredor-content" },
+  { label: "ComfyUI / Comfy-Org", note: "visual ownership", href: "https://github.com/comfyanonymous/ComfyUI" },
+  { label: "HKUDS/ViMax", note: "long-form", href: "https://github.com/HKUDS/ViMax" },
+];
+
+const navDocs = [
+  { label: "Getting Started", href: "/docs/getting_started" },
+  { label: "Editorial layer", href: "/docs/editorial" },
+  { label: "ComfyUI", href: "/docs/comfyui" },
+  { label: "Long-form", href: "/docs/long_form" },
+  { label: "Configuration", href: "/docs/configuration" },
+  { label: "Cost model", href: "/docs/cost_model" },
+  { label: "Decisiones (ADRs)", href: "/docs/decisions" },
+  { label: "API Reference", href: "/docs/api_reference" },
+];
+---
+
+<footer class="relative z-[2] mt-32 border-t border-[var(--color-line)] bg-[var(--color-surface-1)]/40">
+  <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6">
+    <div class="grid gap-12 md:grid-cols-[1.4fr_1fr_1fr]">
+      <!-- Brand col -->
+      <div class="space-y-4">
+        <p class="cinema-label">contenido — v0.4</p>
+        <h3
+          class="max-w-md text-balance font-display text-[28px] leading-[1.1] text-[var(--color-ink-primary)]"
+          style="font-variation-settings: 'opsz' 72, 'SOFT' 80;"
+        >
+          Cinco linajes, un{" "}
+          <span class="italic accent" style="font-variation-settings: 'opsz' 72, 'SOFT' 100;">ecosistema</span>{" "}
+          completo de generación de video con IA.
+        </h3>
+        <p class="max-w-md text-[14px] leading-relaxed text-[var(--color-ink-tertiary)]">
+          Reels cortos, video largo, brand identity vía LoRA, editorial gate humano, workflows ComfyUI custom. Self-host o managed.
+        </p>
+      </div>
+
+      <!-- Docs col -->
+      <div>
+        <p class="cinema-label mb-4">Documentación</p>
+        <ul class="space-y-2.5">
+          {navDocs.map((d) => (
+            <li>
+              <a
+                href={d.href}
+                class="font-mono text-[12.5px] text-[var(--color-ink-secondary)] transition-colors hover:text-[var(--color-accent)]"
+              >
+                {d.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <!-- Lineages col -->
+      <div>
+        <p class="cinema-label mb-4">Linajes integrados</p>
+        <ul class="space-y-2.5">
+          {lineages.map((l) => (
+            <li class="flex items-baseline gap-2">
+              <a
+                href={l.href}
+                target="_blank"
+                rel="noopener"
+                class="font-mono text-[12.5px] text-[var(--color-ink-secondary)] transition-colors hover:text-[var(--color-accent)]"
+              >
+                {l.label}
+              </a>
+              <span class="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-ink-faded)]">
+                · {l.note}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+
+    <!-- Bottom strip -->
+    <div class="mt-12 flex flex-col items-start justify-between gap-3 border-t border-[var(--color-line-faint)] pt-6 sm:flex-row sm:items-center">
+      <p class="font-mono text-[11px] tracking-wide text-[var(--color-ink-faded)]">
+        Apache 2.0 · 413 tests verde · construido en Veracruz, México
+      </p>
+      <p class="font-mono text-[11px] tracking-wide text-[var(--color-ink-faded)]">
+        © 2026 Cipre Holding
+      </p>
+    </div>
+  </div>
+</footer>

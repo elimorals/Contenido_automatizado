@@ -1,0 +1,65 @@
+---
+const pathname = Astro.url.pathname;
+const isDocs = pathname.startsWith("/docs");
+---
+
+<header
+  class="sticky top-0 z-50 border-b border-[var(--color-line-faint)] bg-[var(--color-surface-base)]/85 backdrop-blur-md"
+>
+  <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
+    <a href="/" class="group flex items-baseline gap-2">
+      <span
+        class="font-display text-[22px] leading-none text-[var(--color-ink-primary)] transition-colors group-hover:text-[var(--color-accent)]"
+        style="font-variation-settings: 'opsz' 96, 'SOFT' 70;"
+      >
+        contenido
+      </span>
+      <span class="font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--color-ink-tertiary)]">
+        v0.4
+      </span>
+    </a>
+
+    <nav class="hidden items-center gap-7 md:flex">
+      <a
+        href="/docs"
+        class={`font-mono text-[12.5px] tracking-wide transition-colors ${
+          isDocs
+            ? "text-[var(--color-accent)]"
+            : "text-[var(--color-ink-secondary)] hover:text-[var(--color-ink-primary)]"
+        }`}
+      >
+        Docs
+      </a>
+      <a
+        href="/#capabilities"
+        class="font-mono text-[12.5px] tracking-wide text-[var(--color-ink-secondary)] transition-colors hover:text-[var(--color-ink-primary)]"
+      >
+        Capacidades
+      </a>
+      <a
+        href="/#long-form"
+        class="font-mono text-[12.5px] tracking-wide text-[var(--color-ink-secondary)] transition-colors hover:text-[var(--color-ink-primary)]"
+      >
+        Long-form
+      </a>
+      <a
+        href="https://github.com/elimorals/Contenido_automatizado"
+        class="font-mono text-[12.5px] tracking-wide text-[var(--color-ink-secondary)] transition-colors hover:text-[var(--color-ink-primary)]"
+        target="_blank"
+        rel="noopener"
+      >
+        GitHub ↗
+      </a>
+    </nav>
+
+    <a
+      href="/docs/getting_started"
+      class="inline-flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--color-accent-deep)] bg-[var(--color-accent)]/10 px-4 py-2 font-mono text-[12px] text-[var(--color-accent)] transition-all hover:bg-[var(--color-accent)]/20 hover:border-[var(--color-accent)]"
+    >
+      Empezar
+      <svg viewBox="0 0 24 24" class="size-3" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12h14M13 5l7 7-7 7" />
+      </svg>
+    </a>
+  </div>
+</header>

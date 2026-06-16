@@ -1,0 +1,112 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getCollection } from "astro:content";
+
+const allDocs = await getCollection("docs");
+
+// Mapeo curado: slug → metadata visual (descripción corta + grupo + accent).
+// Si un .md no está acá, se muestra al final en "Más documentos".
+const curated: Record<string, { group: string; tagline: string; order: number }> = {
+  getting_started: { group: "Empezar", tagline: "Tutorial paso a paso: de `git clone` a tu primer reel en ~15 min.", order: 1 },
+  api_keys: { group: "Empezar", tagline: "Qué keys necesitas (mín. OPENROUTER + PEXELS), dónde sacarlas, qué cuesta.", order: 2 },
+  configuration: { group: "Empezar", tagline: "Referencia completa del `config.toml` y todas las env vars.", order: 3 },
+  editorial: { group: "Capas", tagline: "Brand voice como código, facts.json anti-alucinación, gate humano plan→produce.", order: 4 },
+  comfyui: { group: "Capas", tagline: "7 workflows, LoRA training wizard, multi-tenant, OOM auto-retry, observability.", order: 5 },
+  long_form: { group: "Capas", tagline: "Pipeline ViMax-inspired para video de 5–60 min. NovelCompressor, RAG, VLM consistency.", order: 6 },
+  pipeline: { group: "Operación", tagline: "El DAG completo en detalle — 18 reasoners + visual selector + editor.", order: 7 },
+  cost_model: { group: "Operación", tagline: "Tabla rápida de costos por modo y duración. Tabulado por LLM/TTS/visual.", order: 8 },
+  troubleshooting: { group: "Operación", tagline: "Errores comunes y sus fixes.", order: 9 },
+  api_reference: { group: "Operación", tagline: "14 endpoints REST documentados.", order: 10 },
+  decisions: { group: "Meta", tagline: "ADRs 1-15 — por qué se eligió cada cosa.", order: 11 },
+  migration_from_mpt: { group: "Meta", tagline: "Si vienes de MoneyPrinterTurbo, mapeo línea a línea.", order: 12 },
+  contributing: { group: "Meta", tagline: "Guía de contribución.", order: 13 },
+};
+
+const docs = allDocs
+  .map((d) => ({
+    slug: d.id,
+    ...(curated[d.id] ?? { group: "Más documentos", tagline: "", order: 99 }),
+  }))
+  .sort((a, b) => a.order - b.order);
+
+const groups = ["Empezar", "Capas", "Operación", "Meta", "Más documentos"];
+---
+
+<BaseLayout title="Documentación" description="13 documentos cubriendo todo el ecosistema: setup, capas editoriales y de visual ownership, long-form, costos, ADRs.">
+  <section class="relative">
+    <!-- Decorative giant 'D' watermark -->
+    <div
+      aria-hidden="true"
+      class="pointer-events-none absolute -right-24 top-8 select-none font-display text-[clamp(16rem,32vw,32rem)] leading-none text-[var(--color-line-faint)] opacity-50"
+      style="font-variation-settings: 'opsz' 144, 'SOFT' 100;"
+    >
+      D
+    </div>
+
+    <div class="relative mx-auto max-w-7xl px-4 pb-16 pt-16 sm:px-6 sm:pt-24">
+      <p class="cinema-label">Documentación · 13 documentos</p>
+      <h1
+        class="mt-4 max-w-3xl text-balance font-display text-[clamp(2.4rem,6vw,4.4rem)] leading-[1.02] text-[var(--color-ink-primary)]"
+      >
+        Todo lo que necesitas para correr{" "}
+        <span class="italic accent" style="font-variation-settings: 'opsz' 144, 'SOFT' 100;">contenido</span>{" "}
+        en tu propia infraestructura.
+      </h1>
+      <p class="mt-5 max-w-2xl text-[16px] leading-relaxed text-[var(--color-ink-secondary)]">
+        Desde el primer reel hasta multi-tenant con LoRAs entrenadas y video de 60 min. Cada doc tiene un propósito específico — no hay redundancia.
+      </p>
+    </div>
+  </section>
+
+  <!-- Grouped lists -->
+  <section class="relative mx-auto max-w-7xl px-4 pb-32 sm:px-6">
+    <div class="space-y-16">
+      {
+        groups.map((group) => {
+          const items = docs.filter((d) => d.group === group);
+          if (items.length === 0) return null;
+          return (
+            <div>
+              <h2
+                class="mb-6 font-display text-[22px] uppercase tracking-[0.18em] text-[var(--color-accent)]"
+                style="font-variation-settings: 'opsz' 48, 'SOFT' 30; font-weight: 500;"
+              >
+                <span class="inline-block h-px w-10 align-middle mr-3 bg-[var(--color-accent)]"></span>
+                {group}
+              </h2>
+              <ul class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {items.map((d) => (
+                  <li>
+                    <a
+                      href={`/docs/${d.slug}`}
+                      class="group flex h-full flex-col gap-3 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-surface-1)]/40 p-5 transition-all hover:-translate-y-0.5 hover:border-[var(--color-accent-deep)] hover:bg-[var(--color-surface-1)]"
+                    >
+                      <p class="font-mono text-[10.5px] uppercase tracking-[0.22em] text-[var(--color-ink-faded)]">
+                        {d.slug}.md
+                      </p>
+                      <h3
+                        class="font-display text-[20px] leading-tight text-[var(--color-ink-primary)] transition-colors group-hover:text-[var(--color-accent)]"
+                        style="font-variation-settings: 'opsz' 48, 'SOFT' 50;"
+                      >
+                        {d.slug.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()).toLowerCase().replace(/^\w/, (c) => c.toUpperCase())}
+                      </h3>
+                      <p class="mt-auto text-[13.5px] leading-relaxed text-[var(--color-ink-secondary)]">
+                        {d.tagline || "Documento del proyecto."}
+                      </p>
+                      <p class="mt-2 inline-flex items-center gap-1.5 font-mono text-[11.5px] text-[var(--color-ink-tertiary)] transition-colors group-hover:text-[var(--color-accent)]">
+                        Leer
+                        <svg viewBox="0 0 24 24" class="size-3 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M5 12h14M13 5l7 7-7 7" />
+                        </svg>
+                      </p>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })
+      }
+    </div>
+  </section>
+</BaseLayout>

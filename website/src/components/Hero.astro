@@ -1,0 +1,134 @@
+---
+// Hero principal — asimétrico, cinematográfico
+// Pattern: copy editorial-serif a la izquierda, terminal preview a la derecha
+---
+
+<section class="relative overflow-hidden">
+  <!-- Cinema letterbox effect: thin lines top/bottom para evocar aspect ratio cinematográfico -->
+  <div class="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--color-line-strong)] to-transparent"></div>
+
+  <!-- Decorative giant serif letter as watermark, behind everything -->
+  <div
+    aria-hidden="true"
+    class="pointer-events-none absolute -right-32 -top-20 select-none font-display text-[clamp(20rem,40vw,40rem)] leading-none text-[var(--color-line-faint)] opacity-40"
+    style="font-variation-settings: 'opsz' 144, 'SOFT' 100; font-style: italic;"
+  >
+    c
+  </div>
+
+  <div class="relative mx-auto max-w-7xl px-4 pb-24 pt-20 sm:px-6 sm:pb-32 sm:pt-28 lg:pt-36">
+    <div class="grid items-start gap-12 lg:grid-cols-[1.15fr_1fr] lg:gap-16">
+      <!-- ─── Copy column ─── -->
+      <div class="space-y-7">
+        <p class="rise rise-1 cinema-label">
+          Ecosistema · Open source · Python 3.11+
+        </p>
+
+        <h1
+          class="rise rise-2 max-w-4xl text-balance font-display text-[clamp(2.4rem,7.8vw,5.4rem)] leading-[0.95]"
+        >
+          <span class="text-[var(--color-ink-primary)]">Genera video con</span>
+          <span
+            class="italic accent"
+            style="font-variation-settings: 'opsz' 144, 'SOFT' 100;"
+          >
+            identidad
+          </span>
+          <span class="text-[var(--color-ink-primary)]">propia,</span>
+          <br />
+          <span class="text-[var(--color-ink-secondary)]">no</span>
+          <span class="text-[var(--color-ink-secondary)]">"</span><span class="font-mono text-[0.7em] text-[var(--color-ink-tertiary)]">slop</span><span class="text-[var(--color-ink-secondary)]"> de</span>
+          <span class="font-mono text-[0.7em] text-[var(--color-ink-tertiary)]">IA</span><span class="text-[var(--color-ink-secondary)]">"</span>.
+        </h1>
+
+        <p
+          class="rise rise-3 max-w-xl text-[17px] leading-relaxed text-[var(--color-ink-secondary)]"
+        >
+          Un monorepo Python que fusiona{" "}
+          <em class="not-italic text-[var(--color-ink-primary)]">cinco linajes</em>{" "}
+          — pipeline industrial, DAG cognitivo, editorial layer, ComfyUI multi-tenant y long-form. Desde reels de 25s hasta documentales de 60 min. Self-hosted o managed.
+        </p>
+
+        <div class="rise rise-4 flex flex-wrap items-center gap-3 pt-3">
+          <a
+            href="/docs/getting_started"
+            class="glow-amber group inline-flex items-center gap-2.5 rounded-[var(--radius-sm)] bg-[var(--color-accent)] px-6 py-3.5 font-mono text-[13px] font-medium text-[var(--color-surface-base)] no-underline"
+          >
+            Empezar en 4 pasos
+            <svg viewBox="0 0 24 24" class="size-3.5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h14M13 5l7 7-7 7" />
+            </svg>
+          </a>
+          <a
+            href="/docs"
+            class="inline-flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--color-line)] px-6 py-3.5 font-mono text-[13px] text-[var(--color-ink-secondary)] no-underline transition-all hover:border-[var(--color-accent-deep)] hover:text-[var(--color-ink-primary)]"
+          >
+            Documentación
+          </a>
+          <a
+            href="https://github.com/elimorals/Contenido_automatizado"
+            target="_blank"
+            rel="noopener"
+            class="inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] px-3 py-3.5 font-mono text-[13px] text-[var(--color-ink-tertiary)] no-underline transition-colors hover:text-[var(--color-ink-primary)]"
+          >
+            ⌘ git clone
+          </a>
+        </div>
+
+        <!-- Sub-tagline lineages -->
+        <div class="rise rise-5 flex flex-wrap items-center gap-x-5 gap-y-2 pt-6 font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--color-ink-faded)]">
+          <span class="text-[var(--color-accent-deep)]">●</span> MoneyPrinterTurbo
+          <span class="text-[var(--color-accent-deep)]">●</span> reels-af
+          <span class="text-[var(--color-accent-deep)]">●</span> corredor-content
+          <span class="text-[var(--color-accent-deep)]">●</span> ComfyUI
+          <span class="text-[var(--color-accent-deep)]">●</span> HKUDS/ViMax
+        </div>
+      </div>
+
+      <!-- ─── Terminal preview column ─── -->
+      <div class="rise rise-6 self-start lg:mt-8">
+        <div
+          class="overflow-hidden rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-surface-1)] shadow-[0_40px_100px_-30px_rgba(0,0,0,0.7)]"
+        >
+          <!-- Window chrome -->
+          <div class="flex items-center justify-between border-b border-[var(--color-line-faint)] bg-[var(--color-surface-2)] px-3 py-2.5">
+            <div class="flex items-center gap-1.5">
+              <span class="size-2.5 rounded-full bg-[var(--color-danger)]/60"></span>
+              <span class="size-2.5 rounded-full bg-[var(--color-warm)]/60"></span>
+              <span class="size-2.5 rounded-full bg-[var(--color-success)]/60"></span>
+            </div>
+            <span class="font-mono text-[10.5px] uppercase tracking-wider text-[var(--color-ink-faded)]">
+              zsh — contenido
+            </span>
+            <span class="font-mono text-[10.5px] text-[var(--color-accent-deep)]">
+              v0.4
+            </span>
+          </div>
+
+          <!-- Code -->
+          <pre class="overflow-x-auto p-5 font-mono text-[12.5px] leading-[1.85]"><code><span class="text-[var(--color-ink-faded)]">$</span> <span class="text-[var(--color-accent)]">contenido</span> topic <span class="text-[var(--color-warm)]">"the placebo effect"</span> <span class="text-[var(--color-ink-secondary)]">--mode premium</span>
+
+<span class="text-[var(--color-ink-faded)]">🎬</span> <span class="text-[var(--color-ink-secondary)]">Generating reel — task</span> <span class="text-[var(--color-accent)]">a8c12f3</span>
+<span class="text-[var(--color-ink-faded)]">└─</span> <span class="text-[var(--color-ink-secondary)]">DAG: hunters × 4 → critic → narrators × 3 → judge</span>
+<span class="text-[var(--color-ink-faded)]">└─</span> <span class="text-[var(--color-ink-secondary)]">Visual: ComfyUI</span> <span class="text-[var(--color-accent)]">flux_lora_brand</span> <span class="text-[var(--color-ink-secondary)]">+ Higgsfield DoP</span>
+<span class="text-[var(--color-ink-faded)]">└─</span> <span class="text-[var(--color-ink-secondary)]">TTS: Gemini Flash, sample-accurate timing</span>
+
+<span class="text-[var(--color-success)]">✓ Done in 94.2s</span>
+   <span class="text-[var(--color-ink-tertiary)]">Output: ./output/a8c12f3/reel.mp4</span>
+   <span class="text-[var(--color-ink-tertiary)]">Duration: 23.4s · Cost: $0.087</span>
+
+<span class="text-[var(--color-ink-faded)]"># 413 tests verde · 5 linajes · 7 workflows ComfyUI</span></code></pre>
+        </div>
+
+        <!-- Caption below terminal -->
+        <p class="mt-4 flex items-center justify-between gap-3 font-mono text-[10.5px] uppercase tracking-[0.2em] text-[var(--color-ink-faded)]">
+          <span>4 entry points · 18 reasoners</span>
+          <span class="text-[var(--color-accent-deep)]">premium · 70–110s · ~$0.08–1.20</span>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom letterbox line -->
+  <div class="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[var(--color-line)] to-transparent"></div>
+</section>

@@ -1,0 +1,413 @@
+@import "tailwindcss";
+
+/* ──────────────────────────────────────────────────────────────────────────
+   DESIGN TOKENS — Cinematográfica "Golden Hour"
+   ────────────────────────────────────────────────────────────────────────
+   Inspiración: la luz que tus LoRAs entrenadas generan. Negro profundo
+   (no negro puro — un negro con calidez sutil) + amber/golden como
+   accent escaso. Tipografía: Fraunces (display, axes SOFT alto = feel
+   "cinema" no "academic") + Manrope (sans geometric, evita Inter/Roboto)
+   + JetBrains Mono.
+   ────────────────────────────────────────────────────────────────────── */
+
+@theme {
+  /* Surfaces — negro cinematográfico con tinte cálido sutil */
+  --color-surface-base: #050608;
+  --color-surface-1: #0A0C10;
+  --color-surface-2: #11141A;
+  --color-surface-3: #181C24;
+  --color-surface-elevated: #1F242F;
+
+  /* Lines & dividers */
+  --color-line-faint: #1A1814;
+  --color-line: #26221C;
+  --color-line-strong: #3A3528;
+
+  /* Ink — warm whites, no grays fríos */
+  --color-ink-primary: #F5F1E8;
+  --color-ink-secondary: #C5BFAE;
+  --color-ink-tertiary: #8A8275;
+  --color-ink-faded: #5E5848;
+  --color-ink-disabled: #3F3B30;
+
+  /* Accent — golden hour */
+  --color-accent: #E8B86F;          /* amber base */
+  --color-accent-hover: #F0C988;
+  --color-accent-deep: #B58A4D;     /* deep amber para borders */
+  --color-accent-shadow: rgba(232, 184, 111, 0.18);
+
+  /* Semantic */
+  --color-warm: #E8945C;            /* orange-warm para énfasis */
+  --color-success: #A8C97D;         /* verde olivo cálido */
+  --color-danger: #D97B5C;          /* rojo terracota */
+
+  /* Typography */
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
+  --font-body: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* Radii — sharp, restrained */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-chip: 999px;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-cinema: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   BASE
+   ────────────────────────────────────────────────────────────────────── */
+
+html {
+  background-color: var(--color-surface-base);
+  color: var(--color-ink-primary);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "ss01", "cv11";
+  overflow-x: hidden;
+}
+
+body {
+  /* Golden hour light leak — radial muy sutil al top + noise texture */
+  background:
+    radial-gradient(
+      ellipse 90% 60% at 50% -10%,
+      rgba(232, 184, 111, 0.10) 0%,
+      rgba(232, 184, 111, 0.04) 30%,
+      transparent 70%
+    ),
+    var(--color-surface-base);
+  background-attachment: fixed;
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Film grain overlay — sutil, sobre TODO el body */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  mix-blend-mode: overlay;
+}
+
+main,
+main > * {
+  min-width: 0;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   TYPOGRAPHY
+   ────────────────────────────────────────────────────────────────────── */
+
+.font-display,
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  letter-spacing: -0.025em;
+  font-weight: 400;
+}
+
+/* Fraunces axes — SOFT alto da feel "cinema" (no academic), opsz da el sizing óptico */
+h1 { font-variation-settings: "opsz" 144, "SOFT" 80; }
+h2 { font-variation-settings: "opsz" 96, "SOFT" 60; }
+h3 { font-variation-settings: "opsz" 48, "SOFT" 50; }
+
+.italic-display {
+  font-style: italic;
+  font-variation-settings: "opsz" 144, "SOFT" 100;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+code,
+kbd,
+.font-mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "ss02", "cv01";
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   LINKS
+   ────────────────────────────────────────────────────────────────────── */
+
+a {
+  color: inherit;
+  text-decoration: none;
+  transition: color 220ms var(--ease-out);
+}
+
+.prose a {
+  color: var(--color-accent);
+  border-bottom: 1px solid var(--color-accent-deep);
+  transition: border-color 220ms var(--ease-out);
+}
+
+.prose a:hover {
+  border-bottom-color: var(--color-accent);
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   STAGGERED RISE (page load animation)
+   ────────────────────────────────────────────────────────────────────── */
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rise {
+  opacity: 0;
+  animation: rise 900ms var(--ease-cinema) forwards;
+}
+
+.rise-1 { animation-delay: 50ms; }
+.rise-2 { animation-delay: 180ms; }
+.rise-3 { animation-delay: 320ms; }
+.rise-4 { animation-delay: 460ms; }
+.rise-5 { animation-delay: 600ms; }
+.rise-6 { animation-delay: 740ms; }
+
+/* ──────────────────────────────────────────────────────────────────────
+   CINEMA UTILITIES
+   ────────────────────────────────────────────────────────────────────── */
+
+/* Letterboxing horizontal lines — sutil, evoca cinematografía */
+.letterbox-top::before,
+.letterbox-bottom::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-line-strong) 20%,
+    var(--color-line-strong) 80%,
+    transparent
+  );
+}
+.letterbox-top::before { top: 0; }
+.letterbox-bottom::after { bottom: 0; }
+
+/* Cinema label — uppercase + tracking wide + accent dot */
+.cinema-label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  color: var(--color-ink-tertiary);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cinema-label::before {
+  content: "";
+  width: 24px;
+  height: 1px;
+  background: var(--color-accent);
+}
+
+/* Accent text — el amber escaso para énfasis específicos */
+.accent {
+  color: var(--color-accent);
+}
+
+/* Hover glow para CTAs amber */
+.glow-amber {
+  box-shadow:
+    0 0 0 1px rgba(232, 184, 111, 0.12),
+    0 4px 24px rgba(232, 184, 111, 0.08);
+  transition: box-shadow 280ms var(--ease-out), transform 280ms var(--ease-out);
+}
+
+.glow-amber:hover {
+  box-shadow:
+    0 0 0 1px rgba(232, 184, 111, 0.25),
+    0 8px 32px rgba(232, 184, 111, 0.18);
+  transform: translateY(-1px);
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   PROSE (docs)
+   ────────────────────────────────────────────────────────────────────── */
+
+.prose {
+  max-width: none;
+  color: var(--color-ink-secondary);
+  font-size: 16px;
+  line-height: 1.75;
+}
+
+.prose h1 {
+  font-size: clamp(2.2rem, 5vw, 3.2rem);
+  color: var(--color-ink-primary);
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  line-height: 1.1;
+}
+
+.prose h2 {
+  font-size: clamp(1.6rem, 3vw, 2.1rem);
+  color: var(--color-ink-primary);
+  margin-top: 3rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.prose h3 {
+  font-size: clamp(1.2rem, 2vw, 1.45rem);
+  color: var(--color-ink-primary);
+  margin-top: 2.2rem;
+  margin-bottom: 0.7rem;
+}
+
+.prose h4 {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-accent);
+  margin-top: 1.8rem;
+  margin-bottom: 0.6rem;
+}
+
+.prose p { margin: 1rem 0; }
+
+.prose ul, .prose ol {
+  margin: 1rem 0;
+  padding-left: 1.5rem;
+}
+
+.prose li { margin: 0.4rem 0; }
+
+.prose ul > li::marker {
+  color: var(--color-accent-deep);
+}
+
+.prose strong {
+  color: var(--color-ink-primary);
+  font-weight: 600;
+}
+
+.prose em {
+  font-style: italic;
+  color: var(--color-ink-primary);
+}
+
+.prose code:not(pre code) {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-line);
+  padding: 0.12em 0.42em;
+  border-radius: var(--radius-sm);
+  font-size: 0.88em;
+  color: var(--color-accent);
+}
+
+.prose pre {
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-line);
+  padding: 1.2rem 1.4rem;
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  font-size: 13.5px;
+  line-height: 1.7;
+  margin: 1.4rem 0;
+}
+
+.prose pre code {
+  background: transparent !important;
+  border: 0;
+  padding: 0;
+  font-size: inherit;
+  color: var(--color-ink-secondary);
+}
+
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+  font-size: 14px;
+}
+
+.prose th, .prose td {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.prose th {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--color-ink-tertiary);
+  font-weight: 500;
+  border-bottom: 1px solid var(--color-line-strong);
+}
+
+.prose blockquote {
+  border-left: 2px solid var(--color-accent);
+  padding-left: 1.4rem;
+  margin: 1.6rem 0;
+  font-style: italic;
+  color: var(--color-ink-secondary);
+}
+
+.prose hr {
+  border: 0;
+  border-top: 1px solid var(--color-line);
+  margin: 3rem 0;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   FOCUS STATES (a11y)
+   ────────────────────────────────────────────────────────────────────── */
+
+*:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   SCROLLBAR (subtle, cinematic)
+   ────────────────────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--color-surface-base); }
+::-webkit-scrollbar-thumb {
+  background: var(--color-line);
+  border-radius: var(--radius-chip);
+  border: 2px solid var(--color-surface-base);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--color-line-strong); }
+
+/* ──────────────────────────────────────────────────────────────────────
+   SELECTION
+   ────────────────────────────────────────────────────────────────────── */
+
+::selection {
+  background: var(--color-accent);
+  color: var(--color-surface-base);
+}
