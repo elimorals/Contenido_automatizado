@@ -257,6 +257,34 @@ uv run python scripts/comfyui_ab_test.py --quick --tenant miMarca
 
 Detalles en [`COMFYUI.md`](./COMFYUI.md).
 
+## Paso 10 — Video largo (5-60 min, opcional)
+
+Para documentales, libros animados, audiolibros visuales, YouTube long-form. Pipeline en 2 fases con gate humano en medio.
+
+```bash
+# 1. Habilitar
+echo "LONG_FORM_ENABLED=true" >> .env
+
+# 2. Plan (cheap, ~$1-4, 5-15 min, SIN GPU)
+echo "Un viajero del tiempo pierde memorias con cada cambio que hace" > ./idea.txt
+uv run contenido book plan ./idea.txt \
+    --target-minutes 10 \
+    --source-kind idea \
+    --intent auto
+
+# 3. Inspeccionar el script generado (gate humano)
+uv run contenido book show <job_id>
+
+# 4. (Opcional) editar manualmente storage/long_form/<job_id>/script.json
+
+# 5. Producir (~$15-20, 30-60 min, REQUIERE GPU + ComfyUI corriendo)
+uv run contenido book produce <job_id>
+```
+
+Para libros completos: `--source-kind novel` activa el NovelCompressor (chunks paralelos + aggregate). Para scripts ya escritos: `--source-kind script`.
+
+Detalles en [`LONG_FORM.md`](./LONG_FORM.md).
+
 ## Próximos pasos
 
 | Quieres… | Lee… |
@@ -264,6 +292,7 @@ Detalles en [`COMFYUI.md`](./COMFYUI.md).
 | Entender cada parámetro de config | [CONFIGURATION.md](./CONFIGURATION.md) |
 | Brand voice, facts, plan/approve | [EDITORIAL.md](./EDITORIAL.md) |
 | LoRAs custom, ControlNet, multi-tenant | [COMFYUI.md](./COMFYUI.md) |
+| Video largo 5-60 min (novelas, documentales) | [LONG_FORM.md](./LONG_FORM.md) |
 | Ver todos los endpoints REST | [API_REFERENCE.md](./API_REFERENCE.md) |
 | Optimizar costos | [COST_MODEL.md](./COST_MODEL.md) |
 | Diagnosticar un error | [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) |

@@ -387,6 +387,63 @@ Ver [`docs/COMFYUI.md`](./COMFYUI.md) para detalle completo.
 
 ---
 
+## `[long_form]` — Video largo (5-60 min, ViMax-inspired)
+
+Pipeline para documentales / libros animados / YouTube long-form. Reusa todo el stack base (LLM router, TTS, ComfyUI, editor). Sin duplicación.
+
+```toml
+[long_form]
+enabled = false                                    # LONG_FORM_ENABLED
+working_dir = "./storage/long_form"
+chunk_size_chars = 8000                            # RecursiveCharacterTextSplitter
+chunk_overlap_chars = 800
+embedding_model_name = "BAAI/bge-small-en-v1.5"   # LONG_FORM_EMBED_MODEL
+embedding_device = "cpu"                           # LONG_FORM_EMBED_DEVICE (cpu|cuda)
+embedding_cache_dir = "./storage/long_form/embed_cache"
+faiss_enabled = false                              # LONG_FORM_FAISS_ENABLED (requiere `uv sync --extra longform-scale`)
+top_k_retrieval = 5
+
+chat_model_provider = "openrouter"                 # usa core.llm_router
+chat_model_name = ""                               # vacío = default del provider
+vlm_model_provider = "openrouter"                  # para BestImageSelector + ReferenceImageSelector
+vlm_model_name = "google/gemini-2.5-flash"        # LONG_FORM_VLM_MODEL
+
+candidates_per_shot = 3                            # N candidates por shot (best-of-N VLM)
+max_reference_anchors = 8                          # max imágenes mostradas al VLM (de ViMax)
+
+default_target_minutes = 10.0
+max_target_minutes = 60.0
+parallel_shot_concurrency = 4                      # cuántos shots en paralelo
+
+final_codec = "libx264"
+final_crf = 23
+final_audio_codec = "aac"
+```
+
+### Env vars long_form
+
+| Variable | Default | Descripción |
+|---|---|---|
+| `LONG_FORM_ENABLED` | `false` | Habilita el módulo |
+| `LONG_FORM_WORKING_DIR` | `./storage/long_form` | Dir base para jobs |
+| `LONG_FORM_EMBED_MODEL` | `BAAI/bge-small-en-v1.5` | Embedding model (sentence-transformers) |
+| `LONG_FORM_EMBED_DEVICE` | `cpu` | `cpu` o `cuda` |
+| `LONG_FORM_FAISS_ENABLED` | `false` | Opt-in al backend FAISS (corpus >5k chunks) |
+| `LONG_FORM_VLM_MODEL` | `google/gemini-2.5-flash` | Modelo VLM para consistency checks |
+
+### Trade-offs FAISS vs numpy
+
+| Backend | Cuándo usar | Costo extra |
+|---|---|---|
+| **numpy** (default) | ≤5,000 chunks (libros sueltos, scripts, podcasts cortos) | 0 (ya tienes numpy) |
+| **FAISS** (`--extra longform-scale`) | >5,000 chunks (enciclopedias, corpus multi-libro, archivos de podcast completos) | +50MB binarios |
+
+Numpy con `argpartition` es O(N) — ~1ms para 1k chunks. FAISS HNSW gana solo a partir de ~5k.
+
+Ver [`docs/LONG_FORM.md`](./LONG_FORM.md) para arquitectura completa.
+
+---
+
 ## `[stock]` — Stock footage
 
 ```toml

@@ -11,8 +11,9 @@ Fecha última actualización: 2026-06-15
 3. **Capa editorial** (de corredor-content): brand voice as code + facts.json + gate humano
 4. **Higgsfield**: DoP (i2v) + Soul (character) + Effects (VFX) + CLI fallback
 5. **ComfyUI nativo**: 7 workflows pre-armados + LoRA training wizard + multi-tenant + observability
+6. **Long-form video** (inspirado en ViMax HKUDS): NovelCompressor + RAGStore híbrido + ScriptPlanner 3-actos + SceneExtractor + StoryboardArtist + VLM consistency selectors + Director 2-fase
 
-Los 3 entry points (article URL, topic, subject) + workflow editorial (plan→approve→produce) están operacionales con el pipeline completo conectado.
+Los 4 entry points (article URL, topic, subject, **long_form_input**) + workflow editorial (plan→approve→produce) están operacionales con el pipeline completo conectado.
 
 ## 📊 Métricas actuales
 
@@ -29,6 +30,7 @@ Los 3 entry points (article URL, topic, subject) + workflow editorial (plan→ap
 | `core/tts/` (6 engines + sample-accurate timing) | 12 | ~1,680 | 46 |
 | `core/visual/generation/` (Gemini, Veo, Higgsfield x4, ComfyUI x3, ken-burns) | 14 | ~3,200 | 75 |
 | `core/comfy/` (wrapper + training wizard) | 3 | ~600 | (in test_comfyui) |
+| `core/long_form/` (ViMax-inspired: compressor + RAG + script + scenes + consistency + director) | 9 | ~1,500 | 30 |
 | `core/editor/` (ffmpeg + multi-aspect + hw encoders) | 5 | ~760 | 12 |
 | `core/subtitles/` (word-burst + SRT + Whisper) | 5 | ~980 | 8 |
 | `core/distribution/` (Upload-Post) | 5 | ~510 | 7 |
@@ -40,7 +42,7 @@ Los 3 entry points (article URL, topic, subject) + workflow editorial (plan→ap
 | `docs/` (12 archivos) | 12 | ~3,500 | — |
 
 **Compile check global**: ✅ EXIT 0
-**Tests verdes**: **383 / 383** (100%)
+**Tests verdes**: **413 / 413** (100%)
 
 ## 🛣️ Pipeline E2E funcional
 
@@ -124,11 +126,26 @@ Workflow editorial paralelo:
 - A/B harness ComfyUI brand LoRA vs Gemini Image
 - comfy-cli wrapper para install/launch/lora/node management
 
+### Long-form video (ViMax-inspired)
+- Pipeline 2-fase: `plan_long_form()` (~$1-4) + `produce_long_form()` (~$15-20)
+- **NovelCompressor**: chunk + parallel LLM compress + aggregate (libros >20k chars)
+- **RAGStore híbrido**: numpy default (≤5k chunks) + FAISS opt-in vía `--extra longform-scale`
+- **Sentence-transformers**: embeddings locales (`BAAI/bge-small-en-v1.5` default)
+- **ScriptPlanner**: detect intent (narrative/motion/montage) → 3-act NarrativeArc con 3 templates específicos
+- **SceneExtractor**: arc → N scenes con continuation tracking
+- **StoryboardArtist**: scene → M shots con cinematic language + `decompose_visual` (first/last frame + motion)
+- **ReferenceImageSelector**: 2-stage (text-only filter → multimodal selection) — selecciona ≤8 anchors al image gen
+- **BestImageSelector**: best-of-N VLM ranqueo por Character + Spatial + Description consistency
+- **Director**: orquesta todo + persiste a `storage/long_form/<job_id>/`
+- Entry point: `VideoParams.long_form_input` + CLI `contenido book plan/show/produce`
+- 30 tests verde (schemas + chunker + RAG + mocked LLM agents)
+- 9 prompts canónicos portados con atribución MIT a ViMax (HKUDS)
+
 ## 📂 Estructura final
 
 ```
 contenido/
-├── apps/                  # FastAPI + WebUI + CLI (incluye `comfy` subapp)
+├── apps/                  # FastAPI + WebUI + CLI (incluye `comfy` + `book` subapps)
 ├── core/
 │   ├── narrative/         # 18 reasoners DAG + facts injection
 │   ├── planning/          # beats, cards, safe_zone
@@ -137,6 +154,7 @@ contenido/
 │   ├── tts/               # 6 engines + sample-accurate
 │   ├── visual/generation/ # Gemini + Veo + Higgsfield + ComfyUI + ken-burns
 │   ├── comfy/             # comfy-cli wrapper + training wizard
+│   ├── long_form/         # ViMax-inspired: compressor + RAG + script + scenes + consistency + director
 │   ├── editor/            # ffmpeg single-pass + hw encoders
 │   ├── subtitles/         # word-burst + SRT + Whisper
 │   └── distribution/      # Upload-Post
@@ -144,9 +162,10 @@ contenido/
 ├── workflows/             # 7 ComfyUI JSONs + index.json
 ├── orchestration/         # queue + state + AgentField
 ├── shared/                # schemas + config
-├── tests/                 # 383 tests
+├── storage/long_form/<id>/ # Per-job: chunks/, compressed/, rag/, script.json, job.json (gitignored)
+├── tests/                 # 413 tests
 ├── scripts/               # higgsfield_ab_test + comfyui_ab_test
-├── docs/                  # 12 archivos (incl. EDITORIAL, COMFYUI, DECISIONS)
+├── docs/                  # 13 archivos (incl. EDITORIAL, COMFYUI, LONG_FORM, DECISIONS)
 └── .claude/skills/        # Submodule higgsfield-ai/skills (dev-only)
 ```
 
@@ -159,7 +178,7 @@ cp config.example.toml config.toml
 uv sync --extra dev
 
 # Verificar
-uv run pytest -q --ignore=tests/integration   # 383 tests
+uv run pytest -q --ignore=tests/integration   # 413 tests
 uv run python -m apps.cli.main config-check
 uv run python -m apps.cli.main brand-check
 
@@ -179,6 +198,13 @@ uv run python -m apps.cli.main comfy launch --background
 uv run python -m apps.cli.main comfy lora train --name miMarca --image-dir ./fotos --backend replicate
 uv run python -m apps.cli.main comfy workflow list
 
+# Long-form video (5-60 min — documentales, libros animados)
+echo "LONG_FORM_ENABLED=true" >> .env
+echo "A time traveler loses memories with each change" > idea.txt
+uv run python -m apps.cli.main book plan ./idea.txt --target-minutes 10
+uv run python -m apps.cli.main book show <job_id>
+uv run python -m apps.cli.main book produce <job_id>  # requiere GPU
+
 # Stack completo con WebUI + Redis
 make docker-up
 ```
@@ -190,12 +216,13 @@ Esto es un MVP completo. Antes de meter usuarios reales:
 1. **Tests E2E reales con servicios cloud** — los unit tests pasan con mocks; falta ejecución completa con APIs vivas
 2. **LoRA real entrenada** — los tenants `ruteo` y `ciencia` apuntan a `.safetensors` que no existen (placeholders)
 3. **ComfyUI server real corriendo** — el código asume `127.0.0.1:8188` o managed; falta validar E2E con GPU
-4. **Métricas Prometheus** — actualmente solo Loguru
-5. **Rate limiting per-user** — backpressure global pero no per-tenant
-6. **Auth/multi-tenant API** — endpoints son públicos
-7. **CDN para outputs** — videos desde filesystem local
-8. **Whisper model cache** — descarga la primera vez (~2GB para large-v3)
-9. **Anthropic + Gemini providers cost stamping** — heredan la base pero no overridean `_extract_usage`
+4. **Long-form `produce_long_form()` real** — la fase de shooting es stub; requiere GPU + ComfyUI para validar E2E
+5. **Métricas Prometheus** — actualmente solo Loguru
+6. **Rate limiting per-user** — backpressure global pero no per-tenant
+7. **Auth/multi-tenant API** — endpoints son públicos
+8. **CDN para outputs** — videos desde filesystem local
+9. **Whisper model cache** — descarga la primera vez (~2GB para large-v3)
+10. **Anthropic + Gemini providers cost stamping** — heredan la base pero no overridean `_extract_usage`
 
 ## 🎯 Próximos pasos sugeridos
 
@@ -227,6 +254,7 @@ Esto es un MVP completo. Antes de meter usuarios reales:
 | Gemini Image + Veo | reels-af images.py + video.py | httpx directo a OpenRouter multimodal |
 | Higgsfield (DoP/Soul/Effects) | nuevo (este proyecto) | REST + CLI fallback + 50+ camera presets |
 | ComfyUI nativo | nuevo (este proyecto) | REST+WS client + 7 workflows + training wizard + multi-tenant |
+| Long-form (compressor/RAG/script/scenes/consistency/director) | HKUDS/ViMax (MIT) | Algoritmos + 9 prompts portados, swap LangChain wholesale por `llm_router` + Pydantic |
 | Editorial (brand-voice/facts/plan) | corredor-content | Portado a Python + integración con DAG |
 | Ken-burns | reels-af video.py | ffmpeg directo async |
 | ffmpeg single-pass | reels-af stitch.py | + multi-aspect MPT + hardware encoder fallback |

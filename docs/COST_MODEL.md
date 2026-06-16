@@ -14,6 +14,9 @@ Documentación viva: actualizar cuando cambien precios de providers.
 | Premium + Higgsfield Soul+DoP+FX | 110-150s | ~$1.50 | character (Soul) | Branded narrative |
 | **Premium + ComfyUI brand LoRA (self-host)** | 90-180s | **~$0.08-0.15** | **✓ marca completa** | **Multi-tenant, agencias** |
 | Premium + ComfyUI managed (ViewComfy) | 90-180s | ~$0.30-0.80 | ✓ marca completa | Multi-tenant sin GPU |
+| **Long-form 10 min (book/idea)** | 45-75 min | **~$16-24** | ✓ opcional | Documentales, YouTube long |
+| **Long-form 30 min** | 90-150 min | **~$45-50** | ✓ opcional | Libros animados, podcast visual |
+| **Long-form 60 min** | 180-300 min | **~$70-80** | ✓ opcional | Audiolibros, documentales largos |
 
 ## Modo Premium
 
@@ -107,6 +110,51 @@ El wizard incluido (`core/comfy/training.py`) emite el comando bash listo. Para 
 - ~$2-3 por entrenamiento
 - ~25 minutos
 - Output: URL al `.safetensors` listo para descargar con `comfy lora download`
+
+## Modo Long-form (video 5-60 min)
+
+Pipeline `contenido book plan/produce` (inspirado en ViMax). 2 fases:
+
+### Fase 1 — PLAN (cheap, sin GPU, gate humano)
+
+| Componente | Costo aprox | Tiempo |
+|---|---|---|
+| Plan idea → 3-act arc | $0.02-0.10 | 30s-2min |
+| Plan novel (50k words) → arc (compress N chunks paralelo) | $0.50-2.00 | 3-8min |
+| SceneExtractor (6-12 scenes) | $0.10-0.30 | 30s-1min |
+| StoryboardArtist (30-100 shots) | $0.50-1.50 | 2-5min |
+| **TOTAL Phase 1 (book → script)** | **$1-4** | **5-15min** |
+
+### Fase 2 — PRODUCE (expensive, requiere GPU + ComfyUI)
+
+Por shot:
+
+| Componente | Costo aprox |
+|---|---|
+| ReferenceImageSelector (VLM 2-stage) | $0.02 |
+| BestImageSelector (VLM best-of-3) | $0.04 |
+| ComfyUI image gen × 3 candidates (self-host) | $0 |
+| Higgsfield DoP (5s motion clip) | $0.20 |
+| TTS narration | $0.005 |
+| **Por shot** | **~$0.27** |
+
+Por video:
+
+| Duración | Shots aprox | Costo total Phase 2 |
+|---|---|---|
+| 10 min | 60 | ~$15-20 |
+| 30 min | 150 | ~$40-45 |
+| 60 min | 250 | ~$67-75 |
+
+**End-to-end (Phase 1 + Phase 2)**:
+- 10 min: ~$16-24, ~45-75 min wall-clock
+- 30 min: ~$45-50, ~90-150 min
+- 60 min: ~$70-80, ~180-300 min
+
+Optimizaciones futuras (no implementadas):
+- Compress + RAG share cross-jobs (libros del mismo dominio)
+- Generate 2 candidates en vez de 3 (-33% costo)
+- Reusar portraits cross-scene (-$0.10/scene)
 
 ## Modo Express (MPT clásico)
 
