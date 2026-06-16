@@ -82,6 +82,14 @@ Long-form (2): plan (book→script, ~\$1-4) + produce (shots→final, ~\$15-80)
 - Long-form 60min: ~\$70-80
 - LoRA training (one-time): \$2-3 cloud / gratis self-host
 
+## Operativo para agentes (machine-readable)
+
+- [OpenAPI 3.1 spec](${SITE}/openapi.json): Schema canónico generado por FastAPI desde modelos Pydantic — 13 paths, 14 ops. Para que un LLM agente construya requests válidos sin adivinar fields.
+- [AI plugin manifest](${SITE}/.well-known/ai-plugin.json): Manifest \`schema_version: v1\` (OpenAI plugin spec). Apunta al openapi.json y describe \`description_for_model\` con capabilities.
+- [A2A Agent Card](${SITE}/.well-known/agents.json): Agent Card v1 (a2a.dev). Skills declaradas: video.generate_from_topic, video.generate_from_url, video.generate_long_form, comfyui.train_lora, task.status, task.costs.
+- [RSS feed](${SITE}/rss.xml): RSS 2.0 de los 13 docs — para crawlers AI que descubren via feed (Perplexity, ChatGPT, Claude).
+- [security.txt](${SITE}/.well-known/security.txt): RFC 9116 — política de coordinated disclosure 90 días.
+
 ## Optional
 
 - [GitHub repository](${REPO}): Source code, issues, releases
@@ -89,6 +97,7 @@ Long-form (2): plan (book→script, ~\$1-4) + produce (shots→final, ~\$15-80)
 - [README en repo](${REPO}/blob/main/README.md): Quick start completo
 - [STATUS](${REPO}/blob/main/STATUS.md): Estado actual de implementación
 - [ARCHITECTURE](${REPO}/blob/main/ARCHITECTURE.md): Decisiones técnicas detalladas
+- [humans.txt](${SITE}/humans.txt): Créditos a los linajes fusionados
 `;
 
   return new Response(body, {

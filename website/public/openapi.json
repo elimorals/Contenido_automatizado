@@ -1,0 +1,1067 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "contenido",
+    "description": "Plataforma de generación de reels — fusión MPT × reels-af",
+    "version": "0.1.0",
+    "summary": "API REST que orquesta la generación de video con IA (reels cinematográficos, long-form 5–60min, brand-owned vía LoRA).",
+    "termsOfService": "https://github.com/elimorals/Contenido_automatizado/blob/main/LICENSE",
+    "contact": {
+      "name": "Elías Morales — Cipre Holding",
+      "email": "elias@cipreholding.com",
+      "url": "https://contenido.vercel.app/"
+    },
+    "license": {
+      "name": "Apache-2.0",
+      "identifier": "Apache-2.0"
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "description": "Health check real: verifica queue + state están operativos.",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Health Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/": {
+      "get": {
+        "summary": "Root",
+        "operationId": "root__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Root  Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/videos": {
+      "post": {
+        "summary": "Create Video",
+        "description": "Crea una task de video. Encola y vuelve inmediatamente con task_id.\n\nDispatch (article|topic|subject) lo decide el worker via `run_pipeline`.",
+        "operationId": "create_video_videos_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VideoParams"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks/{task_id}": {
+      "get": {
+        "summary": "Get Task",
+        "operationId": "get_task_tasks__task_id__get",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Task",
+        "operationId": "delete_task_tasks__task_id__delete",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks": {
+      "get": {
+        "summary": "List Tasks",
+        "operationId": "list_tasks_tasks_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 10,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/costs/{task_id}": {
+      "get": {
+        "summary": "Get Costs",
+        "operationId": "get_costs_costs__task_id__get",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/timings/{task_id}": {
+      "get": {
+        "summary": "Get Timings",
+        "operationId": "get_timings_timings__task_id__get",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/scripts": {
+      "post": {
+        "summary": "Generate Script",
+        "description": "Genera solo el script (sin TTS/video). Dispatch por entry point.\n\n- url     → extract_essence + compose_script (10 reasoners)\n- topic   → hunters + critic + narrators + judge (18 reasoners)\n- subject → 1 LLM call (legacy MPT)",
+        "operationId": "generate_script_scripts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VideoParams"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/terms": {
+      "post": {
+        "summary": "Generate Terms",
+        "description": "Genera 5-8 search terms para stock footage (Pexels/Pixabay).",
+        "operationId": "generate_terms_terms_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VideoParams"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/audio": {
+      "post": {
+        "summary": "Generate Audio",
+        "description": "Genera audio (TTS) desde `params.script`. Devuelve path + word_timings.",
+        "operationId": "generate_audio_audio_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VideoParams"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/subtitle": {
+      "post": {
+        "summary": "Generate Subtitle",
+        "description": "Genera subtítulos desde `params.script`.\n\n- Si `params.subtitle_style == WORD_BURST` y `params.custom_audio_file` está\n  presente → derivamos timings via TTS sobre el script (best-effort).\n- SRT: derivado de los word_timings del TTS.",
+        "operationId": "generate_subtitle_subtitle_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VideoParams"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/narratives": {
+      "post": {
+        "summary": "Get Narrative",
+        "description": "Devuelve solo el ScriptDraft delayed-reveal (sin generar video).\n\n- topic: hunters + critic + narrators + judge (sin downstream visual).\n- url:   extract_essence + compose_script.\n- subject: no soportado (no es delayed-reveal).",
+        "operationId": "get_narrative_narratives_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VideoParams"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/hunters": {
+      "post": {
+        "summary": "Run Hunters",
+        "description": "Devuelve los 12 candidates de los 4 hunters (A/B testing externo).\n\nSolo válido si `params.topic` está presente.",
+        "operationId": "run_hunters_hunters_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VideoParams"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BaseResponse": {
+        "properties": {
+          "status": {
+            "type": "integer",
+            "title": "Status",
+            "default": 200
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "success"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          }
+        },
+        "type": "object",
+        "title": "BaseResponse"
+      },
+      "GenerationMode": {
+        "type": "string",
+        "enum": [
+          "express",
+          "premium"
+        ],
+        "title": "GenerationMode",
+        "description": "Modo express (MPT clásico) vs premium (reels-af DAG profundo)."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "MaterialInfo": {
+        "properties": {
+          "provider": {
+            "$ref": "#/components/schemas/VideoSource",
+            "default": "pexels"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url",
+            "default": ""
+          },
+          "local_path": {
+            "type": "string",
+            "title": "Local Path",
+            "default": ""
+          },
+          "duration_s": {
+            "type": "number",
+            "title": "Duration S",
+            "default": 0.0
+          },
+          "width": {
+            "type": "integer",
+            "title": "Width",
+            "default": 0
+          },
+          "height": {
+            "type": "integer",
+            "title": "Height",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "MaterialInfo"
+      },
+      "SubtitleStyle": {
+        "type": "string",
+        "enum": [
+          "word_burst",
+          "srt"
+        ],
+        "title": "SubtitleStyle",
+        "description": "Word-burst (reels-af) o SRT clásico (MPT)."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "VideoAspect": {
+        "type": "string",
+        "enum": [
+          "16:9",
+          "9:16",
+          "1:1"
+        ],
+        "title": "VideoAspect"
+      },
+      "VideoConcatMode": {
+        "type": "string",
+        "enum": [
+          "random",
+          "sequential"
+        ],
+        "title": "VideoConcatMode"
+      },
+      "VideoParams": {
+        "properties": {
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "topic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic"
+          },
+          "video_subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Subject"
+          },
+          "long_form_input": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Long Form Input",
+            "description": "Texto crudo (idea/script/novel) — dispara pipeline long_form"
+          },
+          "long_form_source_kind": {
+            "type": "string",
+            "enum": [
+              "idea",
+              "script",
+              "novel",
+              "article",
+              "podcast_transcript"
+            ],
+            "title": "Long Form Source Kind",
+            "default": "idea"
+          },
+          "long_form_target_minutes": {
+            "type": "number",
+            "maximum": 120.0,
+            "exclusiveMinimum": 0.5,
+            "title": "Long Form Target Minutes",
+            "default": 10.0
+          },
+          "mode": {
+            "$ref": "#/components/schemas/GenerationMode",
+            "default": "premium"
+          },
+          "video_script": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Script"
+          },
+          "video_terms": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Terms"
+          },
+          "language": {
+            "type": "string",
+            "title": "Language",
+            "default": "auto"
+          },
+          "paragraph_number": {
+            "type": "integer",
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Paragraph Number",
+            "default": 1
+          },
+          "aspect": {
+            "$ref": "#/components/schemas/VideoAspect",
+            "default": "9:16"
+          },
+          "video_source": {
+            "$ref": "#/components/schemas/VideoSource",
+            "default": "pexels"
+          },
+          "visual_strategy": {
+            "$ref": "#/components/schemas/VisualStrategy",
+            "default": "hybrid"
+          },
+          "video_count": {
+            "type": "integer",
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Video Count",
+            "default": 1
+          },
+          "video_clip_duration": {
+            "type": "integer",
+            "maximum": 15.0,
+            "minimum": 2.0,
+            "title": "Video Clip Duration",
+            "default": 5
+          },
+          "video_concat_mode": {
+            "$ref": "#/components/schemas/VideoConcatMode",
+            "default": "random"
+          },
+          "video_transition_mode": {
+            "$ref": "#/components/schemas/VideoTransitionMode",
+            "default": "none"
+          },
+          "match_materials_to_script": {
+            "type": "boolean",
+            "title": "Match Materials To Script",
+            "default": false
+          },
+          "video_materials": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/MaterialInfo"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Materials"
+          },
+          "voice_name": {
+            "type": "string",
+            "title": "Voice Name",
+            "default": ""
+          },
+          "voice_volume": {
+            "type": "number",
+            "maximum": 2.0,
+            "minimum": 0.0,
+            "title": "Voice Volume",
+            "default": 1.0
+          },
+          "voice_rate": {
+            "type": "number",
+            "maximum": 2.0,
+            "minimum": 0.5,
+            "title": "Voice Rate",
+            "default": 1.0
+          },
+          "custom_audio_file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Custom Audio File"
+          },
+          "bgm_type": {
+            "type": "string",
+            "enum": [
+              "random",
+              "none",
+              "custom"
+            ],
+            "title": "Bgm Type",
+            "default": "random"
+          },
+          "bgm_file": {
+            "type": "string",
+            "title": "Bgm File",
+            "default": ""
+          },
+          "bgm_volume": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Bgm Volume",
+            "default": 0.2
+          },
+          "subtitle_enabled": {
+            "type": "boolean",
+            "title": "Subtitle Enabled",
+            "default": true
+          },
+          "subtitle_style": {
+            "$ref": "#/components/schemas/SubtitleStyle",
+            "default": "word_burst"
+          },
+          "subtitle_position": {
+            "type": "string",
+            "enum": [
+              "bottom",
+              "top",
+              "center",
+              "custom"
+            ],
+            "title": "Subtitle Position",
+            "default": "bottom"
+          },
+          "custom_position": {
+            "type": "number",
+            "title": "Custom Position",
+            "default": 70.0
+          },
+          "font_name": {
+            "type": "string",
+            "title": "Font Name",
+            "default": "Montserrat-Bold.ttf"
+          },
+          "text_fore_color": {
+            "type": "string",
+            "title": "Text Fore Color",
+            "default": "#FFFFFF"
+          },
+          "text_background_color": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Text Background Color",
+            "default": false
+          },
+          "rounded_subtitle_background": {
+            "type": "boolean",
+            "title": "Rounded Subtitle Background",
+            "default": false
+          },
+          "font_size": {
+            "type": "integer",
+            "maximum": 300.0,
+            "minimum": 20.0,
+            "title": "Font Size",
+            "default": 170
+          },
+          "stroke_color": {
+            "type": "string",
+            "title": "Stroke Color",
+            "default": "#000000"
+          },
+          "stroke_width": {
+            "type": "number",
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Stroke Width",
+            "default": 1.5
+          },
+          "use_veo": {
+            "type": "boolean",
+            "title": "Use Veo",
+            "default": false
+          },
+          "custom_system_prompt": {
+            "type": "string",
+            "maxLength": 8000,
+            "title": "Custom System Prompt",
+            "default": ""
+          },
+          "video_script_prompt": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Video Script Prompt",
+            "default": ""
+          },
+          "auto_upload": {
+            "type": "boolean",
+            "title": "Auto Upload",
+            "default": false
+          },
+          "upload_platforms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Upload Platforms"
+          },
+          "n_threads": {
+            "type": "integer",
+            "maximum": 16.0,
+            "minimum": 1.0,
+            "title": "N Threads",
+            "default": 2
+          }
+        },
+        "type": "object",
+        "title": "VideoParams",
+        "description": "Request unificado para los 4 entry points (url, topic, subject, long_form_input)."
+      },
+      "VideoSource": {
+        "type": "string",
+        "enum": [
+          "pexels",
+          "pixabay",
+          "coverr",
+          "local",
+          "gemini_image",
+          "veo",
+          "higgsfield_dop",
+          "higgsfield_soul",
+          "higgsfield_effect",
+          "comfyui"
+        ],
+        "title": "VideoSource"
+      },
+      "VideoTransitionMode": {
+        "type": "string",
+        "enum": [
+          "none",
+          "Shuffle",
+          "FadeIn",
+          "FadeOut",
+          "SlideIn",
+          "SlideOut"
+        ],
+        "title": "VideoTransitionMode"
+      },
+      "VisualStrategy": {
+        "type": "string",
+        "enum": [
+          "stock",
+          "ia",
+          "hybrid"
+        ],
+        "title": "VisualStrategy"
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "Self-hosted (default)"
+    }
+  ],
+  "externalDocs": {
+    "description": "Documentación completa para LLMs (canónico)",
+    "url": "https://contenido.vercel.app/llms-full.txt"
+  }
+}

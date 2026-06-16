@@ -82,11 +82,15 @@ Allow: /
 # Sitemap discovery
 Sitemap: ${SITE}/sitemap-index.xml
 
-# Discovery auxiliar para crawlers AI / feed readers
-# - /llms.txt          → índice estructurado (llmstxt.org)
-# - /llms-full.txt     → corpus completo en texto plano
-# - /rss.xml           → feed RSS 2.0 de la documentación
-# - /.well-known/security.txt → política de divulgación responsable
+# Discovery auxiliar para crawlers AI / agentes / feed readers
+# - /llms.txt                       → índice estructurado (llmstxt.org)
+# - /llms-full.txt                  → corpus completo en texto plano
+# - /rss.xml                        → feed RSS 2.0 de la documentación
+# - /openapi.json                   → OpenAPI 3.1 (FastAPI auto-gen, 14 ops)
+# - /.well-known/ai-plugin.json     → manifest OpenAI plugin (v1)
+# - /.well-known/agents.json        → A2A Agent Card (a2a.dev v1)
+# - /.well-known/security.txt       → política de divulgación responsable (RFC 9116)
+# - /humans.txt                     → créditos a los linajes fusionados
 `;
 
   return new Response(body, {

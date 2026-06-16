@@ -1,0 +1,92 @@
+{
+  "$schema": "https://a2a.dev/schemas/agent-card/v1.json",
+  "name": "contenido",
+  "displayName": "contenido — Video generation agent",
+  "description": "Agente orquestador de generación de video con IA. Convierte URLs, topics o subjects en reels cinematográficos brand-owned (LoRA propia), o long-form 5–60min con storyboard tracking. Open source, self-hosted, multi-tenant.",
+  "url": "https://contenido.vercel.app",
+  "version": "0.1.0",
+  "documentationUrl": "https://contenido.vercel.app/llms-full.txt",
+  "provider": {
+    "organization": "Cipre Holding",
+    "url": "https://contenido.vercel.app",
+    "contact": "elias@cipreholding.com"
+  },
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false,
+    "stateTransitionHistory": true,
+    "longRunningTasks": true
+  },
+  "authentication": {
+    "schemes": ["none"],
+    "credentials": "Self-hosted por defecto. Para deploys multi-tenant, configurar reverse proxy con auth (ver docs/CONFIGURATION.md)."
+  },
+  "defaultInputModes": ["application/json", "text/plain"],
+  "defaultOutputModes": ["application/json", "video/mp4", "application/x-subrip"],
+  "skills": [
+    {
+      "id": "video.generate_from_topic",
+      "name": "Generar reel desde topic",
+      "description": "Recibe un topic en lenguaje natural y entrega un reel 9:16 con script, voz, visuales y subtítulos. Pipeline 18 reasoners en modo premium.",
+      "tags": ["video", "reel", "tiktok", "instagram", "shorts"],
+      "examples": [
+        "Genera un reel de 30s sobre el efecto placebo",
+        "Hazme un short vertical sobre por qué dormir 8 horas no funciona para todos"
+      ],
+      "inputModes": ["application/json"],
+      "outputModes": ["video/mp4", "application/json"]
+    },
+    {
+      "id": "video.generate_from_url",
+      "name": "Generar reel desde artículo",
+      "description": "Lee un artículo (arXiv, blog, paper) y produce un reel que resume sus ideas centrales. Pipeline 10 reasoners.",
+      "tags": ["video", "reel", "summarization", "research"],
+      "examples": [
+        "Convierte https://arxiv.org/abs/2509.25541 en un reel de 45s"
+      ],
+      "inputModes": ["application/json"],
+      "outputModes": ["video/mp4", "application/json"]
+    },
+    {
+      "id": "video.generate_long_form",
+      "name": "Generar long-form 5–60min",
+      "description": "Pipeline ViMax/HKUDS: storyboard tracking + VLM ranking. Útil para video-ensayo, explainer largo, doc-style.",
+      "tags": ["video", "long-form", "explainer", "documentary", "vimax"],
+      "inputModes": ["application/json"],
+      "outputModes": ["video/mp4", "application/json"]
+    },
+    {
+      "id": "comfyui.train_lora",
+      "name": "Entrenar LoRA brand-owned",
+      "description": "Entrena una LoRA desde 30–50 referencias para que todos los reels de un tenant compartan identidad visual consistente.",
+      "tags": ["lora", "training", "comfyui", "brand"],
+      "inputModes": ["application/json"],
+      "outputModes": ["application/json"]
+    },
+    {
+      "id": "task.status",
+      "name": "Consultar estado de task",
+      "description": "Devuelve state (0=QUEUED, 4=PROCESSING, 1=COMPLETE, -1=FAILED), progress %, timings por etapa, costos USD acumulados.",
+      "tags": ["status", "polling", "tasks"],
+      "inputModes": ["application/json"],
+      "outputModes": ["application/json"]
+    },
+    {
+      "id": "task.costs",
+      "name": "Desglose de costos USD",
+      "description": "Cost-tracking granular: llm.usd, tts.usd, visual.usd, total.usd, por provider. Una de las razones de ser de la plataforma.",
+      "tags": ["billing", "costs", "finops"],
+      "inputModes": ["application/json"],
+      "outputModes": ["application/json"]
+    }
+  ],
+  "links": {
+    "openapi":       "https://contenido.vercel.app/openapi.json",
+    "ai_plugin":     "https://contenido.vercel.app/.well-known/ai-plugin.json",
+    "llms_index":    "https://contenido.vercel.app/llms.txt",
+    "llms_corpus":   "https://contenido.vercel.app/llms-full.txt",
+    "rss":           "https://contenido.vercel.app/rss.xml",
+    "repo":          "https://github.com/elimorals/Contenido_automatizado",
+    "security":      "https://contenido.vercel.app/.well-known/security.txt"
+  }
+}

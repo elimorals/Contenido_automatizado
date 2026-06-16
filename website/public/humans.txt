@@ -1,0 +1,26 @@
+/* TEAM */
+Maintainer: Elías Morales
+Site: https://contenido.vercel.app
+Twitter: @cipreholding
+Contact: elias@cipreholding.com
+From: Cipre Holding
+
+/* THANKS */
+Linajes fusionados:
+  - MoneyPrinterTurbo (harry0703) — pipeline base de reels TTS
+  - reels-af (lugia19)             — premium DAG + judge
+  - corredor-content                — capa editorial + brand voice
+  - ComfyUI (comfyanonymous)        — workflows visuales open source
+  - HKUDS / ViMax                   — algoritmos long-form (storyboard tracking + VLM ranking)
+
+/* SITE */
+Stack:    Astro 5 + Tailwind v4 + Pagefind + Fraunces / Manrope / JetBrains Mono
+Language: español (single-locale, intentional)
+Hosting:  Vercel
+Theme:    cinematográfico — deep-black #050608 + amber #E8B86F
+Doctrine: open source que QUIERE descubrimiento (allow-list AI bots)
+
+/* PROJECT */
+Standard: OpenAPI 3.1, A2A v1 Agent Card, OpenAI ai-plugin v1, llmstxt.org, RFC 9116
+License:  Apache-2.0
+Tests:    413 verdes (Python 3.11+, pytest)

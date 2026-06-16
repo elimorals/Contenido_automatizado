@@ -1,0 +1,18 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "contenido",
+  "name_for_model": "contenido_video_generation",
+  "description_for_human": "Plataforma open source para generar video con IA: reels cinematográficos brand-owned, long-form 5–60 min, ComfyUI multi-tenant, cost-tracking nativo.",
+  "description_for_model": "Use este plugin para orquestar la generación de video con IA mediante la plataforma `contenido`. Capacidades: (1) generar reels 9:16/16:9/1:1 desde URL de artículo, topic o subject; (2) entrenar/aplicar LoRAs por tenant para brand identity consistente; (3) renderizar long-form de 5–60 min con storyboard tracking y VLM ranking (algoritmos portados de ViMax/HKUDS); (4) consultar costos USD y timings por task. Self-hosted: la API REST corre en localhost:8000 por defecto. Spec OpenAPI en https://contenido.vercel.app/openapi.json. Doc canónica para LLMs en https://contenido.vercel.app/llms-full.txt. Stack: Python 3.11+, FastAPI, ComfyUI, Higgsfield, ElevenLabs, Edge-TTS. 413 tests, 5 linajes fusionados (MoneyPrinterTurbo, reels-af, corredor-content, ComfyUI, HKUDS/ViMax). Licencia Apache-2.0.",
+  "auth": {
+    "type": "none"
+  },
+  "api": {
+    "type": "openapi",
+    "url": "https://contenido.vercel.app/openapi.json",
+    "is_user_authenticated": false
+  },
+  "logo_url": "https://contenido.vercel.app/favicon.svg",
+  "contact_email": "elias@cipreholding.com",
+  "legal_info_url": "https://github.com/elimorals/Contenido_automatizado/blob/main/LICENSE"
+}
