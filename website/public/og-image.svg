@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <title>contenido — Genera video con identidad propia, no "slop de IA"</title>
+  <desc>Open graph image · 1200×630 · identidad cinematográfica deep-black + amber/golden · plataforma open source de generación de video con IA</desc>
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="0%" r="80%">
+      <stop offset="0%" stop-color="#E8B86F" stop-opacity="0.25"/>
+      <stop offset="40%" stop-color="#E8B86F" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#050608" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="#050608"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+
+  <line x1="60" y1="60" x2="1140" y2="60" stroke="#3A3528" stroke-width="1"/>
+  <line x1="60" y1="570" x2="1140" y2="570" stroke="#3A3528" stroke-width="1"/>
+
+  <text x="1100" y="670" text-anchor="end" fill="#E8B86F" fill-opacity="0.10"
+        font-family="Georgia, 'Times New Roman', serif" font-style="italic"
+        font-weight="500" font-size="650">c</text>
+
+  <g transform="translate(80, 130)">
+    <line x1="0" y1="0" x2="36" y2="0" stroke="#E8B86F" stroke-width="2"/>
+    <text x="48" y="5" fill="#8A8275"
+          font-family="ui-monospace, 'JetBrains Mono', monospace"
+          font-size="15" font-weight="500" letter-spacing="3.5">ECOSISTEMA · OPEN SOURCE · PYTHON 3.11+</text>
+  </g>
+
+  <text x="80" y="240" fill="#F5F1E8"
+        font-family="Georgia, 'Times New Roman', serif"
+        font-size="86" font-weight="400" letter-spacing="-2">contenido</text>
+
+  <text x="80" y="345" fill="#C5BFAE"
+        font-family="Georgia, 'Times New Roman', serif"
+        font-size="50" font-weight="300" letter-spacing="-1">Genera video con</text>
+  <text x="80" y="410" fill="#E8B86F"
+        font-family="Georgia, 'Times New Roman', serif"
+        font-style="italic" font-size="50" font-weight="400" letter-spacing="-1">identidad propia<tspan fill="#C5BFAE" font-style="normal"> , no</tspan></text>
+  <text x="80" y="475" fill="#C5BFAE"
+        font-family="Georgia, 'Times New Roman', serif"
+        font-size="50" font-weight="300" letter-spacing="-1">"slop de IA".</text>
+
+  <g transform="translate(80, 535)">
+    <text fill="#8A8275"
+          font-family="ui-monospace, 'JetBrains Mono', monospace"
+          font-size="14" letter-spacing="2.5">
+      <tspan>413 TESTS</tspan>
+      <tspan dx="20" fill="#5E5848">/</tspan>
+      <tspan dx="20">5 LINAJES</tspan>
+      <tspan dx="20" fill="#5E5848">/</tspan>
+      <tspan dx="20">7 WORKFLOWS COMFYUI</tspan>
+      <tspan dx="20" fill="#5E5848">/</tspan>
+      <tspan dx="20" fill="#E8B86F">LONG-FORM 5-60MIN</tspan>
+    </text>
+  </g>
+
+  <text x="1120" y="570" text-anchor="end" fill="#5E5848"
+        font-family="ui-monospace, 'JetBrains Mono', monospace"
+        font-size="14" letter-spacing="2">contenido.vercel.app</text>
+</svg>

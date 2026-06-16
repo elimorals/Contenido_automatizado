@@ -1,0 +1,23 @@
+# Security policy — contenido
+# Compatible con RFC 9116 (https://www.rfc-editor.org/rfc/rfc9116)
+
+Contact: mailto:elias@cipreholding.com
+Expires: 2027-06-16T00:00:00.000Z
+Preferred-Languages: es, en
+Canonical: https://contenido.vercel.app/.well-known/security.txt
+Policy: https://github.com/elimorals/Contenido_automatizado/security/policy
+
+# Si descubriste una vulnerabilidad de seguridad en este proyecto
+# (la plataforma Python, el sitio web, los workflows de ComfyUI, o
+# cualquier endpoint expuesto en deploys de referencia), escríbenos
+# directo. Respondemos en 72 horas hábiles.
+#
+# Coordinated disclosure: ventana estándar de 90 días antes de divulgar
+# públicamente, extensible si el fix necesita más tiempo.
+#
+# Tipos de reportes que nos interesan:
+#   - RCE / SSRF en la API REST
+#   - Path traversal en file outputs
+#   - Prompt injection con efecto pivote (escape de sandbox del LLM)
+#   - Filtración de API keys de tenants en logs / responses
+#   - Vulnerabilidades en dependencias críticas (ffmpeg, ComfyUI, etc.)

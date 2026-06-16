@@ -82,10 +82,11 @@ Allow: /
 # Sitemap discovery
 Sitemap: ${SITE}/sitemap-index.xml
 
-# LLM discovery (extension, no oficial pero respetada)
-# See: https://llmstxt.org/
-# LLMs: ${SITE}/llms.txt
-# LLMs (full corpus): ${SITE}/llms-full.txt
+# Discovery auxiliar para crawlers AI / feed readers
+# - /llms.txt          → índice estructurado (llmstxt.org)
+# - /llms-full.txt     → corpus completo en texto plano
+# - /rss.xml           → feed RSS 2.0 de la documentación
+# - /.well-known/security.txt → política de divulgación responsable
 `;
 
   return new Response(body, {
