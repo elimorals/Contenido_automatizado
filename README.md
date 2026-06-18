@@ -10,6 +10,8 @@ Plataforma de generación de video con IA que fusiona CINCO linajes:
 
 Más: integración profunda con **Higgsfield** — DoP image-to-video con 50+ camera presets cinematográficos nombrados, Soul para character consistency cross-beat, Effects VFX overlay, prompts canónicos extraídos del repo oficial de skills, y CLI fallback vía subprocess.
 
+Y **LiveAvatar** (Alibaba-Quark, ECCV 2026) — avatares parlantes audio-driven con lip-sync sincronizado al TTS, opt-in para long-form intent=`talking_head` (cursos, explainer videos, news anchors). Dos backends: `remote_http` (RunPod/Lambda Labs serverless) o `local_cli` (subprocess single-GPU/multi-GPU). Ver [docs/LIVE_AVATAR.md](./docs/LIVE_AVATAR.md) y [ADR-016](./docs/DECISIONS.md#adr-016-liveavatar-alibaba-quark-como-talking-head-opt-in-para-long-form).
+
 ## Visión
 
 Un mismo backend permite TRES modos de generación + uno para video largo:
@@ -20,18 +22,20 @@ Un mismo backend permite TRES modos de generación + uno para video largo:
 | **Premium** (reel 25s) | 70-110 s | ~$0.08-1.20 | — | Cuentas high-end, brands |
 | **Brand-owned** (reel 25s, ComfyUI LoRA) | 90-180 s | ~$0.04-0.40 | ✓ marca completa | Multi-tenant, agencias |
 | **Long-form** (video 5-60 min) | 45-75 min | ~$16-80 | ✓ opcional | Documentales, libros animados, YouTube |
+| **Talking-head** (long-form con avatar parlante) | 45-90 min | ~$15-30 (`local_cli`) / $30-80 (`remote_http`) | ✓ portrait fijo | Cursos, explainers, news anchors |
 
 El usuario elige por reel — o el sistema decide automáticamente según presupuesto y disponibilidad de LoRA del tenant.
 
 ## Estado
 
 ✅ **Sistema completo y operativo**:
-- **413 tests verde** (30 long-form, 75 ComfyUI, 56 Higgsfield, 29 editorial, +223 pipeline base)
+- **437 tests verde** (30 long-form, 75 ComfyUI, 56 Higgsfield, 29 editorial, **24 LiveAvatar**, +223 pipeline base)
 - 4 entry points operativos (topic / article / subject / **long_form_input**) + workflow editorial (plan / approve / produce-week)
 - DAG de 18 reasoners (hunters → critic → narrators → judge → adapt → visual → accent)
 - 5 patrones editoriales portados (brand voice as code, facts.json, pilares, audiencias, plataformas)
 - Higgsfield integrado: DoP + Soul + Effects + CLI fallback + A/B harness
 - ComfyUI nativo: **7 workflows registrados**, 3 tenants demo (`default`/`ruteo`/`ciencia`), wizard de training, OOM auto-retry, observability
+- **LiveAvatar integrado** (talking-head opt-in): backend dual `remote_http`/`local_cli`, intent router `TALKING_HEAD`, director concreto `produce_talking_head` con TTS + ffmpeg stitch (ADR-016)
 - **Long-form**: NovelCompressor + RAGStore híbrido (numpy/FAISS) + ScriptPlanner (3 actos con intent routing) + SceneExtractor + StoryboardArtist + VLM consistency selectors + Director con 2 fases (plan barato + produce caro)
 - Cost tracking USD por LLM call (30+ modelos tabulados)
 
@@ -52,7 +56,7 @@ contenido/
 │   ├── editorial/        # Plan/approve/produce + brand voice + facts (de corredor-content)
 │   ├── tts/              # 6 engines + sample-accurate timing
 │   ├── visual/           # Stock + IA + selector híbrido
-│   │   └── generation/   # Gemini Image, Veo, Higgsfield (DoP/Soul/Effects), ken-burns, ComfyUI
+│   │   └── generation/   # Gemini Image, Veo, Higgsfield (DoP/Soul/Effects), ken-burns, ComfyUI, LiveAvatar
 │   ├── comfy/            # Wrapper async sobre comfy-cli + LoRA training wizard
 │   ├── long_form/        # ✨ NUEVO: ViMax-inspired (5-60 min video)
 │   │   ├── compressor.py     # NovelCompressor (chunk + parallel compress)

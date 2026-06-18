@@ -19,6 +19,7 @@ from core.long_form.prompts import (
     MONTAGE_SCRIPT_SYSTEM,
     MOTION_SCRIPT_SYSTEM,
     NARRATIVE_SCRIPT_SYSTEM,
+    TALKING_HEAD_SCRIPT_SYSTEM,
 )
 from shared.config import load_config
 from shared.schemas import LongFormIntent, NarrativeArc
@@ -58,6 +59,8 @@ def _system_template_for(intent: LongFormIntent) -> str:
         return MOTION_SCRIPT_SYSTEM
     if intent == LongFormIntent.MONTAGE:
         return MONTAGE_SCRIPT_SYSTEM
+    if intent == LongFormIntent.TALKING_HEAD:
+        return TALKING_HEAD_SCRIPT_SYSTEM
     return NARRATIVE_SCRIPT_SYSTEM
 
 

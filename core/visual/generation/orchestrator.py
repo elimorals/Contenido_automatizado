@@ -7,7 +7,9 @@ Para cada beat:
       b) Si falla o no aplica → Gemini Image (default)
       c) Si todo falla → placeholder solid-color
 
-  Tier 2 — MOTION (i2v):
+  Tier 2 — MOTION (i2v) o TALKING-HEAD (audio-driven):
+      0) Si BeatVisual.audio_path + live_avatar enabled → LiveAvatarGenerator (lip-sync)
+         (short-circuit — el resto del Tier 2 no se ejecuta)
       a) Higgsfield DoP si enabled y (prefer_over_veo o veo deshabilitado)
       b) Veo i2v si enabled
       c) Fallback: ken-burns sobre el frame
@@ -38,6 +40,7 @@ from core.visual.generation.ken_burns import (
     KenBurnsGenerator,
     _placeholder_frame,
 )
+from core.visual.generation.live_avatar import LiveAvatarGenerator
 from core.visual.generation.veo import VeoGenerator
 from shared.config import load_config
 from shared.schemas import Beat, BeatArtifact, BeatVisual, VideoSource
@@ -60,11 +63,19 @@ async def _generate_first_frame_with_fallback(
     """Genera first frame; devuelve (path, is_real, source).
 
     Cadena de fallback (tier 1 de la jerarquía):
+    0. ``visual.reference_image_path`` explícito — short-circuit (ADR-016)
+       Usado para talking-head (portrait fijo del presentador) o cuando
+       el caller ya tiene la imagen lista (anchor brand, upload manual).
     1. ComfyUI (workflow custom con brand LoRA) — moat de identidad de marca
     2. HiggsfieldSoul (character consistency cross-beat)
     3. Gemini Image (default genérico)
     4. Placeholder sólido (último recurso)
     """
+    # Short-circuit: reference image suministrada explícitamente.
+    # Confiamos en el caller — no regeneramos, ahorrando costo + latencia.
+    if visual.reference_image_path is not None and visual.reference_image_path.exists():
+        return visual.reference_image_path, True, VideoSource.LOCAL
+
     # ComfyUI tier — preferido cuando tenant tiene LoRA configurada
     if comfy_gen is not None:
         try:
@@ -112,6 +123,18 @@ async def _generate_first_frame_with_fallback(
 # =============================================================================
 
 
+def _should_use_live_avatar(
+    visual: BeatVisual, live_avatar_gen: LiveAvatarGenerator | None
+) -> bool:
+    """True cuando este beat debe rutearse a LiveAvatar en lugar de DoP/Veo.
+
+    Condiciones (todas requeridas):
+      - ``live_avatar_gen`` inyectado y habilitado
+      - ``visual.audio_path`` no None (hay audio TTS para lip-sync)
+    """
+    return live_avatar_gen is not None and visual.audio_path is not None
+
+
 async def _generate_one(
     beat: Beat,
     visual: BeatVisual,
@@ -125,6 +148,7 @@ async def _generate_one(
     veo_gen: VeoGenerator | None,
     ken_burns_gen: KenBurnsGenerator,
     effects_gen: HiggsfieldEffectsGenerator | None,
+    live_avatar_gen: LiveAvatarGenerator | None = None,
 ) -> BeatArtifact:
     """Pipeline por beat: 3-tier fallback (con ComfyUI como nuevo top de tier 1)."""
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -134,11 +158,34 @@ async def _generate_one(
         comfy_gen, soul_gen, image_gen, beat, visual, content_mode, out_dir
     )
 
-    # === Tier 2: motion ===
+    # === Tier 2: motion (o talking-head si hay audio) ===
     motion_artifact: BeatArtifact | None = None
 
+    # 2.0 LiveAvatar short-circuit — audio-driven lip-sync.
+    # Si hay audio_path y el generator está disponible, salta DoP/Veo.
+    if _should_use_live_avatar(visual, live_avatar_gen) and frame_is_real:
+        try:
+            # Propagamos el frame upstream como reference image
+            prior = BeatArtifact(
+                idx=beat.idx,
+                first_frame_path=frame_path,
+                source=frame_source,
+            )
+            motion_artifact = await live_avatar_gen.generate(  # type: ignore[union-attr]
+                beat=beat,
+                visual=visual,
+                content_mode=content_mode,
+                out_dir=out_dir,
+                prior_artifact=prior,
+            )
+        except Exception as e:
+            logger.warning(
+                f"[visual.orchestrator] beat {beat.idx} LiveAvatar falló "
+                f"({e}); degradando a DoP/Veo + audio stitched en editor."
+            )
+
     # 2a. Higgsfield DoP (prioridad si configurado)
-    if hf_dop_gen is not None and frame_is_real:
+    if motion_artifact is None and hf_dop_gen is not None and frame_is_real:
         try:
             motion_artifact = await hf_dop_gen.generate(
                 beat=beat,
@@ -217,6 +264,7 @@ async def generate_beat_videos(
     use_higgsfield_soul: bool | None = None,
     use_higgsfield_effects: bool | None = None,
     use_comfyui: bool | None = None,
+    use_live_avatar: bool | None = None,
     image_gen: GeminiImageGenerator | None = None,
     veo_gen: VeoGenerator | None = None,
     hf_dop_gen: HiggsfieldDopGenerator | None = None,
@@ -224,6 +272,7 @@ async def generate_beat_videos(
     effects_gen: HiggsfieldEffectsGenerator | None = None,
     comfy_gen: ComfyUIGenerator | None = None,
     ken_burns_gen: KenBurnsGenerator | None = None,
+    live_avatar_gen: LiveAvatarGenerator | None = None,
 ) -> list[BeatArtifact]:
     """Genera un video por beat en paralelo (asyncio.gather), con 3-tier fallback.
 
@@ -270,6 +319,8 @@ async def generate_beat_videos(
         else use_higgsfield_effects
     )
     comfy_enabled = cu_cfg.enabled if use_comfyui is None else use_comfyui
+    la_cfg = cfg.visual.live_avatar
+    la_enabled = la_cfg.enabled if use_live_avatar is None else use_live_avatar
 
     img = image_gen or GeminiImageGenerator()
 
@@ -311,6 +362,19 @@ async def generate_beat_videos(
     if effects is None and effects_enabled:
         effects = HiggsfieldEffectsGenerator()
 
+    # LiveAvatar — solo se construye si está enabled. Se invoca per-beat solo
+    # cuando visual.audio_path está poblado (ver _should_use_live_avatar).
+    live_avatar = live_avatar_gen
+    if live_avatar is None and la_enabled:
+        try:
+            live_avatar = LiveAvatarGenerator(la_cfg)
+        except Exception as e:
+            logger.warning(
+                f"[visual.orchestrator] LiveAvatar init falló ({e}); "
+                "talking-head desactivado para este job."
+            )
+            live_avatar = None
+
     artifacts = await asyncio.gather(
         *(
             _generate_one(
@@ -325,6 +389,7 @@ async def generate_beat_videos(
                 veo_gen=primary_veo,
                 ken_burns_gen=ken_burns,
                 effects_gen=effects,
+                live_avatar_gen=live_avatar,
             )
             for beat, visual in zip(beats, visuals)
         )

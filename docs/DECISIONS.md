@@ -404,3 +404,98 @@ Ambos repos usan `uv` (uv.lock presente en ambos).
 
 ### Riesgo
 uv aún es relativamente nuevo (Astral). Plan B: poetry o pip-tools (simple migration).
+
+---
+
+## ADR-016: LiveAvatar (Alibaba-Quark) como talking-head opt-in para long-form
+
+**Fecha**: 2026-06-18 | **Estado**: Aceptado
+
+### Contexto
+
+Hasta ahora el pipeline visual cubre:
+
+- **Reels cortos (25s)**: stock + Gemini/ComfyUI imagen + Veo/Higgsfield i2v + ken-burns
+- **Long-form (5–60 min)**: ComfyUI portrait + reference chaining + i2v shot-by-shot
+
+Ningún backend produce **avatares parlantes con lip-sync sincronizado al audio**. Soul (Higgsfield) genera retratos consistentes pero estáticos; DoP/Veo añaden motion cinematográfica pero no sincronización labial. El comentario en `core/subtitles/safe_zone.py` ("subtitles sit above the face/center of any talking-head") era prospectivo.
+
+[LiveAvatar](https://github.com/Alibaba-Quark/LiveAvatar) es un LoRA Distillation Matching Distillation (DMD) sobre Wan2.2-S2V-14B (14B params, diffusion). Input: reference image + audio WAV + prompt textual. Output: MP4 con boca sincronizada al audio. ECCV 2026 accepted, Apache 2.0.
+
+### Decisión
+
+Integrar LiveAvatar como **nuevo VisualGenerator opt-in** específico para el caso de uso "presentador on-screen":
+
+1. **Nuevo intent `LongFormIntent.TALKING_HEAD`** en el script planner (junto a narrative/motion/montage). Routing automático cuando la idea menciona explainer/curso/anchor/lecture.
+2. **Nuevo módulo `core/visual/generation/live_avatar*.py`** siguiendo el contrato `VisualGenerator` (mismo patrón que `higgsfield.py`). Dos backends:
+   - `local_cli`: subprocess `torchrun minimal_inference/s2v_streaming_interact.py` (mismo patrón que `higgsfield_cli.py`).
+   - `remote_http`: POST multipart a worker HTTP propio (RunPod/Lambda Labs/self-host).
+3. **Short-circuit en `core/visual/generation/orchestrator.py`**: cuando `BeatVisual.audio_path is not None` y LiveAvatar habilitado, salta DoP/Veo en Tier 2.
+4. **Nuevo director `core/long_form/talking_head_director.py`** (concreto, NO stub). Path: Shot → TTS (audio) → LiveAvatar(portrait, audio, prompt) → ffmpeg single-pass concat.
+5. **Cost tracking USD/segundo** en `core/llm_router/pricing.py:VIDEO_PRICING_USD_PER_SECOND` con keys `live_avatar_local` / `live_avatar_remote`.
+
+NO se integra para:
+- Reels cortos (25s) — overkill, costo GPU mata el unit economics.
+- Cinemato sin presentador — Higgsfield DoP y Veo cubren ese caso.
+- Brand-owned LoRA custom — el training code de LiveAvatar aún no está liberado (en TODO list del repo upstream); todos usan el LoRA Quark base por ahora.
+
+### Razón
+
+- **TTS ya resuelto**: el módulo `core/tts/` produce WAV sample-accurate compatible. Match perfecto con el input que pide LiveAvatar.
+- **Patrón arquitectónico clonable**: contrato `VisualGenerator` ya existente; tier-2 short-circuit es 1 if-statement.
+- **Multi-character + 10 000s** de video continuo → consistente con long-form 60 min.
+- **Apache 2.0**: sin conflictos de licencia con el resto del repo.
+- **Modo offline single-GPU (80GB VRAM)** → factible en H100/A100 rentado por hora (~$2-3.50/hr).
+- **Demanda editorial**: explainer videos / cursos / news-anchor son un formato editorial concreto. Soul (estático) no resuelve ese caso; LiveAvatar sí.
+
+### Costo
+
+| Modo | GPU | Costo aprox |
+|---|---|---|
+| `remote_http` (RunPod serverless H100) | 1×H100 | ~$0.05/s video output → 10 min ≈ $30 |
+| `local_cli` (server propio, single-GPU) | 1×H100/A100 80GB | ~$0.005/s amortizado eléctrico |
+| `local_cli` (multi-GPU TPP) | 5×H800 | real-time streaming (45 FPS), uso interactivo |
+
+El `cost_per_video_second_usd` es **overrideable por config** según el deal del proveedor.
+
+### Riesgos
+
+1. **Sin training code** (upstream TODO): no podemos diferenciar visualmente por brand mientras eso siga abierto.
+2. **TTS integration upstream pendiente**: nuestro pipeline NO depende del TTS interno del repo Quark — pasamos WAV externo. Pero si liberan un TTS integrado, podríamos simplificar.
+3. **Latencia batch**: con `enable_compile=true` el primer run es lento (~5-10 min compilación). Runs subsiguientes 2-3× más rápidos. `local_cli` debe correr long-lived, no spin-up por job.
+4. **48GB VRAM mínimo (FP8)**: server más barato es A6000 Ada / RTX 6000 Ada. H100 sigue siendo deseable para velocidad.
+5. **Aspect ratio fijado por input**: el modelo respeta el AR de la imagen. Para reels 9:16 hay que pasar imagen 9:16.
+
+### Migration / Plan B
+
+- Si LiveAvatar v1.2 cambia la CLI: ajustar `LocalCliBackend._build_cmd` (un solo punto de extensión).
+- Si el proveedor remoto sube precios: cambiar `cfg.visual.live_avatar.backend = "local_cli"` y rentar GPU directo.
+- Si surge un competidor mejor (D-ID, HeyGen API, Hedra Character-3): el contrato `LiveAvatarBackend` (ABC) permite añadir backends sin tocar el generator.
+
+### Archivos creados/modificados
+
+**Nuevos**:
+- `core/visual/generation/live_avatar.py` — generator
+- `core/visual/generation/live_avatar_client.py` — backends + errores
+- `core/long_form/talking_head_director.py` — `produce_talking_head()` end-to-end
+- `tests/test_live_avatar.py` — 24 tests unitarios
+- `docs/LIVE_AVATAR.md` — setup local/remote, hardware reqs, ejemplos
+
+**Modificados**:
+- `shared/config.py` — `LiveAvatarConfig` añadido a `VisualConfig`
+- `shared/schemas.py` — `VideoSource.LIVE_AVATAR`, `LongFormIntent.TALKING_HEAD`, `BeatVisual.audio_path`, `BeatVisual.reference_image_path`
+- `core/visual/generation/orchestrator.py` — short-circuit `_should_use_live_avatar` + nuevo param `live_avatar_gen`
+- `core/visual/generation/__init__.py` — exports
+- `core/long_form/prompts.py` — `INTENT_ROUTER_SYSTEM` extendido + `TALKING_HEAD_SCRIPT_SYSTEM`
+- `core/long_form/script_planner.py` — `_system_template_for(TALKING_HEAD)`
+- `core/long_form/director.py` — branching en `produce_long_form` por intent
+- `core/llm_router/pricing.py` — `VIDEO_PRICING_USD_PER_SECOND` + helpers
+- `config.example.toml` — sección `[visual.live_avatar]`
+
+### Crédito
+
+- LiveAvatar — Yubo Huang et al. (Alibaba Group / USTC / BUPT / ZJU / Monash), ECCV 2026
+- Repo: https://github.com/Alibaba-Quark/LiveAvatar — Apache 2.0
+- Paper: arXiv:2512.04677
+- Modelo base: [Wan-AI/Wan2.2-S2V-14B](https://huggingface.co/Wan-AI/Wan2.2-S2V-14B)
+- LoRA distilled: [Quark-Vision/Live-Avatar](https://huggingface.co/Quark-Vision/Live-Avatar)

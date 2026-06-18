@@ -130,3 +130,36 @@ def is_priced(model_name: str) -> bool:
     if not model_name:
         return False
     return model_name.strip().lower() in PRICING
+
+
+# =============================================================================
+# Video provider pricing (cost-per-second, no per-token) — ADR-013
+# =============================================================================
+
+# Generadores que producen video tarifan por segundo de output, no por tokens.
+# Se exponen aquí para que el cost dashboard tenga una fuente única.
+# Los valores son DEFAULTS conservadores — override con
+# ``cfg.visual.live_avatar.cost_per_video_second_usd`` (ADR-016) etc.
+VIDEO_PRICING_USD_PER_SECOND: dict[str, float] = {
+    # Higgsfield (ver core/visual/generation/higgsfield_client.py — DoP 5s)
+    "higgsfield_dop_turbo": 0.060,   # ~$0.30 / 5s clip
+    "higgsfield_dop_preview": 0.160, # ~$0.80 / 5s clip
+    # Veo (Google) 3.1 Lite — ~$1.10 / clip 4-8s → mid ~$0.18/s
+    "veo_3_1_lite": 0.180,
+    # LiveAvatar (ADR-016) — variable según backend:
+    #   - RunPod H100 serverless ~$3.39/hr, real ≈ 2× tiempo real → ~$0.0019/s GPU,
+    #     pero el provider típicamente cobra ~$0.05/s al usuario final.
+    #   - Self-hosted: solo costo GPU eléctrico.
+    "live_avatar_remote": 0.050,
+    "live_avatar_local": 0.005,      # solo electricidad/amortización
+}
+
+
+def video_cost_per_second(provider_key: str) -> float:
+    """Devuelve USD/segundo de video. Fallback 0.0 (no error)."""
+    return VIDEO_PRICING_USD_PER_SECOND.get(provider_key.strip().lower(), 0.0)
+
+
+def calculate_video_cost(provider_key: str, duration_s: float) -> float:
+    """Costo en USD = duration_s × USD/s del provider."""
+    return max(0.0, duration_s) * video_cost_per_second(provider_key)

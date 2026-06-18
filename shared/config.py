@@ -17,7 +17,7 @@ try:
 except ModuleNotFoundError:  # Python < 3.11 fallback
     import tomli as tomllib  # type: ignore[import-not-found,no-redef]
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -214,6 +214,71 @@ class ComfyUIConfig(BaseModel):
     cli_workspace_path: str = ""    # ej "~/.config/comfy/workspaces/default"
 
 
+class LiveAvatarConfig(BaseModel):
+    """LiveAvatar (Alibaba-Quark) — audio-driven talking-head generator.
+
+    Modelo: LoRA sobre Wan2.2-S2V-14B. Input: reference image + audio WAV +
+    (opcional) prompt textual. Output: MP4 con lip-sync sincronizado al audio.
+    Hardware: requiere 80GB VRAM (1×H100/H200/A100) en single-GPU offline,
+    o 5×H800 para streaming real-time TPP. FP8 baja a 48GB.
+
+    Dos backends (ADR-016):
+    - ``local_cli``: invoca ``torchrun minimal_inference/s2v_streaming_interact.py``
+      como subprocess (igual que el patrón Higgsfield CLI fallback). Requiere
+      checkpoints descargados localmente bajo ``ckpt_dir`` y entorno conda
+      activado (CUDA 12.4, torch 2.8, flash-attn 2.8+).
+    - ``remote_http``: POST a un endpoint HTTP propio (RunPod serverless,
+      Lambda Labs, vLLM-style worker) que orquesta la GPU. Recomendado para
+      producción — el endpoint expone ``POST /generate`` con multipart
+      (image + audio) y devuelve ``{video_url, duration_s, cost_usd}``.
+
+    NOTA: LiveAvatar consume audio TTS (input). Tu ``core/tts/`` ya produce
+    audio sample-accurate compatible — el director long-form pasa el WAV
+    chunk al generador en lugar de generarlo internamente.
+    """
+
+    enabled: bool = False
+    backend: Literal["local_cli", "remote_http"] = "remote_http"
+
+    # === remote_http backend ===
+    remote_endpoint: str = ""  # e.g. "https://liveavatar.runpod.io/generate"
+    remote_api_key: str = ""   # bearer token; via LIVE_AVATAR_API_KEY
+    remote_timeout_s: float = 1800.0  # 30min — videos largos pueden tardar
+
+    # === local_cli backend ===
+    cli_repo_path: str = "./.external/LiveAvatar"
+    cli_python: str = "python"  # o ruta absoluta al venv conda activado
+    cli_ckpt_dir: str = "./.external/LiveAvatar/ckpt/Wan2.2-S2V-14B"
+    cli_lora_path: str = "Quark-Vision/Live-Avatar"  # HF model id o path local
+    cli_training_config: str = "liveavatar/configs/s2v_causal_sft.yaml"
+    cli_num_gpus_dit: int = 1  # 1 single-gpu, 4 multi-gpu TPP
+    cli_master_port: int = 29101
+    cli_cuda_visible_devices: str = "0"
+    cli_timeout_s: float = 3600.0  # 1h — compile + inference
+
+    # === Inference params (compartidos) ===
+    size: str = "704*384"           # WxH "AREA" — aspect ratio del input se respeta
+    base_seed: int = 420
+    sample_steps: int = 4           # 4 con LoRA Quark distilled
+    sample_guide_scale: float = 0.0
+    sample_solver: Literal["euler", "unipc", "dpm++"] = "euler"
+    infer_frames: int = 48          # frames per clip (16fps × 3s ≈ 48)
+    fp8: bool = True                # 48GB VRAM cuando True; 80GB cuando False
+    enable_compile: bool = True     # primer run lento, runs subsiguientes 2-3x más rápido
+    enable_online_decode: bool = False  # True para videos extra-largos (single-GPU)
+    offload_model: bool = True      # True en single-GPU, False en multi-GPU
+
+    # === Cost model ===
+    # Costo en USD por segundo de video generado. Para remote_http, override
+    # con el pricing real del proveedor (RunPod H100 ~$3.39/hr ≈ $0.00094/s
+    # de GPU; con ~2× tiempo real → ~$0.0019/s de video).
+    cost_per_video_second_usd: float = 0.05  # estimación conservadora batch H100
+
+    # Routing
+    intent_priority: float = 1.0  # mayor → más prioridad cuando hay audio_path
+    fallback_to_soul_on_error: bool = True  # si falla, cae a Higgsfield Soul estático
+
+
 class VisualConfig(BaseModel):
     default_strategy: str = "hybrid"
     gemini_image_model: str = "openrouter/google/gemini-2.5-flash-image"
@@ -224,6 +289,7 @@ class VisualConfig(BaseModel):
     ken_burns_zoom: float = 1.15
     higgsfield: HiggsfieldConfig = Field(default_factory=HiggsfieldConfig)
     comfyui: ComfyUIConfig = Field(default_factory=ComfyUIConfig)
+    live_avatar: LiveAvatarConfig = Field(default_factory=LiveAvatarConfig)
 
 
 class StockConfig(BaseModel):

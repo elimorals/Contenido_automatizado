@@ -1058,10 +1058,26 @@ def book_show(
 @book_app.command("produce")
 def book_produce(
     job_id: Annotated[str, typer.Argument(help="job_id devuelto por `plan`")],
+    portrait: Annotated[
+        str | None,
+        typer.Option(
+            "--portrait",
+            help="Path al .jpg/.png del presentador (REQUERIDO si intent=talking_head). ADR-016.",
+        ),
+    ] = None,
+    tts_engine: Annotated[
+        str,
+        typer.Option("--tts-engine", help="Motor TTS para talking_head: edge | gemini_flash | azure"),
+    ] = "edge",
+    tts_voice: Annotated[
+        str | None,
+        typer.Option("--tts-voice", help="Voz específica (ej. es-MX-DaliaNeural)"),
+    ] = None,
 ) -> None:
     """Renderiza shots + stitch final del job.
 
-    Requiere GPU + ComfyUI corriendo. Ver docs/LONG_FORM.md.
+    Para intent=NARRATIVE/MOTION/MONTAGE: requiere GPU + ComfyUI (ver docs/LONG_FORM.md).
+    Para intent=TALKING_HEAD: requiere LiveAvatar enabled + --portrait (ver docs/LIVE_AVATAR.md).
     """
     try:
         from core.long_form import Director, produce_long_form
@@ -1080,8 +1096,21 @@ def book_produce(
             fg=typer.colors.CYAN, bold=True,
         )
         typer.echo(f"   {job.total_shots} shots × ~{script.estimated_duration_s/job.total_shots:.1f}s each")
+        typer.echo(f"   intent={job.intent.value}")
+        portrait_p = Path(portrait) if portrait else None
+        if job.intent.value == "talking_head" and portrait_p is None:
+            typer.secho(
+                "\n✗ intent=talking_head requiere --portrait <path/anchor.jpg>",
+                fg=typer.colors.RED, err=True,
+            )
+            raise typer.Exit(code=1)
         try:
-            job = await produce_long_form(job, script)
+            job = await produce_long_form(
+                job, script,
+                portrait_path=portrait_p,
+                tts_engine=tts_engine,
+                tts_voice=tts_voice,
+            )
         except Exception as e:  # noqa: BLE001
             typer.secho(f"\n✗ Produce falló: {e}", fg=typer.colors.RED, err=True)
             raise typer.Exit(code=1) from e

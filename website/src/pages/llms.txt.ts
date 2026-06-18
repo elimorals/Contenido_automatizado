@@ -29,11 +29,12 @@ const docs = [
   ["editorial", "Brand voice como código + facts.json anti-alucinación + gate humano plan→produce"],
   ["comfyui", "7 workflows ComfyUI + LoRA training wizard + multi-tenant + OOM auto-retry"],
   ["long_form", "Pipeline ViMax-inspired para video largo 5-60min con RAG + VLM consistency"],
+  ["live_avatar", "Talking-head audio-driven con lip-sync (LiveAvatar Alibaba-Quark, ADR-016)"],
   ["pipeline", "DAG completo en detalle: 18 reasoners + visual selector + editor"],
   ["cost_model", "Tabla de costos por modo (express/premium/brand-owned/long-form)"],
   ["troubleshooting", "Errores comunes y sus fixes"],
   ["api_reference", "14 endpoints REST documentados"],
-  ["decisions", "ADRs 1-15 — por qué cada decisión arquitectónica"],
+  ["decisions", "ADRs 1-16 — por qué cada decisión arquitectónica"],
   ["migration_from_mpt", "Mapeo desde MoneyPrinterTurbo"],
   ["contributing", "Guía de contribución"],
 ];
@@ -41,7 +42,7 @@ const docs = [
 export const GET: APIRoute = () => {
   const body = `# contenido
 
-> Plataforma open source para generación de video con IA: reels cinematográficos de 25s, video largo de 5-60min (documentales, libros animados), brand-owned con LoRA propia. Fusiona cinco linajes: MoneyPrinterTurbo (industrial), reels-af (DAG cognitivo de 18 reasoners), corredor-content (editorial layer), ComfyUI (visual ownership multi-tenant) y HKUDS/ViMax (long-form). Python 3.11+. Apache 2.0. 413 tests verde.
+> Plataforma open source para generación de video con IA: reels cinematográficos de 25s, video largo de 5-60min (documentales, libros animados, talking-head con lip-sync), brand-owned con LoRA propia. Fusiona cinco linajes: MoneyPrinterTurbo (industrial), reels-af (DAG cognitivo de 18 reasoners), corredor-content (editorial layer), ComfyUI (visual ownership multi-tenant) y HKUDS/ViMax (long-form). LiveAvatar (Alibaba-Quark, ECCV 2026) para avatares parlantes audio-driven (ADR-016). Python 3.11+. Apache 2.0. 437 tests verde.
 
 Este proyecto resuelve un problema real: las herramientas de generación de video con IA actuales producen "AI slop" sin identidad de marca y máximo 25 segundos. \`contenido\` permite (1) entrenar tu LoRA con 30-50 fotos via wizard incluido, (2) usarla en 7 workflows ComfyUI distintos (Flux + ControlNet + IPAdapter + AnimateDiff + Inpaint + Upscale), (3) escalar de reels cortos a video largo de 60min reusando el mismo stack. Self-hosted (GPU local) o managed (ViewComfy/RunComfy).
 
@@ -69,6 +70,7 @@ ComfyUI workflows (7):
 - [upscale_face_restore](${SITE}/docs/comfyui): Post-process 4x upscale + face restore, ~8s
 
 Higgsfield (3): DoP turbo (~\$0.20/clip 5s), Soul (character consistency cross-beat), Effects (VFX overlay)
+LiveAvatar (2): remote_http (RunPod/Lambda, ~\$0.05/s) + local_cli (self-host single-GPU 80GB, ~\$0.005/s amortizado) — talking-head audio-driven con lip-sync, ADR-016
 Stock (1): Pexels/Pixabay/Coverr fallback
 Long-form (2): plan (book→script, ~\$1-4) + produce (shots→final, ~\$15-80)
 
@@ -80,6 +82,8 @@ Long-form (2): plan (book→script, ~\$1-4) + produce (shots→final, ~\$15-80)
 - Premium + ComfyUI brand LoRA self-host: ~\$0.04-0.15/reel
 - Long-form 10min: ~\$16-24
 - Long-form 60min: ~\$70-80
+- Talking-head 10min (remote_http RunPod H100): ~\$30
+- Talking-head 10min (local_cli amortizado): ~\$3 (electricidad)
 - LoRA training (one-time): \$2-3 cloud / gratis self-host
 
 ## Operativo para agentes (machine-readable)

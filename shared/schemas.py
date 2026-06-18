@@ -47,6 +47,7 @@ class VideoSource(str, Enum):
     HIGGSFIELD_SOUL = "higgsfield_soul"
     HIGGSFIELD_EFFECT = "higgsfield_effect"
     COMFYUI = "comfyui"  # Local ComfyUI: LoRA + ControlNet + grafos custom
+    LIVE_AVATAR = "live_avatar"  # Alibaba-Quark talking-head (audio-driven lip-sync)
 
 
 class ComfyOutputType(str, Enum):
@@ -430,6 +431,26 @@ class BeatVisual(BaseModel):
         ge=0.0,
         le=1.0,
         description="Intensidad del effect (0=ausente, 1=máxima). Ignorado si effect=None.",
+    )
+
+    # === LiveAvatar (talking-head, audio-driven lip-sync) ===
+    audio_path: Path | None = Field(
+        None,
+        description=(
+            "Path al WAV de TTS sample-accurate para este beat. Cuando se setea "
+            "Y existe una reference image (first_frame_path resuelto upstream), "
+            "el orchestrator enruta a LiveAvatarGenerator en vez de DoP/Veo. "
+            "El audio determina la duración del clip (lip-sync). Si None, se usa "
+            "el pipeline visual estándar (stock/gen + i2v motion)."
+        ),
+    )
+    reference_image_path: Path | None = Field(
+        None,
+        description=(
+            "Override explícito de la imagen-referencia para LiveAvatar. Si None, "
+            "el generator usa first_frame_path del BeatArtifact previo (Soul/Comfy/Gemini). "
+            "Útil cuando el presentador es fijo (anchor brand) y no se regenera por beat."
+        ),
     )
 
 
@@ -948,9 +969,10 @@ class ComfyJob(BaseModel):
 class LongFormIntent(str, Enum):
     """Routing del Script Planner: distinto tono por intent."""
 
-    NARRATIVE = "narrative"   # personajes + diálogos + arc
-    MOTION = "motion"          # acción + cinematografía técnica
-    MONTAGE = "montage"        # arco emocional vía imágenes + pacing
+    NARRATIVE = "narrative"       # personajes + diálogos + arc
+    MOTION = "motion"             # acción + cinematografía técnica
+    MONTAGE = "montage"           # arco emocional vía imágenes + pacing
+    TALKING_HEAD = "talking_head"  # presentador on-screen con lip-sync (LiveAvatar)
 
 
 class CharacterProfile(BaseModel):

@@ -224,6 +224,59 @@ cli_workspace_path = ""
 # lora_strength = 0.9
 
 # =============================================================================
+# LIVE AVATAR — talking-head audio-driven (ADR-016)
+# =============================================================================
+# Generador de avatares parlantes con lip-sync sincronizado al audio TTS.
+# Especializado para intent=TALKING_HEAD del long-form (explainer, cursos,
+# news anchors). NO se usa para reels cortos.
+#
+# Modelo: LoRA Quark-Vision sobre Wan2.2-S2V-14B (14B params, Apache 2.0).
+# Repo: https://github.com/Alibaba-Quark/LiveAvatar
+# Doc: docs/LIVE_AVATAR.md
+
+[visual.live_avatar]
+enabled = false                        # opt-in — true para activar talking-head
+backend = "remote_http"                # remote_http (RunPod/Lambda) | local_cli (subprocess)
+
+# === remote_http backend (recomendado producción) ===
+remote_endpoint = ""                   # ej "https://my-worker.runpod.io/generate"
+remote_api_key = ""                    # via env LIVE_AVATAR_REMOTE_API_KEY
+remote_timeout_s = 1800.0              # 30 min — videos largos pueden tardar
+
+# === local_cli backend (dev / batch interno con GPU propia) ===
+cli_repo_path = "./.external/LiveAvatar"
+cli_python = "python"                  # o ruta absoluta al venv conda activado
+cli_ckpt_dir = "./.external/LiveAvatar/ckpt/Wan2.2-S2V-14B"
+cli_lora_path = "Quark-Vision/Live-Avatar"     # HF model id o path local
+cli_training_config = "liveavatar/configs/s2v_causal_sft.yaml"
+cli_num_gpus_dit = 1                   # 1 single-gpu (80GB VRAM); 4 multi-gpu TPP (5×H800)
+cli_master_port = 29101
+cli_cuda_visible_devices = "0"
+cli_timeout_s = 3600.0                 # 1h — incluye tiempo de compilación inicial
+
+# === Inference params (compartidos entre backends) ===
+size = "704*384"                       # WxH "AREA" — aspect ratio del input se respeta
+base_seed = 420
+sample_steps = 4                       # 4 con LoRA Quark distilled
+sample_guide_scale = 0.0
+sample_solver = "euler"                # euler | unipc | dpm++
+infer_frames = 48                      # frames per clip (16 fps × 3s ≈ 48)
+fp8 = true                             # 48GB VRAM cuando true; 80GB cuando false
+enable_compile = true                  # primer run lento, subsiguientes 2-3× más rápidos
+enable_online_decode = false           # true para videos extra-largos (single-GPU)
+offload_model = true                   # true en single-GPU, false en multi-GPU
+
+# === Cost model ===
+# USD por segundo de video generado. Override según pricing real del provider.
+# - RunPod H100 serverless: ~$0.05/s output
+# - Self-hosted H100 amortizado: ~$0.005/s
+cost_per_video_second_usd = 0.05
+
+# === Routing ===
+intent_priority = 1.0                  # mayor → más prioridad cuando hay audio_path
+fallback_to_soul_on_error = true       # si falla, cae a Higgsfield Soul (estático)
+
+# =============================================================================
 # STOCK FOOTAGE
 # =============================================================================
 

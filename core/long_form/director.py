@@ -206,21 +206,29 @@ async def plan_long_form(
 async def produce_long_form(
     job: LongFormJob,
     script: LongFormScript | None = None,
+    *,
+    portrait_path: Path | None = None,
+    tts_voice: str | None = None,
+    tts_engine: str = "edge",
 ) -> LongFormJob:
     """Renderiza shots + stitch final.
 
-    Por ahora es un STUB que documenta el flujo esperado:
-    1. Para cada character sin portrait → generate_portrait (ComfyUI flux_basic)
-    2. Para cada scene:
-       a. Para cada shot: build prompt + reference_anchors + N candidates
-       b. BestImageSelector picks one
-       c. Higgsfield DoP / Veo / ComfyUI AnimateDiff: first frame → motion clip
-       d. Update consistency anchors
-    3. TTS narration per shot dialogue (sample-accurate)
-    4. ffmpeg stitch all clips + audio + subs
+    Branching por intent:
 
-    Implementación completa requiere pipeline existente. Esta fase la
-    iteramos con GPU + ComfyUI corriendo (no es solo schemas).
+    - ``intent == TALKING_HEAD`` → delega a ``produce_talking_head()``
+      (concreto, NO requiere ComfyUI/Higgsfield; usa LiveAvatar + TTS + ffmpeg).
+      Requiere ``portrait_path`` o ``job.portraits_dir`` con el anchor del
+      presentador resuelto upstream.
+
+    - Otros intents (NARRATIVE/MOTION/MONTAGE) → STUB legacy. Flujo esperado:
+      1. Para cada character sin portrait → generate_portrait (ComfyUI flux_basic)
+      2. Para cada scene:
+         a. Para cada shot: build prompt + reference_anchors + N candidates
+         b. BestImageSelector picks one
+         c. Higgsfield DoP / Veo / ComfyUI AnimateDiff: first frame → motion clip
+         d. Update consistency anchors
+      3. TTS narration per shot dialogue (sample-accurate)
+      4. ffmpeg stitch all clips + audio + subs
     """
     if script is None:
         if job.script_path is None or not Path(job.script_path).exists():
@@ -233,6 +241,30 @@ async def produce_long_form(
     if not cfg.enabled:
         raise LongFormPlanError("long_form deshabilitado")
 
+    # === Branch: talking-head (ADR-016) ===
+    if job.intent == LongFormIntent.TALKING_HEAD:
+        from core.long_form.talking_head_director import produce_talking_head
+
+        # Resolver portrait: arg explícito > job.portraits_dir/anchor.* > error
+        if portrait_path is None and job.portraits_dir:
+            portraits = sorted(Path(job.portraits_dir).glob("anchor.*"))
+            portrait_path = portraits[0] if portraits else None
+        if portrait_path is None:
+            job.status = "failed"
+            job.error_message = (
+                "talking_head: portrait_path no resuelto. Pasa `portrait_path=`"
+                " o set job.portraits_dir/anchor.{jpg,png}"
+            )
+            return job
+        return await produce_talking_head(
+            job,
+            script,
+            portrait_path=Path(portrait_path),
+            tts_voice=tts_voice,
+            tts_engine=tts_engine,
+        )
+
+    # === STUB legacy (narrative/motion/montage) ===
     job.status = "shooting"
     working_dir = Path(cfg.working_dir) / job.job_id
 
@@ -268,8 +300,22 @@ class Director:
     async def plan(self, **kwargs) -> tuple[LongFormScript, LongFormJob]:
         return await plan_long_form(**kwargs)
 
-    async def produce(self, job: LongFormJob, script: LongFormScript | None = None) -> LongFormJob:
-        return await produce_long_form(job, script)
+    async def produce(
+        self,
+        job: LongFormJob,
+        script: LongFormScript | None = None,
+        *,
+        portrait_path: Path | None = None,
+        tts_voice: str | None = None,
+        tts_engine: str = "edge",
+    ) -> LongFormJob:
+        return await produce_long_form(
+            job,
+            script,
+            portrait_path=portrait_path,
+            tts_voice=tts_voice,
+            tts_engine=tts_engine,
+        )
 
     @staticmethod
     def load_job(job_id: str) -> tuple[LongFormJob, LongFormScript]:

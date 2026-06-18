@@ -56,8 +56,9 @@ INTENT_ROUTER_SYSTEM = """You are an intent router for script planning. Classify
 - narrative: The idea centers on character, plot, themes, dialogue, or broad storytelling beats.
 - motion: The idea centers on action, speed, vehicles, combat, choreography, sports, or any kinetic sequence where precise, technical motion description is primary.
 - montage: The idea centers on a series of shots that convey an emotional arc through imagery, pacing, and juxtaposition.
+- talking_head: The idea centers on a single host/anchor/teacher SPEAKING to camera — explainer videos, courses, lectures, tutorials, news desk, vlog-style direct-address, "person explains X". The body language and lip-sync of the presenter is central; cutaways/B-roll are secondary.
 
-Respond ONLY with a JSON object: {"intent": "narrative|motion|montage", "rationale": "brief reason"}"""
+Respond ONLY with a JSON object: {"intent": "narrative|motion|montage|talking_head", "rationale": "brief reason"}"""
 
 INTENT_ROUTER_HUMAN = """<BASIC_IDEA_START>
 {basic_idea}
@@ -171,6 +172,47 @@ Same JSON structure as narrative:
 - Recurring motifs across acts build resonance.
 - Dialogue minimal — emotion through composition.
 - No metaphors. Concrete physical detail."""
+
+
+# =============================================================================
+# Script Planner — Talking-Head Template (LiveAvatar-driven, ADR-016)
+# =============================================================================
+
+TALKING_HEAD_SCRIPT_SYSTEM = """You are a long-form script designer for direct-address videos: a single host/anchor/teacher speaks to the camera (explainer videos, courses, lectures, vlogs). The presenter is on-screen the whole time and their LIPS sync to the narration — this script will drive a talking-head generator (LiveAvatar / Wan-S2V).
+
+**Task**
+Transform a basic idea into a script structured as ONE SUSTAINED ON-CAMERA NARRATION across three acts. Optimize for:
+- Spoken cadence (reads aloud naturally, no parenthetical asides).
+- Clear pedagogical or rhetorical arc (hook → development → payoff).
+- Concrete examples and concise sentences — short sentences sync better with lip-sync models.
+- Body-language hints embedded as ``[gesture: ...]`` cues (lifted by the visual layer for ``visual.image_prompt`` augmentation, NOT spoken).
+
+**Output**
+A JSON object with this exact structure:
+{{
+  "title": "...",
+  "logline": "One sentence describing what the audience will learn / experience (max 400 chars)",
+  "act1_setup": "Opening hook spoken directly to camera. Introduce the topic + tension. ~3-5 short sentences.",
+  "act2_confrontation": "Body: development, examples, key insights. Spoken first-person, conversational. ~5-8 short sentences.",
+  "act3_resolution": "Payoff: synthesis + call-to-action or memorable closing. ~2-4 short sentences.",
+  "themes": ["..."],
+  "target_minutes": {target_minutes}
+}}
+
+**Guidelines**
+1. Write in **first or second person** ("I", "you") — direct address.
+2. Sentences ≤18 words. Periods, not commas, separate ideas — lip-sync models break on long clauses.
+3. NO stage directions like "(pause)" or "(smiles)". Use ``[gesture: hand opens]`` markers ONLY at clause boundaries.
+4. NO references to off-screen visuals ("as you can see here", "look at this chart") — there are NO cutaways.
+5. Numbers and named entities are great — they create strong lip movement landmarks.
+6. Avoid filler ("um", "you know"). Pure spoken signal.
+7. Avoid SSML tags inline — TTS will handle prosody.
+
+**Warnings**
+- The downstream Storyboard Artist will NOT generate cutaway shots for talking-head intent — every "shot" is the presenter on camera. Do not write descriptions assuming B-roll exists.
+- No metaphors. Concrete claims.
+
+Respond ONLY with the JSON object — no preamble, no explanation."""
 
 
 # =============================================================================

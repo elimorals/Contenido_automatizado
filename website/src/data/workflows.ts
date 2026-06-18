@@ -4,7 +4,7 @@
 export type Capability = {
   id: string;
   name: string;
-  family: "comfyui" | "higgsfield" | "stock" | "long_form";
+  family: "comfyui" | "higgsfield" | "stock" | "long_form" | "live_avatar";
   output: "image" | "video" | "audio";
   brandLora: boolean;
   layoutStrict: boolean;
@@ -177,6 +177,35 @@ export const capabilities: Capability[] = [
     timeEstimate: "instant",
     tags: ["stock", "fast", "express"],
   },
+  // === LiveAvatar (ADR-016) — talking-head audio-driven lip-sync ===
+  {
+    id: "live_avatar_remote",
+    name: "LiveAvatar (remote_http)",
+    family: "live_avatar",
+    output: "video",
+    brandLora: false,
+    layoutStrict: false,
+    styleRef: false,
+    charConsistency: true,
+    videoLen: "audio-bound, 10000s+",
+    vramOrCost: "~$0.05/s",
+    timeEstimate: "~2× tiempo real",
+    tags: ["talking-head", "lip-sync", "audio-driven", "ECCV 2026"],
+  },
+  {
+    id: "live_avatar_local",
+    name: "LiveAvatar (local_cli)",
+    family: "live_avatar",
+    output: "video",
+    brandLora: false,
+    layoutStrict: false,
+    styleRef: false,
+    charConsistency: true,
+    videoLen: "audio-bound, 10000s+",
+    vramOrCost: "48–80 GB · ~$0.005/s (amortiz.)",
+    timeEstimate: "~2× tiempo real",
+    tags: ["talking-head", "lip-sync", "self-host", "Wan2.2-S2V-14B"],
+  },
   // === Long-form ===
   {
     id: "long_form_plan",
@@ -211,6 +240,7 @@ export const capabilities: Capability[] = [
 export const familyMeta: Record<Capability["family"], { label: string; color: string }> = {
   comfyui: { label: "ComfyUI", color: "var(--color-accent)" },
   higgsfield: { label: "Higgsfield", color: "var(--color-warm)" },
+  live_avatar: { label: "LiveAvatar", color: "var(--color-warm)" },
   stock: { label: "Stock", color: "var(--color-ink-tertiary)" },
   long_form: { label: "Long-form", color: "var(--color-success)" },
 };

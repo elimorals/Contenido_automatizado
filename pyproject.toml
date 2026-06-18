@@ -82,6 +82,18 @@ longform-scale = [
     # Solo si vas a procesar >5k chunks (libros enciclopédicos, corpus multi-libro)
     "faiss-cpu>=1.9.0",
 ]
+live-avatar = [
+    # Talking-head audio-driven con LiveAvatar (ADR-016).
+    # Solo deps de cliente — el modelo (Wan2.2-S2V-14B + LoRA Quark) se descarga
+    # aparte vía huggingface-cli al ckpt_dir configurado. Las deps de GPU
+    # (torch 2.8, flash-attn, etc.) las maneja el entorno conda de LiveAvatar
+    # cuando `backend = "local_cli"`, NO este paquete.
+    #
+    # Para `backend = "remote_http"` con un worker propio, este extra es vacío:
+    # httpx y pydantic ya están en deps base.
+    # Lo dejamos declarado para que el usuario sepa que es un módulo opt-in
+    # explícito y para futuras deps específicas (p.ej. WebRTC streaming client).
+]
 
 [project.scripts]
 contenido = "apps.cli.main:app"
