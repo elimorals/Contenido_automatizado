@@ -126,6 +126,13 @@ fallback_to_ken_burns = true
 zoom_factor = 1.15                     # 15% zoom durante beat
 direction = "auto"                     # auto | in | out | left | right
 
+[visual.fal]
+# fal.ai i2v gateway (Kling/Runway/MiniMax) — fallback de motion opt-in (ADR-023).
+# Se intenta tras DoP/Veo y antes de ken-burns. ~$0.2-0.5/clip según modelo.
+enabled = false
+api_key = ""
+model = "kling"                        # kling | runway | minimax | id 'fal-ai/...'
+
 [visual.higgsfield]
 # Higgsfield Platform API — DoP (i2v) + Soul (i2i) + Effects
 # Auth: "Authorization: Key KEY_ID:KEY_SECRET". Override por env:
@@ -286,7 +293,15 @@ pexels_api_keys = []
 pixabay_api_keys = []
 coverr_api_keys = []
 
-# Preferencia de proveedor (orden de fallback)
+# Corpus libres (ADR-022). Archive.org/Wikimedia/NASA son keyless → actívalos
+# con su flag. Unsplash (IMÁGENES → ken-burns) requiere Access Key.
+unsplash_api_keys = []
+archive_enabled = false
+wikimedia_enabled = false
+nasa_enabled = false
+
+# Preferencia de proveedor (orden de fallback). Los libres habilitados se anexan
+# tras los de pago si no los listas aquí. Para priorizar gratis: ponlos primero.
 provider_order = ["pexels", "pixabay", "coverr"]
 
 # Cache local

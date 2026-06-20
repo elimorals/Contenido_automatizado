@@ -48,6 +48,12 @@ class VideoSource(str, Enum):
     HIGGSFIELD_EFFECT = "higgsfield_effect"
     COMFYUI = "comfyui"  # Local ComfyUI: LoRA + ControlNet + grafos custom
     LIVE_AVATAR = "live_avatar"  # Alibaba-Quark talking-head (audio-driven lip-sync)
+    # Corpus libres (ADR-022): video gratuito (dominio público / CC).
+    ARCHIVE_ORG = "archive_org"  # archive.org (movies, public domain) — keyless
+    WIKIMEDIA = "wikimedia"  # Wikimedia Commons (video CC) — keyless
+    NASA = "nasa"  # NASA image & video library — keyless
+    UNSPLASH = "unsplash"  # Unsplash (IMÁGENES, vía ken-burns) — requiere key
+    FAL = "fal"  # fal.ai i2v gateway (Kling/Runway/MiniMax, ADR-023)
 
 
 class ComfyOutputType(str, Enum):
@@ -492,6 +498,55 @@ class MaterialInfo(BaseModel):
     duration_s: float = 0.0
     width: int = 0
     height: int = 0
+    # Texto descriptivo del clip (para re-ranking semántico de B-roll, ADR-018).
+    # Pexels: slug de la page-url; Pixabay: tags; Coverr: title. Opcional/best-effort.
+    description: str = ""
+    tags: list[str] = Field(default_factory=list)
+    # "video" (default) o "image". Los corpus libres de imagen (Unsplash) marcan
+    # "image" → el selector los convierte a clip vía ken-burns (ADR-022).
+    media_kind: Literal["video", "image"] = "video"
+
+
+# =============================================================================
+# REFERENCE VIDEO ANALYSIS (input-by-reference, ADR-017)
+# =============================================================================
+
+
+class ReferenceSegment(BaseModel):
+    """Un segmento de transcript de la referencia (start/end + texto)."""
+
+    start_s: float = Field(..., ge=0)
+    end_s: float = Field(..., ge=0)
+    text: str = ""
+
+
+class ReferenceBrief(BaseModel):
+    """Análisis estructural de un video de referencia (TikTok/Reel/YouTube).
+
+    Producido por `core.reference.analyze_reference`. Captura pacing, estructura,
+    hook y transcript para informar la composición del guion/beats ("haz un reel
+    con el ritmo de *este* video"). Reimplementado bajo Apache-2.0 — ver ADR-017.
+    """
+
+    url: str
+    title: str = ""
+    duration_s: float = Field(0.0, ge=0)
+    transcript: str = ""
+    segments: list[ReferenceSegment] = Field(default_factory=list)
+
+    # Pacing / estructura
+    segment_count: int = Field(0, ge=0)
+    shot_count: int = Field(0, ge=0)
+    avg_shot_s: float = Field(0.0, ge=0)
+    wpm: int = Field(0, ge=0)
+
+    # Hook
+    hook_text: str = ""
+    hook_style: str = ""  # question | shock_stat | contrarian | listicle | statement
+
+    # Sugerencias derivadas para nuestro pipeline (no vinculantes)
+    suggested_beats: int = Field(0, ge=0)
+    target_wpm: int = Field(0, ge=0)
 
 
 # =============================================================================
@@ -517,6 +572,10 @@ class VideoParams(BaseModel):
 
     # === Modo de generación ===
     mode: GenerationMode = GenerationMode.PREMIUM
+
+    # === Referencia (input-by-reference, ADR-017) ===
+    # Si se setea, se analiza el video (pacing/hook/estructura) para informar el guion.
+    reference_url: str | None = None
 
     # === Script (opcional, override) ===
     script: str | None = Field(None, alias="video_script")
@@ -608,6 +667,12 @@ class TaskInfo(BaseModel):
     winner_composite: float | None = None
     timings_s: dict[str, float] = Field(default_factory=dict)
     cost_breakdown: dict[str, float] = Field(default_factory=dict)
+
+    # Quality signals (advisory). p.ej. slideshow_risk, static_ratio (anti-slideshow guard).
+    quality_flags: dict[str, float] = Field(default_factory=dict)
+
+    # Brief del video de referencia (si params.reference_url fue provisto). ADR-017.
+    reference_brief: ReferenceBrief | None = None
 
     # Distribución
     cross_post_results: list[dict] = Field(default_factory=list)

@@ -20,6 +20,7 @@ from loguru import logger
 
 from core.distribution import get_distribution_service
 from core.editor import stitch_video
+from core.editorial import assess_slideshow_risk
 from core.llm_router import complete
 from core.narrative import (
     app as narrative_app,
@@ -38,6 +39,7 @@ from core.narrative import (
     write_narrations,
 )
 from core.planning import pack_cards, plan_beats
+from core.reference import ReferenceAnalysisError, analyze_reference
 from core.subtitles import (
     subtitles_from_word_timings,
     write_reel_ass_with_accents,
@@ -49,13 +51,16 @@ from shared.config import load_config
 from shared.schemas import (
     ConversationalScript,
     Essence,
+    GenerationMode,
     HookVariant,
+    ReferenceBrief,
     ScriptDraft,
     SubtitleStyle,
     TaskInfo,
     TaskState,
     VideoParams,
     VideoSource,
+    VisualStrategy,
 )
 
 # =============================================================================
@@ -172,7 +177,7 @@ async def _update_state(
         return TaskInfo(
             task_id=task_id,
             state=TaskState.PROCESSING,
-            mode=fields.get("mode", None),
+            mode=fields.get("mode"),
             progress=progress or 0,
         )
 
@@ -194,6 +199,38 @@ async def _update_state(
         return info
 
 
+async def _compute_reference_brief(
+    params: VideoParams,
+    task_id: str,
+    state_manager: Any,
+    timings: dict[str, float],
+) -> ReferenceBrief | None:
+    """Analiza `params.reference_url` (no-fatal). Stampa el brief + registra timing.
+
+    Devuelve None si no hay url o si el análisis falla. Se llama UNA vez por run:
+    los entry pipelines (topic/article) lo invocan antes de componer para inyectar
+    el brief al prompt; el subject path lo deja a `_run_shared_downstream`.
+    """
+    if not params.reference_url:
+        return None
+    prefix = _log_prefix(task_id)
+    logger.info(f"{prefix} reference: analizando {params.reference_url}")
+    t = time.perf_counter()
+    brief = None
+    try:
+        brief = await analyze_reference(params.reference_url)
+        logger.info(
+            f"{prefix} [reference] hook={brief.hook_style} wpm={brief.wpm} "
+            f"avg_shot={brief.avg_shot_s:.1f}s → suggested_beats={brief.suggested_beats} "
+            f"target_wpm={brief.target_wpm}"
+        )
+        await _update_state(state_manager, task_id, reference_brief=brief)
+    except ReferenceAnalysisError as e:
+        logger.warning(f"{prefix} [reference] análisis falló (non-fatal): {e}")
+    timings["reference"] = time.perf_counter() - t
+    return brief
+
+
 # =============================================================================
 # SHARED DOWNSTREAM (article + topic paths convergen aquí)
 # =============================================================================
@@ -206,17 +243,30 @@ async def _run_shared_downstream(
     task_id: str,
     state_manager: Any,
     initial_timings: dict[str, float] | None = None,
+    reference_brief: ReferenceBrief | None = None,
 ) -> TaskInfo:
     """Fases compartidas: TTS → plan → visuals/accents → media → subs → stitch → dist.
 
     Asume que el script_draft + essence ya fueron generados upstream y se anotó
     `info.script` / `info.essence` por el caller.
+
+    `reference_brief` opcional: si el caller ya lo computó (topic/article, para
+    inyectarlo al prompt), se reutiliza aquí (sin re-fetch). Si es None y hay
+    `params.reference_url` (p.ej. subject path), se computa aquí.
     """
     prefix = _log_prefix(task_id)
     out_dir = Path("./output") / task_id
     out_dir.mkdir(parents=True, exist_ok=True)
     timings: dict[str, float] = dict(initial_timings or {})
     cost_breakdown: dict[str, float] = {}
+
+    # ─── Phase 0 (opcional): análisis de referencia (input-by-reference, ADR-017) ─
+    # Si el caller (topic/article) ya lo computó para inyectarlo al prompt, se
+    # reutiliza. Si no (subject path), se computa aquí. No-fatal en ambos casos.
+    if reference_brief is None:
+        reference_brief = await _compute_reference_brief(
+            params, task_id, state_manager, timings
+        )
 
     # ─── Phase A: Audio (TTS + sample-accurate timing) ───────────────────────
     logger.info(f"{prefix} Phase A: TTS synth")
@@ -303,6 +353,26 @@ async def _run_shared_downstream(
         raise
     timings["media"] = time.perf_counter() - t
 
+    # ─── Quality gate (advisory): anti-slideshow guard ───────────────────────
+    # No-fatal: el pipeline NUNCA crashea por assets (cae a ken-burns/placeholder),
+    # así que aquí sólo medimos si el reel prometió movimiento pero quedó como
+    # slideshow, y lo dejamos como señal observable (logs + quality_flags). Ver ADR-019.
+    promised_motion = (
+        params.mode == GenerationMode.PREMIUM
+        or params.use_veo
+        or params.visual_strategy in (VisualStrategy.IA, VisualStrategy.HYBRID)
+    )
+    slideshow = assess_slideshow_risk(artifacts, promised_motion=promised_motion)
+    for issue in slideshow.result.errors:
+        logger.warning(f"{prefix} [slideshow-guard] {issue}")
+    for issue in slideshow.result.warnings:
+        logger.info(f"{prefix} [slideshow-guard] {issue}")
+    logger.info(
+        f"{prefix} [slideshow-guard] risk={slideshow.risk_score:.2f} "
+        f"static={slideshow.static_beats}/{slideshow.n_beats} "
+        f"sources={slideshow.distinct_sources}"
+    )
+
     await _update_state(
         state_manager,
         task_id,
@@ -310,6 +380,11 @@ async def _run_shared_downstream(
         materials=[str(a.video_path) for a in artifacts if a.video_path],
         timings_s=dict(timings),
         cost_breakdown=dict(cost_breakdown),
+        quality_flags={
+            "slideshow_risk": round(slideshow.risk_score, 3),
+            "static_ratio": round(slideshow.static_ratio, 3),
+            "is_slideshow": float(slideshow.is_slideshow),
+        },
     )
 
     # ─── Phase E: Subtitles ──────────────────────────────────────────────────
@@ -454,10 +529,13 @@ async def run_article_pipeline(
         timings_s=dict(timings),
     )
 
+    # ─── Phase 1.5 (opcional): referencia → brief (para inyectar al prompt) ───
+    reference_brief = await _compute_reference_brief(params, task_id, state_manager, timings)
+
     # ─── Phase 2: compose script ────────────────────────────────────────────
     t = time.perf_counter()
     try:
-        script_draft = await compose_script(narrative_app, essence)
+        script_draft = await compose_script(narrative_app, essence, reference_brief)
     except Exception as e:
         logger.error(f"{prefix} compose_script falló: {e}")
         timings["compose_script"] = time.perf_counter() - t
@@ -481,6 +559,7 @@ async def run_article_pipeline(
         task_id=task_id,
         state_manager=state_manager,
         initial_timings=timings,
+        reference_brief=reference_brief,
     )
 
 
@@ -531,10 +610,13 @@ async def run_topic_pipeline(
         raise
     timings["critic"] = time.perf_counter() - t
 
+    # ─── Phase 2.5 (opcional): referencia → brief (para inyectar al prompt) ───
+    reference_brief = await _compute_reference_brief(params, task_id, state_manager, timings)
+
     # ─── Phase 3 (paralelo): 3 narrators ────────────────────────────────────
     t = time.perf_counter()
     try:
-        scripts = await write_narrations(narrative_app, top_essences)
+        scripts = await write_narrations(narrative_app, top_essences, reference_brief)
     except Exception as e:
         logger.error(f"{prefix} narrators fallaron: {e}")
         timings["narrators"] = time.perf_counter() - t
@@ -593,6 +675,7 @@ async def run_topic_pipeline(
         task_id=task_id,
         state_manager=state_manager,
         initial_timings=timings,
+        reference_brief=reference_brief,
     )
 
 

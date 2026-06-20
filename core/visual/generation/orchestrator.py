@@ -30,11 +30,11 @@ from pathlib import Path
 
 from loguru import logger
 
-from core.visual.generation.base import VisualGenerationError
+from core.visual.generation.base import VisualGenerationError, VisualGenerator
+from core.visual.generation.comfy import ComfyUIGenerator
 from core.visual.generation.gemini_image import GeminiImageGenerator
 from core.visual.generation.higgsfield import HiggsfieldDopGenerator
 from core.visual.generation.higgsfield_effects import HiggsfieldEffectsGenerator
-from core.visual.generation.comfy import ComfyUIGenerator
 from core.visual.generation.higgsfield_soul import HiggsfieldSoulGenerator
 from core.visual.generation.ken_burns import (
     KenBurnsGenerator,
@@ -44,7 +44,6 @@ from core.visual.generation.live_avatar import LiveAvatarGenerator
 from core.visual.generation.veo import VeoGenerator
 from shared.config import load_config
 from shared.schemas import Beat, BeatArtifact, BeatVisual, VideoSource
-
 
 # =============================================================================
 # Tier 1: first frame con Soul/Gemini fallback
@@ -149,6 +148,7 @@ async def _generate_one(
     ken_burns_gen: KenBurnsGenerator,
     effects_gen: HiggsfieldEffectsGenerator | None,
     live_avatar_gen: LiveAvatarGenerator | None = None,
+    fal_gen: VisualGenerator | None = None,
 ) -> BeatArtifact:
     """Pipeline por beat: 3-tier fallback (con ComfyUI como nuevo top de tier 1)."""
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -216,6 +216,22 @@ async def _generate_one(
                 "fallback ken-burns."
             )
 
+    # 2b.5 fal.ai i2v fallback (Kling/Runway/MiniMax) — antes de ken-burns (ADR-023).
+    if motion_artifact is None and fal_gen is not None and frame_is_real:
+        try:
+            motion_artifact = await fal_gen.generate(
+                beat=beat,
+                visual=visual,
+                content_mode=content_mode,
+                out_dir=out_dir,
+                first_frame_path=frame_path,
+            )
+        except Exception as e:
+            logger.warning(
+                f"[visual.orchestrator] beat {beat.idx} fal.ai falló ({e}); "
+                "fallback ken-burns."
+            )
+
     # 2c. Ken-burns (siempre disponible si frame existe)
     if motion_artifact is None:
         try:
@@ -265,6 +281,7 @@ async def generate_beat_videos(
     use_higgsfield_effects: bool | None = None,
     use_comfyui: bool | None = None,
     use_live_avatar: bool | None = None,
+    use_fal: bool | None = None,
     image_gen: GeminiImageGenerator | None = None,
     veo_gen: VeoGenerator | None = None,
     hf_dop_gen: HiggsfieldDopGenerator | None = None,
@@ -273,6 +290,7 @@ async def generate_beat_videos(
     comfy_gen: ComfyUIGenerator | None = None,
     ken_burns_gen: KenBurnsGenerator | None = None,
     live_avatar_gen: LiveAvatarGenerator | None = None,
+    fal_gen: VisualGenerator | None = None,
 ) -> list[BeatArtifact]:
     """Genera un video por beat en paralelo (asyncio.gather), con 3-tier fallback.
 
@@ -321,6 +339,8 @@ async def generate_beat_videos(
     comfy_enabled = cu_cfg.enabled if use_comfyui is None else use_comfyui
     la_cfg = cfg.visual.live_avatar
     la_enabled = la_cfg.enabled if use_live_avatar is None else use_live_avatar
+    fal_cfg = cfg.visual.fal
+    fal_enabled = fal_cfg.enabled if use_fal is None else use_fal
 
     img = image_gen or GeminiImageGenerator()
 
@@ -362,6 +382,17 @@ async def generate_beat_videos(
     if effects is None and effects_enabled:
         effects = HiggsfieldEffectsGenerator()
 
+    # fal.ai i2v (Kling/Runway/MiniMax) — fallback de motion opt-in (ADR-023).
+    fal = fal_gen
+    if fal is None and fal_enabled:
+        from core.visual.generation.fal import FalProvider
+
+        try:
+            fal = FalProvider()
+        except Exception as e:
+            logger.warning(f"[visual.orchestrator] fal init falló ({e}); desactivado.")
+            fal = None
+
     # LiveAvatar — solo se construye si está enabled. Se invoca per-beat solo
     # cuando visual.audio_path está poblado (ver _should_use_live_avatar).
     live_avatar = live_avatar_gen
@@ -390,6 +421,7 @@ async def generate_beat_videos(
                 ken_burns_gen=ken_burns,
                 effects_gen=effects,
                 live_avatar_gen=live_avatar,
+                fal_gen=fal,
             )
             for beat, visual in zip(beats, visuals)
         )

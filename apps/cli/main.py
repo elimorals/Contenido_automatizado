@@ -152,6 +152,9 @@ def topic(
         VisualStrategy, typer.Option(help="stock | ia | hybrid")
     ] = VisualStrategy.HYBRID,
     use_veo: Annotated[bool, typer.Option(help="Usar Veo i2v (más caro)")] = False,
+    reference: Annotated[
+        str, typer.Option(help="URL de video de referencia para informar el pacing (ADR-017)")
+    ] = "",
     output: Annotated[Path, typer.Option(help="Directorio de output")] = Path("./output"),
     quiet: Annotated[bool, typer.Option(help="Sin progress bar")] = False,
 ) -> None:
@@ -164,6 +167,7 @@ def topic(
             voice_name=voice_name,
             visual_strategy=strategy,
             use_veo=use_veo,
+            reference_url=reference or None,
         )
     except Exception as e:
         typer.secho(f"✗ Parámetros inválidos: {e}", fg=typer.colors.RED, err=True)
@@ -221,6 +225,40 @@ def subject(
         typer.secho(f"✗ Parámetros inválidos: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=2) from e
     _run(params, output, quiet)
+
+
+@app.command()
+def reference(
+    url: Annotated[str, typer.Argument(help="URL del video de referencia (TikTok/Reel/YouTube)")],
+    json_out: Annotated[bool, typer.Option("--json", help="Imprime el brief como JSON")] = False,
+) -> None:
+    """Analizar un video de referencia: pacing, hook, estructura y transcript (ADR-017).
+
+    No genera reel — sólo produce el ReferenceBrief. Úsalo standalone o pasa la misma
+    URL a `topic --reference <url>` para informar la composición del guion.
+    Requiere el extra: pip install -e '.[reference]'.
+    """
+    from core.reference import ReferenceAnalysisError, analyze_reference
+
+    try:
+        brief = asyncio.run(analyze_reference(url))
+    except ReferenceAnalysisError as e:
+        typer.secho(f"✗ {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from e
+
+    if json_out:
+        typer.echo(json.dumps(brief.model_dump(), ensure_ascii=False, indent=2))
+        return
+
+    typer.secho(f"\n📼 {brief.title or url}", fg=typer.colors.CYAN, bold=True)
+    typer.echo(f"  duración    : {brief.duration_s:.1f}s")
+    typer.echo(f"  hook        : [{brief.hook_style}] {brief.hook_text}")
+    typer.echo(f"  pacing      : {brief.shot_count} shots, ~{brief.avg_shot_s:.1f}s/shot")
+    typer.echo(f"  ritmo voz   : {brief.wpm} wpm")
+    typer.secho(
+        f"  → sugerido  : {brief.suggested_beats} beats @ {brief.target_wpm} wpm",
+        fg=typer.colors.GREEN,
+    )
 
 
 @app.command("config-check")

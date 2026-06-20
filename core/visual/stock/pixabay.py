@@ -100,6 +100,8 @@ class PixabayProvider(StockProvider):
                 if duration < min_duration_s:
                     continue
                 videos_map = v.get("videos") or {}
+                # Tags vienen como string separado por comas (para rerank, ADR-018).
+                tags = [t.strip() for t in str(v.get("tags") or "").split(",") if t.strip()]
                 # Iterar en el orden insertion (large → medium → small → tiny)
                 for _video_type, video in videos_map.items():
                     try:
@@ -116,6 +118,7 @@ class PixabayProvider(StockProvider):
                                 duration_s=duration,
                                 width=w,
                                 height=h,
+                                tags=tags,
                             )
                         )
                         break

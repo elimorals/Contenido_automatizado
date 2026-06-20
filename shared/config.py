@@ -279,6 +279,14 @@ class LiveAvatarConfig(BaseModel):
     fallback_to_soul_on_error: bool = True  # si falla, cae a Higgsfield Soul estático
 
 
+class FalConfig(BaseModel):
+    """fal.ai i2v gateway (Kling/Runway/MiniMax) — ADR-023. Opt-in."""
+
+    enabled: bool = False
+    api_key: str = ""
+    model: str = "kling"  # 'kling' | 'runway' | 'minimax' | id completo 'fal-ai/...'
+
+
 class VisualConfig(BaseModel):
     default_strategy: str = "hybrid"
     gemini_image_model: str = "openrouter/google/gemini-2.5-flash-image"
@@ -290,12 +298,22 @@ class VisualConfig(BaseModel):
     higgsfield: HiggsfieldConfig = Field(default_factory=HiggsfieldConfig)
     comfyui: ComfyUIConfig = Field(default_factory=ComfyUIConfig)
     live_avatar: LiveAvatarConfig = Field(default_factory=LiveAvatarConfig)
+    fal: FalConfig = Field(default_factory=FalConfig)
+    # Re-ranking semántico de B-roll (ADR-018). Off por default → scorer léxico.
+    broll_semantic_rerank: bool = False
+    broll_embedder_model: str = "all-MiniLM-L6-v2"
 
 
 class StockConfig(BaseModel):
     pexels_api_keys: list[str] = Field(default_factory=list)
     pixabay_api_keys: list[str] = Field(default_factory=list)
     coverr_api_keys: list[str] = Field(default_factory=list)
+    # Corpus libres (ADR-022). Archive.org/Wikimedia/NASA son keyless → se activan
+    # con su flag. Unsplash (imágenes) requiere Access Key.
+    unsplash_api_keys: list[str] = Field(default_factory=list)
+    archive_enabled: bool = False
+    wikimedia_enabled: bool = False
+    nasa_enabled: bool = False
     provider_order: list[str] = Field(default_factory=lambda: ["pexels", "pixabay", "coverr"])
     cache_dir: str = "./storage/materials_cache"
     min_duration_s: float = 3.0

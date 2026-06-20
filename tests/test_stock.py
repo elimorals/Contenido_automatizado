@@ -314,7 +314,9 @@ def test_probe_video_handles_ffprobe_failure(tmp_path: Path) -> None:
 
 def test_registry_available_providers() -> None:
     names = available_providers()
-    assert set(names) == {"pexels", "pixabay", "coverr"}
+    # Paid/keyed + corpus libres (ADR-022).
+    assert {"pexels", "pixabay", "coverr"}.issubset(set(names))
+    assert {"archive_org", "wikimedia", "nasa", "unsplash"}.issubset(set(names))
 
 
 def test_registry_get_provider_known() -> None:

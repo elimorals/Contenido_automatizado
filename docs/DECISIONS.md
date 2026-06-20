@@ -499,3 +499,393 @@ El `cost_per_video_second_usd` es **overrideable por config** según el deal del
 - Paper: arXiv:2512.04677
 - Modelo base: [Wan-AI/Wan2.2-S2V-14B](https://huggingface.co/Wan-AI/Wan2.2-S2V-14B)
 - LoRA distilled: [Quark-Vision/Live-Avatar](https://huggingface.co/Quark-Vision/Live-Avatar)
+
+---
+
+## ADR-017: Analizador de video de referencia (input-by-reference)
+
+**Fecha**: 2026-06-19 | **Estado**: Aceptado
+
+### Contexto
+
+Evaluamos integrar [OpenMontage](https://github.com/calesthio/OpenMontage) (AGPLv3) y
+[automate-faceless-content](https://github.com/cporter202/automate-faceless-content).
+Conclusión (ver "Evaluación de integración"): **no integrar código** de ninguno —
+automate-faceless-content es un curso en Markdown (0% código) que promociona un SaaS
+cerrado; OpenMontage es código real pero divergente arquitectónicamente y, sobre todo,
+**AGPLv3**, incompatible con nuestro despliegue como servicio bajo Apache-2.0 (la cláusula
+Affero contaminaría toda la plataforma).
+
+De OpenMontage sí valía la pena **reimplementar** (no copiar) 3 ideas que llenan gaps
+reales. Esta es la primera: hoy no existe forma de decir "haz un reel con el ritmo/estructura
+de *este* TikTok". Las 4 entradas (url/topic/subject/long_form) parten de texto, nunca de un
+video ejemplar.
+
+### Decisión
+
+Nuevo paquete `core/reference/` con código propio bajo Apache-2.0:
+
+1. **Lógica pura `build_brief(url, raw)`** — deriva pacing (`avg_shot_s`, `shot_count`),
+   ritmo de voz (`wpm`), clasificación de hook (question/shock_stat/contrarian/listicle/
+   statement) y sugerencias (`suggested_beats`, `target_wpm`) de datos crudos. Determinista,
+   testeable offline.
+2. **I/O detrás del protocolo `ReferenceFetcher`** — inyectable. Default real `YtDlpFetcher`
+   (yt-dlp + faster-whisper + ffmpeg scene-detect), con imports perezosos.
+3. **Schema `ReferenceBrief`** en `shared/schemas.py`.
+4. **CLI `contenido reference <url>`** standalone + opción `topic --reference <url>`.
+5. **`VideoParams.reference_url`** → el pipeline analiza la referencia en una **Phase 0
+   no-fatal**, expone el brief en `TaskInfo.reference_brief` y loguea la forma sugerida.
+
+### Razón
+
+- **Patrón ya existente**: el protocolo + fetcher inyectable es el mismo estilo que el resto
+  de providers; la lógica pura separada de I/O se testea sin red (12 tests).
+- **faster-whisper ya está** en deps base — sólo añadimos `yt-dlp` como extra `[reference]`.
+- **Apache-2.0 limpio**: cero líneas de OpenMontage; sólo el concepto.
+
+### Consumo creativo del brief (complemento OPCIONAL)
+
+El brief además se **inyecta al prompt de composición** como complemento opcional que NO
+altera el comportamiento previo:
+
+- `reference_style_hint(brief)` — helper PURO que produce un bloque de guía SUAVE
+  (pacing/hook/ritmo visual). Determinista, testeado.
+- `compose_script(app, essence, reference_brief=None)` y
+  `write_narration(s)(..., reference_brief=None)` aceptan el brief opcional. Con `None`, el
+  user-prompt es **idéntico byte-a-byte** al anterior (test lo verifica); con brief, se anexa
+  el bloque de estilo SIN tocar la estructura fija ni el contenido (sigue saliendo de la
+  essence/evidence).
+- **Modulación del conteo de beats**: `mechanism_target(brief) = clamp(suggested_beats - 2, 2, 4)`
+  (descuenta hook+payoff, respeta la cota del schema). Cuando hay brief, `_system_prompt` pide
+  un nº **exacto** de `mechanism_lines` ("exactly N sentences") en vez del rango "2-4"; sin
+  brief, el prompt es idéntico al previo. Así el pacing de la referencia (cortes rápidos →
+  más beats) se traduce en estructura real, no sólo en texto de guía.
+- `run_topic_pipeline`/`run_article_pipeline` computan el brief UNA vez
+  (`_compute_reference_brief`) antes de componer, lo inyectan, y lo reutilizan downstream sin
+  re-fetch. El subject path lo deja a `_run_shared_downstream` (Phase 0).
+
+La guía es **soft** a propósito: orienta velocidad de entrega y sabor del hook, no reescribe el
+guion. El valor standalone (CLI `contenido reference <url>`) sigue intacto.
+
+### Archivos
+
+**Nuevos**: `core/reference/{__init__,analyzer,fetcher}.py`, `tests/test_reference.py`.
+**Modificados**: `shared/schemas.py` (`ReferenceBrief`, `ReferenceSegment`,
+`VideoParams.reference_url`, `TaskInfo.reference_brief`), `apps/api/pipeline.py`
+(`_compute_reference_brief` + Phase 0 + inyección en topic/article),
+`core/narrative/{compose,narrator}.py` (kwarg `reference_brief` opcional),
+`apps/cli/main.py` (comando `reference` + `topic --reference`), `pyproject.toml` (extra `reference`).
+Surface en las 3 superficies: `apps/api/main.py` (POST `/reference`), `apps/webui/Main.py`
+(input URL de referencia en tabs Premium + badge slideshow + expander del brief),
+`apps/mcp/server.py` (tool `contenido_analyze_reference`, ADR-021).
+
+### Crédito
+
+Concepto inspirado en OpenMontage (`tools/analysis/video_analyzer.py` + `scene_detect` +
+`transcript_fetcher`). Reimplementación independiente — sin reutilización de código AGPLv3.
+
+---
+
+## ADR-018: Re-ranking semántico de B-roll (stock)
+
+**Fecha**: 2026-06-19 | **Estado**: Aceptado
+
+### Contexto
+
+Segunda idea reimplementada de OpenMontage (que indexa un corpus libre Archive.org/NASA/
+Wikimedia con embeddings CLIP). El selector tomaba `results[0]` del provider de stock: el
+primer resultado del query corto de búsqueda, sin reordenar por la intención RICA del beat.
+
+No tenemos los bytes de imagen al seleccionar (sólo metadata), así que adaptamos el concepto
+a los datos disponibles: re-ranking por **texto**, no por embedding de imagen.
+
+### Decisión
+
+1. **`core/visual/broll_rerank.py`** — `rerank(query, materials, embedder=None)` ordena los
+   candidatos por relevancia entre la descripción rica del beat (`image_prompt + visual_anchor
+   + text`) y el texto de cada candidato. Backend default: coseno léxico determinista (cero
+   deps, offline). Backend opcional vía protocolo `.similarity()` (p.ej. sentence-transformers).
+2. **`MaterialInfo.description` + `.tags`** — Pexels rellena `description` con el slug de la
+   page-url; Pixabay rellena `tags`. Best-effort, retro-compatible (defaults vacíos).
+3. **Hook en `selector._try_stock`** — reordena el top-N del provider antes de tomar `[0]`.
+
+### Razón
+
+- **Sort estable**: empates preservan el orden del provider (que ya viene rankeado) → nunca
+  empeora, sólo mejora cuando hay señal.
+- **Determinista y offline por defecto** → 9 tests sin red; el provider ya filtra por keyword,
+  esto sólo afina la elección entre los candidatos.
+- **Apache-2.0**: código propio; no usamos CLIP ni el corpus de OpenMontage.
+
+### Backend semántico (opcional, implementado)
+
+El protocolo `Embedder` ahora tiene un backend real opt-in:
+`core/visual/broll_embedder.py:SentenceTransformerEmbedder` (sentence-transformers, coseno
+clamp a [0,1]). `get_broll_embedder(config)` devuelve el embedder si
+`config.visual.broll_semantic_rerank=true` **y** la lib está disponible; si no, **None →
+el rerank cae al léxico** (default). El modelo se carga perezosamente y se cachea
+(`lru_cache`) por nombre — no por beat. Extra `broll-semantic` (pesado, torch). El selector
+pasa `embedder=get_broll_embedder()` a `rerank`; con la config por defecto es None, así que
+el comportamiento no cambia.
+
+### Archivos
+
+**Nuevos**: `core/visual/broll_rerank.py`, `core/visual/broll_embedder.py`,
+`tests/test_broll_rerank.py`, `tests/test_broll_embedder.py`.
+**Modificados**: `shared/schemas.py` (`MaterialInfo.description/tags`),
+`shared/config.py` (`VisualConfig.broll_semantic_rerank/broll_embedder_model`),
+`core/visual/selector.py`, `core/visual/stock/{pexels,pixabay}.py`,
+`pyproject.toml` (extra `broll-semantic`).
+
+---
+
+## ADR-019: Guard anti-slideshow (delivery promise)
+
+**Fecha**: 2026-06-19 | **Estado**: Aceptado
+
+### Contexto
+
+Tercera idea reimplementada de OpenMontage (`lib/slideshow_risk.py` + `lib/delivery_promise.py`).
+El pipeline visual NUNCA crashea: cae a ken-burns sobre still o a placeholder. Eso es robusto,
+pero un reel que prometió "video cinético" (PREMIUM/Veo/Higgsfield) puede terminar siendo 80%
+imágenes estáticas con zoom — el fracaso "PowerPoint animado" que mata el engagement. No había
+ninguna señal que lo detectara.
+
+### Decisión
+
+1. **`core/editorial/slideshow_guard.py`** — `assess_slideshow_risk(artifacts, promised_motion,
+   max_static_ratio)` clasifica cada beat como movimiento real (stock/Veo/DoP/LiveAvatar) vs
+   still (generadores de imagen + ken-burns + placeholder), calcula `static_ratio`/`risk_score`
+   y emite `ValidationResult` (reusa el patrón de la capa editorial).
+2. **Cableo no-fatal en el pipeline** (tras Phase D): loguea warnings/errors y expone
+   `slideshow_risk`/`static_ratio`/`is_slideshow` en `TaskInfo.quality_flags`.
+
+### Razón
+
+- **Advisory, no bloqueante en runtime**: respeta la filosofía "nunca crashear por assets". El
+  gate duro sigue siendo el humano (plan → approve). Esto es una señal observable que podría
+  elevarse a gate si se quisiera.
+- **Reusa `ValidationResult`/`ValidationIssue`** → integración natural con el gate editorial
+  existente. 15 tests, cero deps.
+
+### Archivos
+
+**Nuevos**: `core/editorial/slideshow_guard.py`, `tests/test_slideshow_guard.py`.
+**Modificados**: `core/editorial/__init__.py`, `apps/api/pipeline.py`,
+`shared/schemas.py` (`TaskInfo.quality_flags`).
+
+---
+
+## ADR-020: Composición Remotion — NO integrar (entorno opcional / observación)
+
+**Fecha**: 2026-06-19 | **Estado**: Rechazado (documentado como entorno opcional futuro)
+
+### Contexto
+
+OpenMontage compone con **Remotion (React/Node) + HyperFrames**, que permite cosas que nuestro
+`core/editor/ffmpeg_stitch.py` (single-pass, ADR-001) no hace hoy: transiciones custom,
+color grading, motion graphics multi-capa, animaciones spring. Nuestro propio análisis lista
+esto como el gap más claro del montaje ("funcional y sample-accurate pero **básico**").
+
+### Decisión
+
+**No integrar Remotion.** Se deja registrado como *entorno opcional* a evaluar sólo si el
+"look cinematográfico" se vuelve un objetivo de producto explícito.
+
+### Razón
+
+Adoptar Remotion implica: meter Node.js 18+ y un build de React en un stack Python, **perder
+el timing sample-accurate** (nuestra ventaja, ADR-001/ADR-005), y ~2 semanas de refactor del
+editor. El ROI no lo justifica para reels sociales de 25s. Además, el composer de OpenMontage
+es **AGPLv3** — no se podría importar; habría que reimplementarlo.
+
+### Si algún día se hace
+
+La vía sería un **editor alternativo opcional** detrás de un switch de config
+(`config.editor.runtime = "remotion"` junto al `ffmpeg` default), **reimplementado** bajo
+Apache-2.0 — nunca importando el de OpenMontage. El `ffmpeg single-pass` seguiría siendo el
+default por timing y simplicidad.
+
+---
+
+## ADR-021: MCP server (agente-driven) sobre el pipeline existente
+
+**Fecha**: 2026-06-19 | **Estado**: Aceptado
+
+### Contexto
+
+El proyecto tiene 3 superficies (CLI, REST API, Streamlit). La conclusión del análisis de
+OpenMontage fue que su idea valiosa era **"el agente como director"**. Un MCP server es esa
+idea, nativa de nuestra arquitectura Apache-2.0 — sin adoptar su código AGPL ni su orquestación.
+Le da a Claude/cualquier agente las herramientas para dirigir el producto.
+
+### Decisión
+
+Nuevo paquete `apps/mcp/` con FastMCP (transport **stdio**, local), in-process sobre el
+pipeline existente:
+
+1. **`apps/mcp/service.py`** — TODA la lógica, SIN importar `mcp` → testeable sin el SDK ni LLM:
+   `build_reel_params`, `cost_note`, `run_job`/`start_reel` (jobs en background sobre el
+   `StateManager`), `get_task`/`list_tasks`, `format_task`. 14 tests con runner inyectado.
+2. **`apps/mcp/server.py`** — capa FINA FastMCP. 5 tools:
+   `contenido_analyze_reference` (read-only) · `contenido_start_reel` (job, gasta dinero) ·
+   `contenido_get_task` · `contenido_list_tasks` · `contenido_list_voices` (read-only).
+   Cada tool con Pydantic input + annotations (readOnly/destructive/idempotent/openWorld).
+3. **Jobs no-bloqueantes**: `start_reel` setea un `TaskInfo` QUEUED síncrono, agenda el pipeline
+   con `asyncio.create_task` (guardado en un set para no ser GC'd) y devuelve `task_id` +
+   `cost_note`. El agente sondea con `get_task`. `run_job` marca FAILED si el pipeline revienta
+   (nunca se queda colgado en PROCESSING).
+4. **Estado compartido**: `get_state_manager(load_config())` → Redis si está configurado
+   (jobs visibles también desde la API/UI) o memoria en otro caso.
+
+### Gate de costo (decisión de alcance)
+
+El MCP expone **solo reels** (topic/article/subject, ~$0.01–1.20). El **long-form ($16–80)
+NO se expone** como tool — no hay parámetro para dispararlo; sigue human-gated vía CLI/plan
+editorial. `start_reel` devuelve `cost_note` para que el agente vea el gasto antes de actuar.
+
+### Razón
+
+- **Wrapper fino, cero dominio nuevo**: reusa `run_pipeline`, `StateManager`, `VideoParams`,
+  `analyze_reference`. El MCP es orquestación, no lógica.
+- **Lógica separada del SDK** → 14 tests corren sin `mcp` instalado; el server sólo se
+  import-testea cuando el extra está presente.
+- **Apache-2.0**: sin relación con el código de OpenMontage.
+
+### Archivos
+
+**Nuevos**: `apps/mcp/{__init__,service,server}.py`, `tests/test_mcp_service.py`, `docs/MCP.md`.
+**Modificados**: `pyproject.toml` (extra `mcp` + script `contenido-mcp`).
+
+### Riesgos / extensión
+
+- Un agente podría encadenar muchos `start_reel` → gasto. Mitigación actual: `cost_note` visible
+  + sólo reels. Futuro: quota/confirmación por tool, o `estimate_cost` dedicado.
+- `generate_plan` (ideación editorial) podría exponerse como tool read-mostly más adelante.
+
+---
+
+## ADR-022: Providers de corpus libre (Archive.org, Wikimedia, NASA, Unsplash)
+
+**Fecha**: 2026-06-19 | **Estado**: Aceptado
+
+### Contexto
+
+Paridad con el B-roll de OpenMontage: además del re-ranking semántico (ADR-018) sobre stock
+de pago (Pexels/Pixabay/Coverr), OpenMontage **recuperaba** de archivos libres
+(Archive.org/NASA/Wikimedia) indexados con CLIP. Faltaba la *recuperación* desde esas fuentes.
+
+### Decisión
+
+Cuatro nuevos `StockProvider` (código propio Apache-2.0, concepto inspirado en OpenMontage):
+
+- **Archive.org** (`archive_org.py`) — video dominio público, keyless, 2 pasos
+  (advancedsearch → metadata → archivo mp4).
+- **Wikimedia Commons** (`wikimedia.py`) — video CC, keyless, 1 paso (query+imageinfo,
+  filtrado a mediatype=VIDEO).
+- **NASA** (`nasa.py`) — images-api keyless, 2 pasos (search → asset manifest → mp4).
+- **Unsplash** (`unsplash.py`) — FOTOS (no video), requiere Access Key.
+
+Como Unsplash es imagen, se añadió `MaterialInfo.media_kind` (`"video"` default | `"image"`):
+el selector convierte `image` a clip vía **ken-burns** (`render_ken_burns`), respetando el
+contrato de la rama stock (devuelve video). Cada parser es **puro y testeado** (15 tests sobre
+payloads representativos); la parte HTTP es wrapper fino (no testeada offline, como `YtDlpFetcher`).
+
+Activación: Archive.org/Wikimedia/NASA por flag `stock.*_enabled` (keyless); Unsplash por
+`stock.unsplash_api_keys`. El registry los incluye y los anexa tras los de pago en
+`provider_order`. Costo 0.0 en el selector. `slideshow_guard.MOTION_SOURCES` incluye los 3 de
+video real; **Unsplash NO** (imagen→ken-burns cuenta como still).
+
+### Razón
+
+- **Encaja en la ABC `StockProvider`** sin tocar el editor — la rama stock ya descarga+usa clips.
+- **Gratis**: amplía cobertura de B-roll sin costo por clip.
+- **Parsers puros separados de I/O** → testeables sin red.
+
+### Riesgos
+
+- Las formas de JSON de cada API son best-effort según su doc; verificación en vivo pendiente
+  (igual que `reference/fetcher.py`). Si una API cambia, sólo afecta su parser.
+- Archive.org/NASA son 2 pasos → más latencia; por eso van como fallback tras el stock de pago.
+
+### Archivos
+
+**Nuevos**: `core/visual/stock/{archive_org,wikimedia,nasa,unsplash}.py`, `tests/test_stock_free.py`.
+**Modificados**: `shared/schemas.py` (`VideoSource` + `MaterialInfo.media_kind`),
+`shared/config.py` (`StockConfig` flags+keys), `core/visual/stock/registry.py`,
+`core/visual/selector.py` (puente imagen→ken-burns + costos),
+`core/editorial/slideshow_guard.py` (MOTION_SOURCES), `config.example.toml`.
+
+---
+
+## ADR-023: Video-gen extra vía fal.ai (Kling / Runway / MiniMax)
+
+**Fecha**: 2026-06-19 | **Estado**: Aceptado
+
+### Contexto
+
+OpenMontage ofrecía más providers de video-gen (Kling, Runway, MiniMax, Seedance vía fal.ai).
+contenido ya cubre i2v con Veo + Higgsfield DoP. Estos eran "extras menores", pero añadir un
+gateway unificado da diversidad de motion sin un provider nuevo por modelo.
+
+### Decisión
+
+Un único `VisualGenerator` sobre **fal.ai** (`core/visual/generation/fal.py`) con variantes de
+modelo seleccionables (`kling` | `runway` | `minimax` | id `fal-ai/...`). Es un **fallback de
+motion adicional en tier 2**, entre Veo y ken-burns:
+
+  DoP → Veo → **fal.ai** → ken-burns
+
+Opt-in por `config.visual.fal.enabled` + `api_key`. Helpers puros (mapeo de modelo, request,
+parseo) testeados offline (7 tests); la llamada HTTP es wrapper fino (httpx, sin SDK).
+`VideoSource.FAL` cuenta como **motion real** en `slideshow_guard`; costo ~$0.25 en el selector.
+
+### Razón
+
+- **Un archivo, no uno por modelo**: fal.ai unifica la API → variante por config.
+- **Encaja en la cascada existente**: mismo contrato `VisualGenerator` que Veo; 1 if en el
+  orchestrator (lazy import del provider sólo si enabled).
+- Diversidad de motion para A/B sin tocar el resto del pipeline.
+
+### Archivos
+
+**Nuevos**: `core/visual/generation/fal.py`, `tests/test_fal.py`.
+**Modificados**: `shared/schemas.py` (`VideoSource.FAL`), `shared/config.py` (`FalConfig`),
+`core/visual/generation/orchestrator.py` (tier 2b.5 + construcción lazy),
+`core/visual/selector.py` (costo), `core/editorial/slideshow_guard.py` (MOTION_SOURCES),
+`config.example.toml`.
+
+---
+
+## ADR-024: Checkpoint reanudable (resume mid-pipeline)
+
+**Fecha**: 2026-06-19 | **Estado**: Aceptado (marginal para reels, útil para long-form)
+
+### Contexto
+
+OpenMontage tenía `checkpoint.py` para reanudar a mitad de ejecución. contenido ya tiene
+estado de task (`StateManager`), pero ese estado es de *progreso*, no de *reanudación
+granular*: si un long-form (45-90 min, $15-80) muere en el shot 40/120, no hay forma de
+saltar los 39 ya generados.
+
+### Decisión
+
+`core/checkpoint.py` con `Checkpoint` (fases + beats completados, con artefactos) y
+`CheckpointStore` (JSON atómico por task, tmp+replace). Agnóstico al pipeline: el caller
+consulta `is_phase_done`/`pending_beats` antes de cada fase y registra con
+`mark_phase`/`mark_beat`+`save`. Carga tolerante a corrupción (→ checkpoint vacío, no crash).
+`get_checkpoint_store()` deriva el dir de `long_form.working_dir/checkpoints` por default.
+
+**Alcance**: módulo + 10 tests, NO cableado al pipeline de reels (donde es marginal: 25s,
+rápido, barato — reanudar no compensa). Pensado para que `core/long_form/director.py` lo
+adopte en su loop de shots, donde el ahorro es real. Se deja como infraestructura lista.
+
+### Razón
+
+- **Reels no lo necesitan**: cablearlo ahí añadiría I/O por beat sin payoff.
+- **Long-form sí**: un solo módulo reutilizable, sin acoplar; el director lo usa cuando quiera.
+- **Atómico + tolerante a corrupción** → un checkpoint a medio escribir nunca rompe un re-run.
+
+### Archivos
+
+**Nuevos**: `core/checkpoint.py`, `tests/test_checkpoint.py`.

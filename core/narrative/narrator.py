@@ -14,9 +14,9 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from shared.schemas import ConversationalScript, EssenceCandidate
-
 from core.narrative.runtime import reel
+from core.reference import reference_style_hint
+from shared.schemas import ConversationalScript, EssenceCandidate, ReferenceBrief
 
 _SYSTEM = """You are writing a 25-30 second vertical reel narration in
 DELAYED-REVEAL style. This is critical — read it twice.
@@ -181,8 +181,10 @@ OUTPUT — fill the ConversationalScript schema
 """
 
 
-def _user_prompt(essence: EssenceCandidate) -> str:
-    return (
+def _user_prompt(
+    essence: EssenceCandidate, reference_brief: ReferenceBrief | None = None
+) -> str:
+    base = (
         f"WRITE THE CONVERSATIONAL SCRIPT FROM THIS ESSENCE\n\n"
         f"core_claim    : {essence.core_claim}\n"
         f"mechanism     : {essence.mechanism}\n"
@@ -198,24 +200,36 @@ def _user_prompt(essence: EssenceCandidate) -> str:
         f"setup, deliver the answer in the body, callback the tease in "
         f"the payoff."
     )
+    if reference_brief is not None:
+        base += "\n" + reference_style_hint(reference_brief)
+    return base
 
 
 @reel.reasoner("write_narration")
 async def write_narration(
-    app: Any, essence: EssenceCandidate,
+    app: Any,
+    essence: EssenceCandidate,
+    reference_brief: ReferenceBrief | None = None,
 ) -> ConversationalScript:
-    """One .ai() call producing a delayed-reveal ConversationalScript."""
+    """One .ai() call producing a delayed-reveal ConversationalScript.
+
+    `reference_brief` opcional: informa pacing/estilo sin alterar la estructura.
+    None = comportamiento previo intacto (ADR-017)."""
     return await app.ai(
         system=_SYSTEM,
-        user=_user_prompt(essence),
+        user=_user_prompt(essence, reference_brief),
         schema=ConversationalScript,
         temperature=0.85,
     )
 
 
 async def write_narrations(
-    app: Any, essences: list[EssenceCandidate],
+    app: Any,
+    essences: list[EssenceCandidate],
+    reference_brief: ReferenceBrief | None = None,
 ) -> list[ConversationalScript]:
-    """Fan-out across essences in parallel."""
-    tasks = [write_narration(app, e) for e in essences]
+    """Fan-out across essences in parallel.
+
+    `reference_brief` opcional se propaga a cada narración (ADR-017)."""
+    tasks = [write_narration(app, e, reference_brief) for e in essences]
     return list(await asyncio.gather(*tasks))

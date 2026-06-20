@@ -15,6 +15,11 @@ from core.editorial.loader import (
     reload_editorial,
 )
 from core.editorial.plan import generate_plan, load_plan, save_plan
+from core.editorial.slideshow_guard import (
+    SlideshowReport,
+    assess_slideshow_risk,
+    is_static_artifact,
+)
 from core.editorial.validation import (
     ValidationIssue,
     validate_idea,
@@ -23,9 +28,12 @@ from core.editorial.validation import (
 
 __all__ = [
     "EditorialRegistry",
+    "SlideshowReport",
     "ValidationIssue",
+    "assess_slideshow_risk",
     "facts_anti_hallucination_block",
     "generate_plan",
+    "is_static_artifact",
     "load_editorial",
     "load_plan",
     "reload_editorial",

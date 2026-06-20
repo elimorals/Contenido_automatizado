@@ -27,8 +27,10 @@ from pathlib import Path
 
 from loguru import logger
 
+from core.visual.broll_embedder import get_broll_embedder
+from core.visual.broll_rerank import rerank
 from core.visual.generation import generate_beat_videos
-from core.visual.generation.ken_burns import _placeholder_frame
+from core.visual.generation.ken_burns import _placeholder_frame, render_ken_burns
 from core.visual.stock import fetch_and_cache, get_all_providers
 from shared.config import load_config
 from shared.schemas import (
@@ -58,6 +60,12 @@ _COST_ESTIMATES: dict[VideoSource, float] = {
     VideoSource.HIGGSFIELD_SOUL: 0.05,  # SoulId-guided image
     VideoSource.HIGGSFIELD_EFFECT: 0.10,  # Effect overlay post-step
     VideoSource.COMFYUI: 0.0,  # self-hosted = compute propio; managed override en config
+    # Corpus libres (ADR-022): gratis (dominio público / CC / licencia Unsplash).
+    VideoSource.ARCHIVE_ORG: 0.0,
+    VideoSource.WIKIMEDIA: 0.0,
+    VideoSource.NASA: 0.0,
+    VideoSource.UNSPLASH: 0.0,
+    VideoSource.FAL: 0.25,  # i2v Kling/Runway/MiniMax (~$0.2-0.5/clip según modelo)
 }
 
 
@@ -203,6 +211,15 @@ async def _try_stock(
         if not results:
             continue
 
+        # Re-rank semántico (ADR-018): el provider ya filtró por el query corto;
+        # aquí reordenamos su top-N contra la descripción RICA del beat
+        # (image_prompt + visual_anchor + texto) para elegir el clip más relevante.
+        # Usa embedder semántico si está habilitado/disponible; si no, léxico.
+        rich = " ".join(
+            p for p in (visual.image_prompt, visual.visual_anchor, beat.text) if p
+        )
+        results = rerank(rich, results, embedder=get_broll_embedder())
+
         top = results[0]
         try:
             local_path = await fetch_and_cache(top.url, provider=provider)
@@ -214,6 +231,32 @@ async def _try_stock(
 
         if local_path is None:
             continue
+
+        # Corpus de imagen (Unsplash, ADR-022): convertir el still a clip vía
+        # ken-burns para respetar el contrato de la rama stock (devuelve video).
+        if top.media_kind == "image":
+            try:
+                clip = await render_ken_burns(
+                    frame_path=local_path,
+                    duration_s=float(beat.veo_duration),
+                    out_path=out_dir / f"stock-img-{beat.idx:02d}.mp4",
+                )
+            except Exception as e:
+                logger.warning(
+                    f"[selector] beat {beat.idx}: ken-burns sobre imagen "
+                    f"({provider.name}) falló: {e}"
+                )
+                continue
+            logger.success(
+                f"[selector] beat {beat.idx}: stock-image hit ({provider.name}) {top.url}"
+            )
+            return BeatArtifact(
+                idx=beat.idx,
+                first_frame_path=local_path,
+                video_path=clip,
+                source=top.provider,
+                duration_s=float(beat.veo_duration),
+            )
 
         logger.success(
             f"[selector] beat {beat.idx}: stock hit ({provider.name}) {top.url}"

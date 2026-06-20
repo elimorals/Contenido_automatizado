@@ -167,10 +167,28 @@ def _run_and_show(params: dict[str, Any]) -> None:
                 for i, v in enumerate(videos):
                     st.markdown(f"- 🎞 Video {i + 1}: `{v}`")
 
+            # Anti-slideshow guard (ADR-019): señal de calidad observable.
+            qf = info.get("quality_flags") or {}
+            risk = qf.get("slideshow_risk")
+            if risk is not None:
+                static = qf.get("static_ratio", 0.0)
+                if qf.get("is_slideshow"):
+                    st.warning(
+                        f"⚠ Riesgo slideshow alto ({risk:.0%}, estático {static:.0%}): "
+                        "el reel prometió movimiento pero quedó dominado por stills."
+                    )
+                else:
+                    st.caption(f"🎞 Riesgo slideshow: {risk:.0%} · estático {static:.0%}")
+
             with st.expander("📊 Timings completos"):
                 st.json(info.get("timings_s", {}))
             with st.expander("💰 Cost breakdown"):
                 st.json(info.get("cost_breakdown", {}))
+            # Brief del video de referencia (ADR-017), si se usó reference_url.
+            rb = info.get("reference_brief")
+            if rb:
+                with st.expander("📼 Referencia analizada (pacing/hook)"):
+                    st.json(rb)
             script_txt = info.get("script") or info.get("script_text") or ""
             if script_txt:
                 with st.expander("📜 Script generado"):
@@ -387,6 +405,13 @@ with tab_premium:
                 key="prem_narrator_count_t",
             )
 
+        prem_ref_t = st.text_input(
+            "🔗 URL de referencia (opcional)",
+            placeholder="https://tiktok.com/@user/video/123 — copia su pacing/hook",
+            key="prem_ref_t",
+            help="Si la pones, se analiza el video (pacing/hook/ritmo) e informa el guion (ADR-017).",
+        )
+
         prem_use_veo_t = st.checkbox(
             "🎥 Usar Veo i2v (+$1.10/reel)",
             value=False,
@@ -412,6 +437,7 @@ with tab_premium:
                 "visual_strategy": prem_strategy_t,
                 "voice_name": prem_voice_t,
                 "use_veo": prem_use_veo_t,
+                "reference_url": prem_ref_t or None,
                 "hunter_temperature": prem_hunter_temp,
                 "critic_depth": prem_critic_depth,
                 "narrator_count": prem_narrator_count,
@@ -449,6 +475,13 @@ with tab_premium:
                 key="prem_veo_a",
             )
 
+        prem_ref_a = st.text_input(
+            "🔗 URL de referencia (opcional)",
+            placeholder="https://tiktok.com/@user/video/123 — copia su pacing/hook",
+            key="prem_ref_a",
+            help="Analiza el video de referencia e informa el guion (ADR-017).",
+        )
+
         st.caption("ℹ Modo URL usa 10 reasoners (vs 18 en topic mode).")
 
         if st.button(
@@ -464,6 +497,7 @@ with tab_premium:
                 "visual_strategy": prem_strategy_a,
                 "voice_name": prem_voice_a,
                 "use_veo": prem_use_veo_a,
+                "reference_url": prem_ref_a or None,
             }
             _run_and_show(params)
 

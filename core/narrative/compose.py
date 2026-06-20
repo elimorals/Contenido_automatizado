@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from shared.schemas import Essence, ScriptDraft
-
 from core.narrative.runtime import reel
+from core.reference import mechanism_target, reference_style_hint
+from shared.schemas import Essence, ReferenceBrief, ScriptDraft
 
 # ────────────────────────────────────────────────────────────────────
 # Scientific-mode writing guide. Applied when essence.content_mode ==
@@ -105,7 +105,15 @@ _TAG_VOCAB = """\
 """
 
 
-def _system_prompt(content_mode: str) -> str:
+def _system_prompt(content_mode: str, mechanism_target: int | None = None) -> str:
+    # `mechanism_target` opcional (ADR-017): si la referencia sugirió un pacing,
+    # pedimos un nº EXACTO de mechanism_lines. Sin target → "2-4 sentences"
+    # (comportamiento previo intacto). El schema sigue acotando a [2,4].
+    mech_spec = (
+        f"exactly {mechanism_target} sentences"
+        if mechanism_target is not None
+        else "2-4 sentences"
+    )
     if content_mode == "scientific":
         word_target = "45-52 words"
         wpm = 175
@@ -146,7 +154,7 @@ The structure is FIXED. Do not deviate.
                        Declare which variant you chose in `hook_variant`.
                        {hook_menu}
 
-  2. MECHANISM       — 2-4 sentences that explain the WHY behind the hook.
+  2. MECHANISM       — {mech_spec} that explain the WHY behind the hook.
                        Each sentence is a coherent visual beat downstream
                        (one shot per sentence), so each must stand alone.
                        Names, numbers, specific things — not vibes.
@@ -186,7 +194,7 @@ period ~400ms. If your narration has more than ~5 commas across the
 ──── OUTPUT FIELDS ────
   hook              : the literal first 6-10 spoken words, punctuated.
   hook_variant      : which canonical shape — for the audit trail.
-  mechanism_lines   : list of 2-4 sentences (no leading bullets).
+  mechanism_lines   : list of {mech_spec} (no leading bullets).
   payoff_line       : the closing sentence, with the loop-back keyword.
   target_wpm        : {wpm}.
   narration         : hook + mechanism + payoff concatenated as ONE string,
@@ -196,12 +204,17 @@ period ~400ms. If your narration has more than ~5 commas across the
 {mode_block}"""
 
 
-def _user_prompt(essence: Essence) -> str:
-    """User payload sourced from Essence."""
+def _user_prompt(essence: Essence, reference_brief: ReferenceBrief | None = None) -> str:
+    """User payload sourced from Essence.
+
+    `reference_brief` es un complemento OPCIONAL (ADR-017): si se provee, se añade
+    una guía de estilo (pacing/hook) al final. Si es None, el prompt es idéntico al
+    comportamiento previo — no afecta nada de lo ya trabajado.
+    """
     evidence_block = "\n".join(
         f"    {i + 1}. {e}" for i, e in enumerate(essence.evidence)
     )
-    return (
+    base = (
         f"ESSENCE (from the source article — use these facts, invent nothing)\n"
         f"  content_mode : {essence.content_mode}\n"
         f"  domain       : {essence.domain}\n"
@@ -213,14 +226,24 @@ def _user_prompt(essence: Essence) -> str:
         f"mechanism_lines unpack `mechanism` using the evidence above; the "
         f"payoff_line lands on a word that callbacks the hook."
     )
+    if reference_brief is not None:
+        base += "\n" + reference_style_hint(reference_brief)
+    return base
 
 
 @reel.reasoner("compose_script")
-async def compose_script(app: Any, essence: Essence) -> ScriptDraft:
+async def compose_script(
+    app: Any, essence: Essence, reference_brief: ReferenceBrief | None = None
+) -> ScriptDraft:
     """One .ai() call. Fixed Hook -> Mechanism -> Payoff -> Loop structure.
-    Parameterized by content_mode. Inline TTS tags in the narration."""
+    Parameterized by content_mode. Inline TTS tags in the narration.
+
+    `reference_brief` opcional: informa pacing/estilo de hook sin alterar la
+    estructura ni el contenido. None = comportamiento previo intacto (ADR-017).
+    Si hay brief, su pacing modula el nº exacto de mechanism_lines pedido."""
+    mech_target = mechanism_target(reference_brief) if reference_brief is not None else None
     return await app.ai(
-        system=_system_prompt(essence.content_mode),
-        user=_user_prompt(essence),
+        system=_system_prompt(essence.content_mode, mech_target),
+        user=_user_prompt(essence, reference_brief),
         schema=ScriptDraft,
     )

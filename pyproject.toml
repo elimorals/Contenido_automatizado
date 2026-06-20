@@ -78,6 +78,11 @@ dev = [
 gpu = [
     "torch>=2.5.0",
 ]
+reference = [
+    # Análisis de video de referencia (ADR-017): descarga + metadata.
+    # faster-whisper (transcript) ya está en deps base; ffmpeg debe estar en PATH.
+    "yt-dlp>=2024.0.0",
+]
 longform-scale = [
     # Solo si vas a procesar >5k chunks (libros enciclopédicos, corpus multi-libro)
     "faiss-cpu>=1.9.0",
@@ -94,9 +99,19 @@ live-avatar = [
     # Lo dejamos declarado para que el usuario sepa que es un módulo opt-in
     # explícito y para futuras deps específicas (p.ej. WebRTC streaming client).
 ]
+mcp = [
+    # MCP server (ADR-021): expone el pipeline de reels a agentes vía FastMCP/stdio.
+    "mcp>=1.2.0",
+]
+broll-semantic = [
+    # Re-ranking semántico de B-roll con embeddings reales (ADR-018). Opt-in:
+    # off por default (config.visual.broll_semantic_rerank). Pesado (torch).
+    "sentence-transformers>=3.0.0",
+]
 
 [project.scripts]
 contenido = "apps.cli.main:app"
+contenido-mcp = "apps.mcp.server:main"
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]

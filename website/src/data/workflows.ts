@@ -4,7 +4,7 @@
 export type Capability = {
   id: string;
   name: string;
-  family: "comfyui" | "higgsfield" | "stock" | "long_form" | "live_avatar";
+  family: "comfyui" | "higgsfield" | "stock" | "free_corpus" | "fal" | "long_form" | "live_avatar";
   output: "image" | "video" | "audio";
   brandLora: boolean;
   layoutStrict: boolean;
@@ -175,7 +175,51 @@ export const capabilities: Capability[] = [
     videoLen: "variable",
     vramOrCost: "$0 (free tier)",
     timeEstimate: "instant",
-    tags: ["stock", "fast", "express"],
+    tags: ["stock", "fast", "express", "semantic-rerank"],
+  },
+  // === Corpus libre (ADR-022) — recuperación semántica de archivos abiertos ===
+  {
+    id: "free_corpus_video",
+    name: "Corpus libre (Archive.org / Wikimedia / NASA)",
+    family: "free_corpus",
+    output: "video",
+    brandLora: false,
+    layoutStrict: false,
+    styleRef: false,
+    charConsistency: false,
+    videoLen: "variable",
+    vramOrCost: "$0 (keyless)",
+    timeEstimate: "instant",
+    tags: ["stock", "public-domain", "CC", "free"],
+  },
+  {
+    id: "unsplash_image",
+    name: "Unsplash (imágenes → ken-burns)",
+    family: "free_corpus",
+    output: "video",
+    brandLora: false,
+    layoutStrict: false,
+    styleRef: false,
+    charConsistency: false,
+    videoLen: "ken-burns clip",
+    vramOrCost: "$0 (Access Key)",
+    timeEstimate: "~3s",
+    tags: ["stock", "image", "ken-burns", "free"],
+  },
+  // === fal.ai i2v (ADR-023) — Kling / Runway / MiniMax ===
+  {
+    id: "fal_i2v",
+    name: "fal.ai i2v (Kling / Runway / MiniMax)",
+    family: "fal",
+    output: "video",
+    brandLora: false,
+    layoutStrict: false,
+    styleRef: false,
+    charConsistency: false,
+    videoLen: "4–8s",
+    vramOrCost: "~$0.25/clip",
+    timeEstimate: "~30–60s",
+    tags: ["i2v", "motion", "gateway", "opt-in"],
   },
   // === LiveAvatar (ADR-016) — talking-head audio-driven lip-sync ===
   {
@@ -242,5 +286,7 @@ export const familyMeta: Record<Capability["family"], { label: string; color: st
   higgsfield: { label: "Higgsfield", color: "var(--color-warm)" },
   live_avatar: { label: "LiveAvatar", color: "var(--color-warm)" },
   stock: { label: "Stock", color: "var(--color-ink-tertiary)" },
+  free_corpus: { label: "Corpus libre", color: "var(--color-ink-tertiary)" },
+  fal: { label: "fal.ai", color: "var(--color-warm)" },
   long_form: { label: "Long-form", color: "var(--color-success)" },
 };

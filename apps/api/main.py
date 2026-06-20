@@ -27,6 +27,7 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
+from pydantic import BaseModel, Field
 
 from apps.api.pipeline import (
     _adapt_conversational_to_draft,
@@ -48,6 +49,7 @@ from core.narrative import (
     pick_top_essences,
     write_narrations,
 )
+from core.reference import ReferenceAnalysisError, analyze_reference
 from core.subtitles import (
     subtitles_from_word_timings,
     write_reel_ass_with_accents,
@@ -59,14 +61,12 @@ from orchestration.state import get_state_manager
 from shared.config import load_config
 from shared.schemas import (
     BaseResponse,
-    GenerationMode,
     ScriptDraft,
     SubtitleStyle,
     TaskInfo,
     TaskState,
     VideoParams,
 )
-
 
 # =============================================================================
 # Lifespan: queue + state + distribution boot/shutdown
@@ -326,6 +326,35 @@ no "hey guys", no CTAs. Every sentence is a beat downstream. No padding."""
 _SUBJECT_TERMS_SYSTEM = """You return ONLY a JSON list of 5-8 short search
 terms (1-3 words each) suitable for stock footage providers (Pexels/Pixabay).
 Format strictly: ["term one", "term two", ...]"""
+
+
+class ReferenceRequest(BaseModel):
+    """Body para POST /reference."""
+
+    url: str = Field(..., min_length=4, description="URL del video de referencia")
+    reel_target_s: float = Field(
+        25.0, gt=0.5, le=120, description="Duración objetivo del reel (para suggested_beats)"
+    )
+
+
+@app.post("/reference", response_model=BaseResponse)
+async def analyze_reference_endpoint(req: ReferenceRequest) -> BaseResponse:
+    """Analiza un video de referencia → ReferenceBrief (ADR-017). Espejo del CLI.
+
+    No genera reel: devuelve pacing, hook, estructura y transcript. Requiere el
+    extra `reference` (yt-dlp) y ffmpeg en PATH.
+    """
+    t0 = time.perf_counter()
+    try:
+        brief = await analyze_reference(req.url, reel_target_s=req.reel_target_s)
+    except ReferenceAnalysisError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    except Exception as e:
+        logger.exception(f"analyze_reference falló: {e}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+    return BaseResponse(
+        data={"brief": brief.model_dump(mode="json"), "elapsed_s": time.perf_counter() - t0}
+    )
 
 
 @app.post("/scripts", response_model=BaseResponse)

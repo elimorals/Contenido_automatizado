@@ -77,13 +77,9 @@ out/plans/
 *.safetensors
 models/
 
-# LiveAvatar (ADR-016) — el repo se clona en .external/LiveAvatar
-# Los checkpoints (~30GB) NO se versionan. Solo el código del cliente.
-# Si quieres incluir el repo como submodule, hazlo explícito.
-.external/LiveAvatar/ckpt/
-.external/LiveAvatar/output/
-.external/LiveAvatar/__pycache__/
-.external/LiveAvatar/**/__pycache__/
+# Repos externos clonados para evaluación/referencia (OpenMontage, LiveAvatar,
+# automate-faceless-content). NO se versionan — son fuentes de terceros.
+.external/
 
 # Docker
 .docker/

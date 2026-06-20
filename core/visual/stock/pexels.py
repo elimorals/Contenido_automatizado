@@ -109,6 +109,9 @@ class PexelsProvider(StockProvider):
                 duration = float(v.get("duration") or 0)
                 if duration < min_duration_s:
                     continue
+                # La page-url trae un slug descriptivo (p.ej. ".../drone-over-city-123/")
+                # — el rerank semántico (ADR-018) lo tokeniza. El file-link no.
+                page_url = v.get("url", "")
                 for vf in v.get("video_files", []):
                     try:
                         w = int(vf["width"])
@@ -123,6 +126,7 @@ class PexelsProvider(StockProvider):
                                 duration_s=duration,
                                 width=w,
                                 height=h,
+                                description=page_url,
                             )
                         )
                         break
