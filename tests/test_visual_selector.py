@@ -35,11 +35,9 @@ from shared.schemas import (
     GenerationMode,
     MaterialInfo,
     MotionHint,
-    VideoAspect,
     VideoSource,
     VisualStrategy,
 )
-
 
 # =============================================================================
 # FIXTURES
@@ -467,7 +465,9 @@ async def test_generate_all_fan_out_preserves_order(
     beats = [hook_beat, mechanism_beat, payoff_beat]
     visuals = [sample_visual, sample_visual, sample_visual]
 
-    async def fake_select(beat, visual, essence, mode, strategy, aspect, out_dir, cost_tracker=None):
+    async def fake_select(
+        beat, visual, essence, mode, strategy, aspect, out_dir, cost_tracker=None, decision_log=None
+    ):
         # Devuelve un artifact con idx = beat.idx
         clip = out_dir / f"clip-{beat.idx}.mp4"
         clip.write_bytes(b"x")

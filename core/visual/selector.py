@@ -37,6 +37,7 @@ from core.visual.broll_visual import (
 )
 from core.visual.generation import generate_beat_videos
 from core.visual.generation.ken_burns import _placeholder_frame, render_ken_burns
+from core.visual.provider_scoring import DecisionLog, decide_provider
 from core.visual.stock import fetch_and_cache, get_all_providers
 from shared.config import load_config
 from shared.schemas import (
@@ -46,6 +47,7 @@ from shared.schemas import (
     BeatVisual,
     Essence,
     GenerationMode,
+    MaterialInfo,
     VideoAspect,
     VideoSource,
     VisualStrategy,
@@ -427,6 +429,71 @@ def _track_cost(
     cost_tracker[f"beat_{beat_idx}_{source.value}"] = cost
 
 
+def _audit_candidates(cfg: object) -> list[VideoSource]:
+    """Fuentes plausibles para el scoring auditable (ADR-027), según el config.
+
+    Siempre incluye GEMINI_IMAGE (fallback IA universal) + los stock providers
+    activos + las fuentes IA habilitadas. Deduplica preservando orden.
+    """
+    cands: list[VideoSource] = [VideoSource.GEMINI_IMAGE]
+    for p in get_all_providers():
+        try:
+            cands.append(VideoSource(p.name))
+        except ValueError:
+            continue
+    if getattr(cfg.visual, "veo_enabled", False):
+        cands.append(VideoSource.VEO)
+    hf = cfg.visual.higgsfield
+    if getattr(hf, "enabled", False):
+        cands.append(VideoSource.HIGGSFIELD_DOP)
+    if getattr(hf, "soul_enabled", False):
+        cands.append(VideoSource.HIGGSFIELD_SOUL)
+    if getattr(cfg.visual.comfyui, "enabled", False):
+        cands.append(VideoSource.COMFYUI)
+    if getattr(cfg.visual.fal, "enabled", False):
+        cands.append(VideoSource.FAL)
+    seen: set[VideoSource] = set()
+    out: list[VideoSource] = []
+    for c in cands:
+        if c not in seen:
+            seen.add(c)
+            out.append(c)
+    return out
+
+
+def _record_decision(
+    decision_log: DecisionLog,
+    beat: Beat,
+    essence: Essence,
+    mode: GenerationMode,
+    artifact: BeatArtifact,
+) -> None:
+    """Registra la decisión de fuente del beat en el log auditable (ADR-027).
+
+    Audita en paralelo a la heurística: puntúa las fuentes plausibles con el
+    scorer 7-dim e incluye la fuente REAL elegida en el contexto, para poder
+    comparar offline heurística vs scoring. Nunca crashea el pipeline.
+    """
+    try:
+        cfg = load_config()
+        candidates = _audit_candidates(cfg)
+        if artifact.source not in candidates:
+            candidates.append(artifact.source)
+        text_lower = beat.text.lower()
+        has_evidence = any(e.lower() in text_lower for e in essence.evidence)
+        context = {
+            "beat_role": beat.role.value,
+            "mode": mode.value,
+            "motion_required": mode == GenerationMode.PREMIUM,
+            "has_evidence": has_evidence,
+            "actual_source": artifact.source.value,
+        }
+        decision = decide_provider(candidates, context, label=f"beat_{beat.idx}")
+        decision_log.record(decision)
+    except Exception as e:  # auditoría nunca debe tumbar la generación
+        logger.warning(f"[selector] beat {beat.idx}: audit decision falló: {e}")
+
+
 # =============================================================================
 # API PÚBLICA
 # =============================================================================
@@ -441,6 +508,7 @@ async def select_and_generate_beat_artifact(
     aspect: str,
     out_dir: Path,
     cost_tracker: dict | None = None,
+    decision_log: DecisionLog | None = None,
 ) -> BeatArtifact:
     """Decide stock vs IA vs mixto y delega a la rama correcta.
 
@@ -498,6 +566,8 @@ async def select_and_generate_beat_artifact(
         artifact = _make_placeholder_artifact(beat, out_dir)
 
     _track_cost(cost_tracker, beat.idx, artifact.source)
+    if decision_log is not None:
+        _record_decision(decision_log, beat, essence, mode, artifact)
     return artifact
 
 
@@ -510,6 +580,7 @@ async def generate_all_beat_artifacts(
     aspect: str,
     out_dir: Path,
     cost_tracker: dict | None = None,
+    decision_log: DecisionLog | None = None,
 ) -> list[BeatArtifact]:
     """Fan-out paralelo de `select_and_generate_beat_artifact()`.
 
@@ -535,6 +606,7 @@ async def generate_all_beat_artifacts(
                 aspect=aspect,
                 out_dir=out_dir,
                 cost_tracker=cost_tracker,
+                decision_log=decision_log,
             )
             for beat, visual in zip(beats, visuals)
         )

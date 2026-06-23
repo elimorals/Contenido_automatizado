@@ -1012,11 +1012,13 @@ trazabilidad. OpenMontage puntúa proveedores en 7 dimensiones con log de altern
   `alternatives` (todas, orden desc) — cada una con dimensiones y razones.
 - `DecisionLog`: acumula decisiones por beat, serializa a JSON (`to_dict`/`save`) para auditoría.
 
-**Alcance**: módulo + 10 tests. Como ADR-024 (checkpoint), se deja como **infraestructura
-lista**, NO cableada al flujo async del selector (donde añadiría riesgo sin payoff inmediato).
-Adopción prevista: el pipeline pasa un `DecisionLog` (estilo `cost_tracker`) y registra
-`decide_provider(candidatos, contexto_del_beat)` en paralelo a la decisión real, permitiendo
-comparar heurística vs scoring offline.
+**Cableo (estilo `cost_tracker`)**: el selector acepta `decision_log` opcional en
+`select_and_generate_beat_artifact`/`generate_all_beat_artifacts` y, tras elegir la fuente real,
+registra `decide_provider(candidatos_plausibles, contexto_del_beat)` con la fuente REAL en el
+contexto (`_audit_candidates` + `_record_decision`, no-fatal). El pipeline crea un `DecisionLog`,
+lo pasa a la fase D y lo persiste a `output/<task>/visual_decisions.json` — permitiendo comparar
+heurística vs scoring offline para A/B y auditoría por tenant. Off por defecto (sin `decision_log`
+= no-op): los callers que no lo pasan no pagan nada.
 
 Idea inspirada (NO copiada) en `lib/scoring.py` de OpenMontage (AGPLv3). Propio Apache-2.0.
 
@@ -1028,4 +1030,7 @@ Idea inspirada (NO copiada) en `lib/scoring.py` de OpenMontage (AGPLv3). Propio 
 
 ### Archivos
 
-**Nuevos**: `core/visual/provider_scoring.py`, `tests/test_provider_scoring.py`.
+**Nuevos**: `core/visual/provider_scoring.py`, `tests/test_provider_scoring.py`,
+`tests/test_selector_decision_log.py`.
+**Modificados**: `core/visual/selector.py` (`_audit_candidates`, `_record_decision`, param
+`decision_log`), `apps/api/pipeline.py` (crea/pasa/persiste el `DecisionLog`).

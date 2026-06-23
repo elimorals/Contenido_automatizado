@@ -47,6 +47,7 @@ from core.subtitles import (
 )
 from core.tts import detect_engine_and_voice, get_engine
 from core.visual import generate_all_beat_artifacts
+from core.visual.provider_scoring import DecisionLog
 from shared.config import load_config
 from shared.schemas import (
     ConversationalScript,
@@ -259,6 +260,8 @@ async def _run_shared_downstream(
     out_dir.mkdir(parents=True, exist_ok=True)
     timings: dict[str, float] = dict(initial_timings or {})
     cost_breakdown: dict[str, float] = {}
+    # Audit trail de decisiones de fuente visual (ADR-027), estilo cost_breakdown.
+    decision_log = DecisionLog()
 
     # ─── Phase 0 (opcional): análisis de referencia (input-by-reference, ADR-017) ─
     # Si el caller (topic/article) ya lo computó para inyectarlo al prompt, se
@@ -344,6 +347,7 @@ async def _run_shared_downstream(
             aspect=params.aspect.value,
             out_dir=out_dir,
             cost_tracker=cost_breakdown,
+            decision_log=decision_log,
         )
     except Exception as e:
         logger.error(f"{prefix} media gen falló: {e}")
@@ -352,6 +356,18 @@ async def _run_shared_downstream(
         await _update_state(state_manager, task_id, timings_s=timings)
         raise
     timings["media"] = time.perf_counter() - t
+
+    # ─── Audit trail de decisiones de fuente visual (ADR-027) ────────────────
+    # No-fatal: persiste el scoring 7-dim por beat (heurística real vs scoring)
+    # a JSON para A/B y auditoría por tenant. NUNCA tumba el pipeline.
+    try:
+        decisions_path = decision_log.save(out_dir / "visual_decisions.json")
+        logger.info(
+            f"{prefix} [audit] {len(decision_log.decisions)} decisiones de fuente "
+            f"→ {decisions_path}"
+        )
+    except Exception as e:
+        logger.warning(f"{prefix} [audit] no se pudo persistir visual_decisions.json: {e}")
 
     # ─── Quality gate (advisory): anti-slideshow guard ───────────────────────
     # No-fatal: el pipeline NUNCA crashea por assets (cae a ken-burns/placeholder),
