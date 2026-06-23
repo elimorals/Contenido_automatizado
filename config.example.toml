@@ -111,6 +111,13 @@ model = "FunAudioLLM/CosyVoice2-0.5B"
 
 [visual]
 default_strategy = "hybrid"            # stock | ia | hybrid
+# Re-ranking de B-roll por relevancia (deben ir antes de las subtablas [visual.*]).
+broll_semantic_rerank = false          # ADR-018: rerank textual con sentence-transformers
+broll_embedder_model = "all-MiniLM-L6-v2"
+broll_visual_rerank = false            # ADR-025: rerank VISUAL CLIP (texto↔imagen). Opt-in.
+broll_visual_model = "clip-ViT-B-32"   # backend CLIP de sentence-transformers
+broll_visual_frames = 3                # frames por clip a embeber
+broll_visual_candidates = 5            # top-léxico a descargar antes del rerank visual
 
 [visual.gemini_image]
 model = "openrouter/google/gemini-2.5-flash-image"
@@ -299,6 +306,15 @@ unsplash_api_keys = []
 archive_enabled = false
 wikimedia_enabled = false
 nasa_enabled = false
+
+# Corpus libre histórico (ADR-026): API JSON oficial, dominio público. Keyless;
+# NARA/Pond5 aceptan key opcional (rate limit) vía env NARA_API_KEY / POND5_API_KEY.
+# Ideal para tenants ciencia/documental (cine temprano, WWII, Apollo, newsreels).
+loc_enabled = false
+nara_enabled = false
+nara_api_key = ""
+pond5_pd_enabled = false
+pond5_api_key = ""
 
 # Preferencia de proveedor (orden de fallback). Los libres habilitados se anexan
 # tras los de pago si no los listas aquí. Para priorizar gratis: ponlos primero.

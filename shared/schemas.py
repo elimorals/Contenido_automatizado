@@ -10,7 +10,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-
 # =============================================================================
 # ENUMS
 # =============================================================================
@@ -53,6 +52,10 @@ class VideoSource(str, Enum):
     WIKIMEDIA = "wikimedia"  # Wikimedia Commons (video CC) — keyless
     NASA = "nasa"  # NASA image & video library — keyless
     UNSPLASH = "unsplash"  # Unsplash (IMÁGENES, vía ken-burns) — requiere key
+    # Corpus libre histórico (ADR-026): API JSON oficial, dominio público.
+    LOC = "loc"  # Library of Congress (cine temprano, newsreels) — keyless
+    NARA = "nara"  # U.S. National Archives (WWII, Apollo, gov) — key opcional
+    POND5_PD = "pond5_pd"  # Pond5 Public Domain (histórico) — key opcional
     FAL = "fal"  # fal.ai i2v gateway (Kling/Runway/MiniMax, ADR-023)
 
 

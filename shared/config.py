@@ -302,6 +302,13 @@ class VisualConfig(BaseModel):
     # Re-ranking semántico de B-roll (ADR-018). Off por default → scorer léxico.
     broll_semantic_rerank: bool = False
     broll_embedder_model: str = "all-MiniLM-L6-v2"
+    # Re-ranking VISUAL de B-roll vía CLIP texto↔imagen (ADR-025). Off por
+    # default. Cuando on: descarga top-K candidatos, extrae frames y rankea por
+    # lo que el clip REALMENTE muestra. Reusa sentence-transformers (deps base).
+    broll_visual_rerank: bool = False
+    broll_visual_model: str = "clip-ViT-B-32"
+    broll_visual_frames: int = 3  # frames por clip a embeber
+    broll_visual_candidates: int = 5  # cuántos top-léxico bajar para el rerank visual
 
 
 class StockConfig(BaseModel):
@@ -314,6 +321,13 @@ class StockConfig(BaseModel):
     archive_enabled: bool = False
     wikimedia_enabled: bool = False
     nasa_enabled: bool = False
+    # Corpus libre histórico (ADR-026): API JSON oficial keyless. Key opcional
+    # (NARA/Pond5) solo para rate limits mayores; se activan por flag.
+    loc_enabled: bool = False
+    nara_enabled: bool = False
+    nara_api_key: str = ""  # opcional (x-api-key) — set vía NARA_API_KEY
+    pond5_pd_enabled: bool = False
+    pond5_api_key: str = ""  # opcional (Bearer) — set vía POND5_API_KEY
     provider_order: list[str] = Field(default_factory=lambda: ["pexels", "pixabay", "coverr"])
     cache_dir: str = "./storage/materials_cache"
     min_duration_s: float = 3.0
@@ -579,6 +593,12 @@ def _apply_env_overrides(cfg: Config) -> Config:
     cfg.whisper.model_size = os.getenv("WHISPER_MODEL_SIZE", cfg.whisper.model_size)
     cfg.whisper.device = os.getenv("WHISPER_DEVICE", cfg.whisper.device)
     cfg.whisper.compute_type = os.getenv("WHISPER_COMPUTE_TYPE", cfg.whisper.compute_type)
+
+    # Corpus libre histórico (ADR-026): keys opcionales (rate limit) vía env.
+    if os.getenv("NARA_API_KEY"):
+        cfg.stock.nara_api_key = os.getenv("NARA_API_KEY", "")
+    if os.getenv("POND5_API_KEY"):
+        cfg.stock.pond5_api_key = os.getenv("POND5_API_KEY", "")
 
     # Upload-Post
     if os.getenv("UPLOAD_POST_API_KEY"):

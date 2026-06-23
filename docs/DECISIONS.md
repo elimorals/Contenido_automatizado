@@ -889,3 +889,143 @@ adopte en su loop de shots, donde el ahorro es real. Se deja como infraestructur
 ### Archivos
 
 **Nuevos**: `core/checkpoint.py`, `tests/test_checkpoint.py`.
+
+---
+
+## ADR-025: Re-ranking VISUAL de B-roll vía CLIP (texto↔imagen)
+
+**Fecha**: 2026-06-23 | **Estado**: Aceptado
+
+### Contexto
+
+El re-ranking de B-roll (ADR-018) reordena candidatos por similitud **textual** entre la
+descripción del beat y la metadata del provider (tags + título + slug de la url). Es barato y
+offline, pero ciego al contenido real del clip: dos clips con tags idénticos pueden mostrar
+cosas muy distintas. OpenMontage resuelve esto con un corpus CLIP **visual** (descarga el clip →
+extrae frames → embeddings CLIP → retrieval por lo que la imagen realmente muestra). Su
+`broll_rerank.py` ya documentaba el gap: *"no tenemos los bytes de imagen al momento de
+seleccionar… adaptamos el concepto"*.
+
+### Decisión
+
+`core/visual/broll_visual.py`: re-ranking **texto↔imagen** vía CLIP, **opt-in** y aditivo.
+
+- `VisualEmbedder` (protocolo nuevo `score(query, frame_paths) -> float`), distinto del
+  `Embedder` texto↔texto de ADR-018.
+- `VisualClipEmbedder` sobre **sentence-transformers** (`clip-ViT-B-32`) — ya en deps base, sin
+  añadir torch/transformers crudos. Score del clip = **máximo** coseno texto↔frame.
+- `extract_frames()`: muestrea N frames equiespaciados vía ffmpeg (reusa `probe_video`);
+  imágenes pasan tal cual. `runner`/`prober` inyectables para test offline.
+- `rerank_visual()`: reordena `MaterialInfo` ya descargados; nunca crashea (clip malo → score 0).
+- Integración en `selector._resolve_stock_clip`: con visual ON baja el top-K léxico, los
+  re-rankea por frames y elige el mejor; con OFF, flujo ADR-018 intacto (`candidates[0]`).
+- `get_visual_reranker()`: `None` salvo `config.visual.broll_visual_rerank=true` y lib presente.
+
+Idea inspirada (NO copiada) en OpenMontage (AGPLv3). Reimplementación propia Apache-2.0.
+
+### Razón
+
+- **Salto de relevancia real**: rankea por lo que el clip muestra, no por sus tags — clave para
+  montaje documental y para los corpus libres (Archive.org/NASA) con metadata pobre.
+- **Cero coste por defecto**: off → ni un import pesado; el flujo léxico (ADR-018) no cambia.
+- **Reusa infra existente**: CLIP de sentence-transformers (deps base) + ffmpeg (ya en
+  `cache.py`) → el extra `broll-visual` es nominal.
+- **Aditivo y testeable**: 18 tests offline; suite total verde sin regresión.
+
+### Archivos
+
+**Nuevos**: `core/visual/broll_visual.py`, `tests/test_broll_visual.py`,
+`tests/test_selector_visual.py`.
+**Modificados**: `shared/config.py` (`VisualConfig.broll_visual_*`),
+`core/visual/selector.py` (`_resolve_stock_clip` + wiring en `_try_stock`),
+`pyproject.toml` (extra `broll-visual`), `config.example.toml`.
+
+---
+
+## ADR-026: Corpus libre histórico — LoC, NARA, Pond5 PD (no scrapers frágiles)
+
+**Fecha**: 2026-06-23 | **Estado**: Aceptado
+
+### Contexto
+
+OpenMontage expone 16 fuentes de stock; contenido ya integró 7 (ADR-022). De las 9 restantes,
+8 fueron candidatas a portar: ESA, JAXA, NOAA, LoC, NARA, Mixkit, Videvo, Pond5-PD. Auditadas,
+se parten en dos grupos: **API JSON oficial** (LoC, NARA, Videvo, Pond5-PD) y **scraping HTML
+frágil** (ESA, JAXA, NOAA, Mixkit) — estos últimos rompen sin aviso al cambiar el HTML del sitio
+y no son testeables de forma fiable.
+
+### Decisión
+
+Portar solo los **keyless de dominio público con API estable**: **LoC**, **NARA**, **Pond5-PD**
+(`core/visual/stock/{loc,nara,pond5_pd}.py`). Mismo patrón que ADR-022: parser puro +
+`StockProvider` async; activación por flag keyless (`loc_enabled`, `nara_enabled`,
+`pond5_pd_enabled`); NARA/Pond5 aceptan key opcional (rate limit) vía env. Cuentan como **motion
+real** en `slideshow_guard` y costo 0 en el selector.
+
+**Descartados**:
+- **ESA, JAXA, NOAA, Mixkit** — scraping HTML; deuda de mantenimiento en un repo con suite verde.
+  Se omiten (no se portan) por la misma lógica selectiva de ADR-022.
+- **Videvo** — API JSON robusta pero **key obligatoria** → no es "free corpus" keyless. Se deja
+  como keyed opcional futuro (trivial de añadir con el patrón pexels si se requiere).
+
+Idea inspirada (NO copiada) en OpenMontage (AGPLv3). Reimplementación propia Apache-2.0.
+
+### Razón
+
+- **Valor documental directo**: cine temprano (LoC), WWII/Apollo/gobierno (NARA), histórico
+  (Pond5-PD) → exactamente lo que pide el tenant `ciencia`/documental y el long-form.
+- **Robustez sobre cantidad**: 3 APIs estables y testeables > 8 fuentes con 4 scrapers que
+  romperán. Parsers puros cubiertos offline (15 tests); HTTP es wrapper fino.
+- **Coherente con ADR-022**: keyless por flag, sin lock-in, mismo contrato `StockProvider`.
+
+### Archivos
+
+**Nuevos**: `core/visual/stock/loc.py`, `core/visual/stock/nara.py`,
+`core/visual/stock/pond5_pd.py`, `tests/test_stock_historical.py`.
+**Modificados**: `shared/schemas.py` (`VideoSource.{LOC,NARA,POND5_PD}`),
+`shared/config.py` (`StockConfig` flags + env keys), `core/visual/stock/registry.py`,
+`core/editorial/slideshow_guard.py` (MOTION_SOURCES), `core/visual/selector.py` (costos),
+`config.example.toml`.
+
+---
+
+## ADR-027: Scoring de proveedor auditable (7 dimensiones + audit trail)
+
+**Fecha**: 2026-06-23 | **Estado**: Aceptado
+
+### Contexto
+
+El selector decide stock vs IA por beat con una heurística probada
+(`selector._decide_source`): rápida y testeada, pero **no deja rastro** de por qué se eligió una
+fuente ni qué alternativas se descartaron. Para A/B testing y auditoría por tenant hace falta
+trazabilidad. OpenMontage puntúa proveedores en 7 dimensiones con log de alternativas.
+
+### Decisión
+
+`core/visual/provider_scoring.py`: capa de **scoring auditable** que NO reemplaza la heurística.
+
+- 7 dimensiones ponderadas (`ScoreWeights`): task_fit 0.30, quality 0.20, control 0.15,
+  reliability 0.15, cost 0.10, latency 0.05, continuity 0.05.
+- Perfil estático de capacidad por `VideoSource` (`_PROFILES`) + `task_fit` **dinámico** según
+  el contexto del beat (motion_required, role hook/payoff, evidencia).
+- `score_providers()` / `decide_provider()` → `ProviderDecision` con `chosen`, `score` y
+  `alternatives` (todas, orden desc) — cada una con dimensiones y razones.
+- `DecisionLog`: acumula decisiones por beat, serializa a JSON (`to_dict`/`save`) para auditoría.
+
+**Alcance**: módulo + 10 tests. Como ADR-024 (checkpoint), se deja como **infraestructura
+lista**, NO cableada al flujo async del selector (donde añadiría riesgo sin payoff inmediato).
+Adopción prevista: el pipeline pasa un `DecisionLog` (estilo `cost_tracker`) y registra
+`decide_provider(candidatos, contexto_del_beat)` en paralelo a la decisión real, permitiendo
+comparar heurística vs scoring offline.
+
+Idea inspirada (NO copiada) en `lib/scoring.py` de OpenMontage (AGPLv3). Propio Apache-2.0.
+
+### Razón
+
+- **Trazabilidad sin riesgo**: la heurística probada sigue decidiendo; el scoring solo audita.
+- **Datos para A/B**: ¿el scoring habría elegido distinto? → señal para afinar la heurística.
+- **Multi-tenant**: el audit trail por tenant explica el gasto y la mezcla de fuentes.
+
+### Archivos
+
+**Nuevos**: `core/visual/provider_scoring.py`, `tests/test_provider_scoring.py`.

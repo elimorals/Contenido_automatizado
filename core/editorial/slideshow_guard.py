@@ -42,6 +42,10 @@ MOTION_SOURCES: frozenset[VideoSource] = frozenset(
         VideoSource.ARCHIVE_ORG,
         VideoSource.WIKIMEDIA,
         VideoSource.NASA,
+        # Corpus libre histórico de VIDEO real (ADR-026).
+        VideoSource.LOC,
+        VideoSource.NARA,
+        VideoSource.POND5_PD,
         VideoSource.FAL,
     }
 )

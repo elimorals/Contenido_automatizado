@@ -29,6 +29,12 @@ from loguru import logger
 
 from core.visual.broll_embedder import get_broll_embedder
 from core.visual.broll_rerank import rerank
+from core.visual.broll_visual import (
+    VisualEmbedder,
+    extract_frames,
+    get_visual_reranker,
+    rerank_visual,
+)
 from core.visual.generation import generate_beat_videos
 from core.visual.generation.ken_burns import _placeholder_frame, render_ken_burns
 from core.visual.stock import fetch_and_cache, get_all_providers
@@ -65,6 +71,10 @@ _COST_ESTIMATES: dict[VideoSource, float] = {
     VideoSource.WIKIMEDIA: 0.0,
     VideoSource.NASA: 0.0,
     VideoSource.UNSPLASH: 0.0,
+    # Corpus libre histórico (ADR-026): dominio público → gratis.
+    VideoSource.LOC: 0.0,
+    VideoSource.NARA: 0.0,
+    VideoSource.POND5_PD: 0.0,
     VideoSource.FAL: 0.25,  # i2v Kling/Runway/MiniMax (~$0.2-0.5/clip según modelo)
 }
 
@@ -171,6 +181,59 @@ def _decide_source(
 # =============================================================================
 
 
+async def _resolve_stock_clip(
+    rich_query: str,
+    candidates: list[MaterialInfo],
+    *,
+    out_dir: Path,
+    fetcher=fetch_and_cache,
+    visual_reranker: VisualEmbedder | None = None,
+    top_k: int = 5,
+    frames: int = 3,
+    frame_extractor=extract_frames,
+    provider: object | None = None,
+) -> tuple[MaterialInfo, Path] | None:
+    """Descarga y elige el mejor candidato de stock para un beat.
+
+    - Sin `visual_reranker` (ADR-018): baja candidatos en orden léxico y devuelve
+      el primero que descargue OK (`candidates[0]` en el caso feliz).
+    - Con `visual_reranker` (ADR-025): baja el top-`k`, los re-rankea por frames
+      reales (CLIP texto↔imagen) y devuelve el de mayor relevancia visual.
+
+    Devuelve `(material, local_path)` o `None` si nada descarga.
+    """
+    if not candidates:
+        return None
+
+    if visual_reranker is None:
+        for m in candidates:
+            path = await fetcher(m.url, provider=provider)
+            if path is not None:
+                return m, path
+        return None
+
+    downloaded: list[MaterialInfo] = []
+    for m in candidates[:top_k]:
+        path = await fetcher(m.url, provider=provider)
+        if path is None:
+            continue
+        m.local_path = str(path)
+        downloaded.append(m)
+    if not downloaded:
+        return None
+
+    ordered = rerank_visual(
+        rich_query,
+        downloaded,
+        visual_reranker,
+        out_dir=out_dir,
+        frames=frames,
+        frame_extractor=frame_extractor,
+    )
+    best = ordered[0]
+    return best, Path(best.local_path)
+
+
 async def _try_stock(
     beat: Beat,
     visual: BeatVisual,
@@ -185,6 +248,10 @@ async def _try_stock(
     if not providers:
         logger.info(f"[selector] beat {beat.idx}: no hay stock providers configurados")
         return None
+
+    # Rerank visual CLIP (ADR-025): None salvo opt-in → flujo léxico intacto.
+    cfg = load_config()
+    visual_reranker = get_visual_reranker(cfg)
 
     try:
         video_aspect = VideoAspect(aspect)
@@ -220,17 +287,28 @@ async def _try_stock(
         )
         results = rerank(rich, results, embedder=get_broll_embedder())
 
-        top = results[0]
+        # Resolución del clip: descarga + (opcional) rerank visual CLIP. El global
+        # `fetch_and_cache` se pasa explícito para respetar el patch en tests.
         try:
-            local_path = await fetch_and_cache(top.url, provider=provider)
+            resolved = await _resolve_stock_clip(
+                rich,
+                results,
+                out_dir=out_dir,
+                provider=provider,
+                fetcher=fetch_and_cache,
+                visual_reranker=visual_reranker,
+                top_k=cfg.visual.broll_visual_candidates,
+                frames=cfg.visual.broll_visual_frames,
+            )
         except Exception as e:
             logger.warning(
-                f"[selector] beat {beat.idx}: download {top.url} failed: {e}"
+                f"[selector] beat {beat.idx}: resolve {provider.name} failed: {e}"
             )
             continue
 
-        if local_path is None:
+        if resolved is None:
             continue
+        top, local_path = resolved
 
         # Corpus de imagen (Unsplash, ADR-022): convertir el still a clip vía
         # ken-burns para respetar el contrato de la rama stock (devuelve video).

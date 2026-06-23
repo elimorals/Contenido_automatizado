@@ -108,6 +108,14 @@ broll-semantic = [
     # off por default (config.visual.broll_semantic_rerank). Pesado (torch).
     "sentence-transformers>=3.0.0",
 ]
+broll-visual = [
+    # Re-ranking VISUAL de B-roll vía CLIP texto↔imagen (ADR-025). Opt-in:
+    # off por default (config.visual.broll_visual_rerank). Usa el backend CLIP de
+    # sentence-transformers (clip-ViT-B-32) — ya en deps base — + Pillow (ya en
+    # deps) + ffmpeg en PATH para extraer frames. Se declara para señalar el
+    # módulo opt-in y fijar el piso de versión del modelo CLIP.
+    "sentence-transformers>=3.0.0",
+]
 
 [project.scripts]
 contenido = "apps.cli.main:app"

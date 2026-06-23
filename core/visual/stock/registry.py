@@ -12,9 +12,12 @@ from shared.config import load_config
 from .archive_org import ArchiveOrgProvider
 from .base import StockProvider
 from .coverr import CoverrProvider
+from .loc import LocProvider
+from .nara import NaraProvider
 from .nasa import NasaProvider
 from .pexels import PexelsProvider
 from .pixabay import PixabayProvider
+from .pond5_pd import Pond5PdProvider
 from .unsplash import UnsplashProvider
 from .wikimedia import WikimediaProvider
 
@@ -26,6 +29,10 @@ _PROVIDER_CLASSES: dict[str, type[StockProvider]] = {
     "wikimedia": WikimediaProvider,
     "nasa": NasaProvider,
     "unsplash": UnsplashProvider,
+    # Corpus libre histórico (ADR-026): API JSON oficial, dominio público.
+    "loc": LocProvider,
+    "nara": NaraProvider,
+    "pond5_pd": Pond5PdProvider,
 }
 
 # Providers libres keyless → se activan por flag `stock.<flag>`, no por API key.
@@ -33,6 +40,9 @@ _KEYLESS_ENABLED_FLAG: dict[str, str] = {
     "archive_org": "archive_enabled",
     "wikimedia": "wikimedia_enabled",
     "nasa": "nasa_enabled",
+    "loc": "loc_enabled",
+    "nara": "nara_enabled",
+    "pond5_pd": "pond5_pd_enabled",
 }
 
 
