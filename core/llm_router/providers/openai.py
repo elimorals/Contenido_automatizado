@@ -12,6 +12,22 @@ class OpenAIProvider(OpenAICompatibleProvider):
     name = "openai"
     default_base_url = "https://api.openai.com/v1"
 
+    #: Familias que exigen `max_completion_tokens` en vez de `max_tokens`.
+    #: Se compara por prefijo del `model_name` porque la misma key sirve
+    #: modelos viejos y nuevos a la vez.
+    MODERN_TOKEN_PARAM_PREFIXES = ("gpt-5", "o1", "o3", "o4")
+
+    def _token_limit_key(self) -> str:
+        model = (self.model_name or "").lower()
+        if model.startswith(self.MODERN_TOKEN_PARAM_PREFIXES):
+            return "max_completion_tokens"
+        return "max_tokens"
+
+    def _supports_temperature(self) -> bool:
+        return not (self.model_name or "").lower().startswith(
+            self.MODERN_TOKEN_PARAM_PREFIXES
+        )
+
 
 class MoonshotProvider(OpenAICompatibleProvider):
     name = "moonshot"

@@ -159,9 +159,14 @@ class LLMProvider(ABC):
             + f"Schema: {json_schema}"
         )
         last_err: Exception | None = None
+        # Bucle de reparación: cada reintento le devuelve al modelo el error de
+        # validación exacto. Antes se repetía el prompt idéntico, así que un
+        # fallo determinista (p.ej. exceder `max_length` sistemáticamente) sólo
+        # quemaba los 3 intentos y el dinero de los 3.
+        repair = ""
         for attempt in range(self.max_retries):
             raw = await self.complete(
-                prompt=prompt,
+                prompt=prompt + repair,
                 system=sys_msg,
                 temperature=temperature,
                 max_tokens=max_tokens,
@@ -178,6 +183,12 @@ class LLMProvider(ABC):
                 logger.warning(
                     f"[{self.name}] structured parse attempt {attempt + 1}/{self.max_retries} "
                     f"failed: {e}"
+                )
+                repair = (
+                    "\n\n---\nYour previous answer FAILED schema validation:\n"
+                    f"{str(e)[:800]}\n"
+                    "Return the same content, corrected so every constraint holds. "
+                    "Respect maxLength on every string — count the characters."
                 )
         raise LLMProviderError(
             f"[{self.name}] could not produce valid structured output after "

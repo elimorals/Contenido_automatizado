@@ -93,6 +93,34 @@ class OpenAICompatibleProvider(LLMProvider):
             int(usage.get("completion_tokens") or usage.get("output_tokens") or 0),
         )
 
+    def _token_limit_key(self) -> str:
+        """Nombre del parámetro de límite de tokens para este provider/modelo.
+
+        La mayoría del ecosistema OpenAI-compatible sigue usando `max_tokens`.
+        OpenAI lo renombró a `max_completion_tokens` en sus modelos nuevos y
+        **rechaza el viejo con HTTP 400**, así que `OpenAIProvider` lo
+        sobreescribe. Se resuelve por modelo, no por provider, porque una misma
+        cuenta sirve gpt-4o (viejo) y gpt-5 (nuevo).
+        """
+        return "max_tokens"
+
+    def _supports_temperature(self) -> bool:
+        """¿El modelo acepta un `temperature` distinto del default?
+
+        Los modelos de razonamiento de OpenAI (gpt-5+, serie o) solo admiten
+        el default y devuelven HTTP 400 ante cualquier otro valor. Cuando esto
+        es False el parámetro se omite del payload.
+
+        OJO al efecto de segundo orden: el DAG usa la temperatura como palanca
+        (0.8 en los hunters para diversidad, 0.0 en los selectores para
+        determinismo). Con estos modelos esa palanca deja de existir.
+        """
+        return True
+
+    def _apply_sampling(self, payload: dict[str, Any], temperature: float) -> None:
+        if self._supports_temperature():
+            payload["temperature"] = temperature
+
     async def complete(
         self,
         prompt: str,
@@ -105,9 +133,9 @@ class OpenAICompatibleProvider(LLMProvider):
         payload: dict[str, Any] = {
             "model": self.model_name,
             "messages": self._build_messages(prompt, system),
-            "temperature": temperature,
-            "max_tokens": max_tokens,
+            self._token_limit_key(): max_tokens,
         }
+        self._apply_sampling(payload, temperature)
         # Permite a llamadores pasar extras como `top_p`, `seed`, etc.
         for k, v in kwargs.items():
             if k not in payload and v is not None:
@@ -145,10 +173,10 @@ class OpenAICompatibleProvider(LLMProvider):
         payload: dict[str, Any] = {
             "model": self.model_name,
             "messages": self._build_messages(prompt, sys_msg),
-            "temperature": temperature,
-            "max_tokens": max_tokens,
+            self._token_limit_key(): max_tokens,
             "response_format": {"type": "json_object"},
         }
+        self._apply_sampling(payload, temperature)
         for k, v in kwargs.items():
             if k not in payload and v is not None:
                 payload[k] = v

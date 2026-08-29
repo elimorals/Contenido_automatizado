@@ -73,11 +73,32 @@ class _AppStub:
     Resolución del provider:
     1. `provider` kwarg explícito en la llamada
     2. `default_provider` del stub (settable vía `app.default_provider = "..."`)
-    3. "openrouter" (default reels-af)
+    3. `llm.default_provider_premium` de config.toml / env
+    4. "openrouter" (default histórico de reels-af)
+
+    El paso 3 antes no existía: el stub hardcodeaba "openrouter", así que un
+    repo configurado con `default_provider_premium = "openai"` corría el modo
+    express bien y el DAG premium le fallaba con "[openrouter] api_key is
+    required" — un error que apunta a un provider que el usuario nunca eligió.
     """
 
-    def __init__(self, default_provider: str = "openrouter") -> None:
-        self.default_provider = default_provider
+    def __init__(self, default_provider: str = "") -> None:
+        self._explicit_provider = default_provider
+
+    @property
+    def default_provider(self) -> str:
+        if self._explicit_provider:
+            return self._explicit_provider
+        try:
+            from shared.config import load_config
+
+            return load_config().llm_default_provider_premium or "openrouter"
+        except Exception:  # noqa: BLE001 — sin config utilizable, default histórico
+            return "openrouter"
+
+    @default_provider.setter
+    def default_provider(self, value: str) -> None:
+        self._explicit_provider = value
 
     async def ai(
         self,
