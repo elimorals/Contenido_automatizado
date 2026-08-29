@@ -177,7 +177,6 @@ async def test_stitch_video_builds_correct_filter_complex(
         return fake_proc
 
     with (
-        patch("core.editor.ffmpeg_stitch.shutil.which", return_value="/usr/bin/ffmpeg"),
         patch("core.editor.encoders.shutil.which", return_value="/usr/bin/ffmpeg"),
         patch("core.editor.encoders.subprocess.run") as mock_run,
         patch(
@@ -235,7 +234,6 @@ async def test_stitch_video_with_bgm_adds_third_input_and_amix(
         return fake_proc
 
     with (
-        patch("core.editor.ffmpeg_stitch.shutil.which", return_value="/usr/bin/ffmpeg"),
         patch("core.editor.encoders.shutil.which", return_value="/usr/bin/ffmpeg"),
         patch("core.editor.encoders.subprocess.run") as mock_run,
         patch(
@@ -295,7 +293,6 @@ async def test_stitch_video_falls_back_to_libx264_when_hw_encoder_fails(
         return proc
 
     with (
-        patch("core.editor.ffmpeg_stitch.shutil.which", return_value="/usr/bin/ffmpeg"),
         patch("core.editor.encoders.shutil.which", return_value="/usr/bin/ffmpeg"),
         patch("core.editor.encoders.platform.system", return_value="Darwin"),
         patch("core.editor.encoders.subprocess.run") as mock_run,

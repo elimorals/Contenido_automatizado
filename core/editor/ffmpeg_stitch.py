@@ -21,7 +21,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import shlex
-import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -30,7 +29,12 @@ from shared.schemas import BeatArtifact, VideoAspect
 
 from .aspect import build_scale_filter, get_dimensions
 from .bgm import build_bgm_mix_filter
-from .encoders import detect_hw_encoder, get_encoder_args, mark_encoder_failed
+from .encoders import (
+    _ffmpeg_binary,
+    detect_hw_encoder,
+    get_encoder_args,
+    mark_encoder_failed,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +98,7 @@ class FFmpegCommandBuilder:
         self.video_codec_args = get_encoder_args(codec, crf=crf, preset=preset)
 
     def build(self) -> list[str]:
-        cmd: list[str] = ["ffmpeg", "-y", "-loglevel", "error", "-nostdin"]
+        cmd: list[str] = [_ffmpeg_binary(), "-y", "-loglevel", "error", "-nostdin"]
         for in_args in self.inputs:
             cmd.extend(in_args)
         if self.filter_complex:
@@ -166,8 +170,8 @@ async def stitch_video(
     Raises:
         RuntimeError si ffmpeg no está en PATH o si todos los encoders fallan.
     """
-    if shutil.which("ffmpeg") is None:
-        raise RuntimeError("ffmpeg no encontrado en PATH.")
+    # Resuelve por FFMPEG_BINARY o PATH; levanta con mensaje accionable si falta.
+    _ffmpeg_binary()
 
     cfg = config or load_config()
     out_dir.mkdir(parents=True, exist_ok=True)

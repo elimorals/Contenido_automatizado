@@ -13,10 +13,12 @@ es el bottom de la cadena.
 from __future__ import annotations
 
 import logging
+import os
 import platform
 import shutil
 import subprocess
 from functools import lru_cache
+from pathlib import Path
 
 from shared.config import Config, load_config
 
@@ -47,12 +49,27 @@ _runtime_disabled: set[str] = set()
 
 
 def _ffmpeg_binary() -> str:
-    """Devuelve path a ffmpeg en PATH (o crashea si no existe)."""
+    """Path al binario ffmpeg. `FFMPEG_BINARY` gana sobre el del PATH.
+
+    El override existe porque Homebrew partió la fórmula: la `ffmpeg` regular
+    trae 8 librerías y **no incluye libass**, así que el filtro `subtitles`
+    —del que depende el word-burst— no existe. El build completo vive en
+    `ffmpeg-full`, que es keg-only y por tanto NO entra al PATH:
+
+        FFMPEG_BINARY=/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg
+    """
+    override = os.getenv("FFMPEG_BINARY", "").strip()
+    if override:
+        if not Path(override).is_file():
+            raise RuntimeError(f"FFMPEG_BINARY apunta a algo que no existe: {override}")
+        return override
     path = shutil.which("ffmpeg")
     if path is None:
         raise RuntimeError(
             "ffmpeg no encontrado en PATH. "
-            "Instalar: `brew install ffmpeg` (macOS) o `apt install ffmpeg` (Linux)."
+            "Instalar: `brew install ffmpeg` (macOS) o `apt install ffmpeg` (Linux). "
+            "Para subtítulos quemados hace falta un build con libass "
+            "(`brew install ffmpeg-full` + FFMPEG_BINARY)."
         )
     return path
 

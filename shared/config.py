@@ -1,10 +1,11 @@
 """Loader unificado de configuración: config.toml + override por env vars.
 
 Precedencia:
-  1. Variables de entorno (más prioridad)
-  2. config.toml
-  3. config.example.toml (fallback)
-  4. Defaults hardcoded en este módulo (último recurso)
+  1. Variables de entorno reales (más prioridad)
+  2. `.env` del repo (cargado aquí con python-dotenv)
+  3. config.toml
+  4. config.example.toml (fallback)
+  5. Defaults hardcoded en este módulo (último recurso)
 """
 from __future__ import annotations
 
@@ -23,6 +24,30 @@ from pydantic import BaseModel, Field
 
 CONFIG_FILENAME = "config.toml"
 EXAMPLE_FILENAME = "config.example.toml"
+
+
+def _load_dotenv_once() -> None:
+    """Carga el `.env` del repo al entorno del proceso.
+
+    `python-dotenv` ya era dependencia declarada y `docker-compose.yml` monta
+    `env_file: .env`, pero **nadie lo llamaba en local**: el quick-start del
+    README (`cp .env.example .env` → `uv run ... config-check`) reportaba cero
+    providers aunque las keys estuvieran puestas, porque el `.env` no se leía.
+
+    `override=False` a propósito: una variable ya exportada en la shell gana
+    sobre el archivo — es la precedencia que este módulo documenta.
+    """
+    try:
+        from dotenv import load_dotenv
+    except ImportError:  # pragma: no cover — dotenv está en pyproject
+        return
+    for candidate in (Path.cwd() / ".env", Path(__file__).resolve().parent.parent / ".env"):
+        if candidate.is_file():
+            load_dotenv(candidate, override=False)
+            return
+
+
+_load_dotenv_once()
 
 
 class AppConfig(BaseModel):

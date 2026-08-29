@@ -330,7 +330,12 @@ def test_registry_get_provider_unknown_raises() -> None:
 
 
 def test_registry_get_all_providers_filters_unconfigured(monkeypatch) -> None:
-    """Sin keys configuradas, `get_all_providers()` debe devolver lista vacía."""
+    """Sin keys NI flags, `get_all_providers()` debe devolver lista vacía.
+
+    Los providers de corpus libre (ADR-022/026) se activan por flag y no por
+    key, así que hay que apagarlos explícitamente: si no, este test pasa o
+    falla según cómo tenga el `config.toml` quien lo corra.
+    """
     from shared import config as cfg_module
 
     fake_cfg = cfg_module.load_config()
@@ -338,6 +343,11 @@ def test_registry_get_all_providers_filters_unconfigured(monkeypatch) -> None:
     fake_cfg.stock.pexels_api_keys = []
     fake_cfg.stock.pixabay_api_keys = []
     fake_cfg.stock.coverr_api_keys = []
+    for flag in (
+        "archive_enabled", "wikimedia_enabled", "nasa_enabled",
+        "loc_enabled", "nara_enabled", "pond5_pd_enabled",
+    ):
+        setattr(fake_cfg.stock, flag, False)
     with patch("core.visual.stock.registry.load_config", return_value=fake_cfg):
         providers = get_all_providers()
     assert providers == []
