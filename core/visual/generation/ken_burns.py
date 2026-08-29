@@ -187,3 +187,47 @@ class KenBurnsGenerator(VisualGenerator):
             source=VideoSource.GEMINI_IMAGE,
             duration_s=duration,
         )
+
+
+async def trim_clip(
+    src: Path,
+    out_path: Path,
+    duration_s: float,
+    *,
+    start_s: float = 0.0,
+) -> Path:
+    """Recorta `src` a `duration_s` y lo normaliza al canvas del reel.
+
+    Necesario para la rama de stock: el archivo cacheado es la fuente ENTERA
+    —un documental de Archive.org puede durar una hora— y el concat del stitch
+    lo metía completo. También normaliza fps y dimensiones: los clips de stock
+    vienen con cualquier resolución y el concat demuxer exige que todos los
+    segmentos coincidan.
+
+    Se re-encoda a propósito en vez de `-c copy`: un corte por stream-copy cae
+    en el keyframe más cercano, que puede estar segundos antes de `start_s`.
+    """
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    dur = max(0.5, float(duration_s))
+    scale = (
+        f"scale={_CANVAS_W}:{_CANVAS_H}:force_original_aspect_ratio=increase,"
+        f"crop={_CANVAS_W}:{_CANVAS_H}"
+    )
+    cmd = [
+        _ffmpeg_binary(), "-y", "-loglevel", "error",
+        "-ss", f"{max(0.0, start_s):.2f}",
+        "-i", str(src),
+        "-t", f"{dur:.2f}",
+        "-vf", f"{scale},fps={_FPS}",
+        "-an",  # el audio del stock nunca se usa: manda la narración TTS
+        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", str(_FPS),
+        str(out_path),
+    ]
+    proc = await asyncio.create_subprocess_exec(
+        *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+    )
+    _, stderr = await proc.communicate()
+    if proc.returncode != 0:
+        tail = stderr.decode(errors="replace")[-400:] if stderr else ""
+        raise VisualGenerationError(f"trim_clip: ffmpeg falló ({proc.returncode}): {tail}")
+    return out_path

@@ -552,6 +552,8 @@ async def test_try_stock_iterates_providers_until_hit(
 
     target = tmp_path / "cached.mp4"
     target.write_bytes(b"fake")
+    trimmed = tmp_path / "stock-01.mp4"
+    trimmed.write_bytes(b"fake-trimmed")
 
     with (
         patch(
@@ -561,6 +563,12 @@ async def test_try_stock_iterates_providers_until_hit(
         patch(
             "core.visual.selector.fetch_and_cache",
             new=AsyncMock(return_value=target),
+        ),
+        # El clip cacheado es la fuente ENTERA (puede durar una hora), así que
+        # `_try_stock` la recorta a la duración del beat antes de devolverla.
+        patch(
+            "core.visual.selector.trim_clip",
+            new=AsyncMock(return_value=trimmed),
         ),
     ):
         result = await sel_mod._try_stock(
@@ -572,7 +580,7 @@ async def test_try_stock_iterates_providers_until_hit(
 
     assert result is not None
     assert result.source == VideoSource.PIXABAY
-    assert result.video_path == target
+    assert result.video_path == trimmed
     p1.search.assert_awaited_once()
     p2.search.assert_awaited_once()
 

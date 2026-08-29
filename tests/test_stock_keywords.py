@@ -154,3 +154,79 @@ class TestSelectorIntegration:
         sent = provider.search.await_args.kwargs["query"]
         assert sent == "sleep laboratory night"
         assert len(sent) < 40  # antes viajaban ~140 chars de cita
+
+
+class TestStockTrim:
+    """Regresión: el clip cacheado es la fuente ENTERA, no el fragmento.
+
+    Con ADR-034 el stock por fin encontraba material, y eso destapó un bug que
+    llevaba latente desde siempre: `_try_stock` devolvía el archivo completo.
+    Un documental de Archive.org de una hora entraba entero al concat y un reel
+    de 25s salía de 397s.
+    """
+
+    @pytest.mark.asyncio
+    async def test_stock_clip_is_trimmed_to_beat_duration(self, tmp_path) -> None:
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from core.visual import selector as sel_mod
+        from shared.schemas import (
+            Beat, BeatRole, BeatVisual, MaterialInfo, MotionHint, VideoSource,
+        )
+
+        beat = Beat(idx=1, role=BeatRole.MECHANISM, text="body",
+                    target_duration_s=4.0, veo_duration=4)
+        visual = BeatVisual(image_prompt="ocean waves at night",
+                            motion_hint=MotionHint.STATIC, visual_anchor="ocean")
+
+        provider = MagicMock()
+        provider.name = "archive_org"
+        provider.search = AsyncMock(return_value=[
+            MaterialInfo(provider=VideoSource.ARCHIVE_ORG, url="https://a/x.mp4",
+                         duration_s=3600.0, width=1080, height=1920)   # 1 hora
+        ])
+
+        cached = tmp_path / "cached.mp4"; cached.write_bytes(b"fake")
+        trimmed = tmp_path / "stock-01.mp4"; trimmed.write_bytes(b"cut")
+        trim_spy = AsyncMock(return_value=trimmed)
+
+        with (
+            patch("core.visual.selector.get_all_providers", return_value=[provider]),
+            patch("core.visual.selector.fetch_and_cache", new=AsyncMock(return_value=cached)),
+            patch("core.visual.selector.trim_clip", new=trim_spy),
+        ):
+            art = await sel_mod._try_stock(beat, visual, "9:16", tmp_path)
+
+        assert art is not None
+        assert art.video_path == trimmed          # nunca el archivo entero
+        assert art.duration_s == 4.0              # no los 3600 del source
+        assert trim_spy.await_args.kwargs["duration_s"] == 4.0
+
+    @pytest.mark.asyncio
+    async def test_trim_failure_discards_candidate(self, tmp_path) -> None:
+        """Sin recorte no se puede usar: mejor pasar al siguiente provider."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from core.visual import selector as sel_mod
+        from shared.schemas import (
+            Beat, BeatRole, BeatVisual, MaterialInfo, MotionHint, VideoSource,
+        )
+
+        beat = Beat(idx=1, role=BeatRole.MECHANISM, text="body",
+                    target_duration_s=4.0, veo_duration=4)
+        visual = BeatVisual(image_prompt="ocean waves", motion_hint=MotionHint.STATIC,
+                            visual_anchor="ocean")
+        provider = MagicMock()
+        provider.name = "archive_org"
+        provider.search = AsyncMock(return_value=[
+            MaterialInfo(provider=VideoSource.ARCHIVE_ORG, url="https://a/x.mp4",
+                         duration_s=600.0, width=1080, height=1920)
+        ])
+        cached = tmp_path / "cached.mp4"; cached.write_bytes(b"fake")
+
+        with (
+            patch("core.visual.selector.get_all_providers", return_value=[provider]),
+            patch("core.visual.selector.fetch_and_cache", new=AsyncMock(return_value=cached)),
+            patch("core.visual.selector.trim_clip", new=AsyncMock(side_effect=RuntimeError("ffmpeg"))),
+        ):
+            assert await sel_mod._try_stock(beat, visual, "9:16", tmp_path) is None

@@ -36,7 +36,11 @@ from core.visual.broll_visual import (
     rerank_visual,
 )
 from core.visual.generation import generate_beat_videos
-from core.visual.generation.ken_burns import _placeholder_frame, render_ken_burns
+from core.visual.generation.ken_burns import (
+    _placeholder_frame,
+    render_ken_burns,
+    trim_clip,
+)
 from core.visual.provider_scoring import DecisionLog, decide_provider
 from core.visual.stock import fetch_and_cache, get_all_providers
 from core.visual.stock.keywords import build_stock_query
@@ -353,15 +357,32 @@ async def _try_stock(
                 duration_s=float(beat.veo_duration),
             )
 
+        # Recortar a la duración del beat. El archivo cacheado es la fuente
+        # ENTERA: un documental de Archive.org puede durar una hora, y el
+        # concat del stitch lo metía completo — un reel de 25s salía de 397s.
+        # No se veía antes porque el stock nunca encontraba nada (ADR-034).
+        try:
+            trimmed = await trim_clip(
+                src=local_path,
+                out_path=out_dir / f"stock-{beat.idx:02d}.mp4",
+                duration_s=float(beat.veo_duration),
+            )
+        except Exception as e:  # noqa: BLE001 — sin recorte no se puede usar
+            logger.warning(
+                f"[selector] beat {beat.idx}: recorte de stock ({provider.name}) "
+                f"falló: {e}; descarto el candidato"
+            )
+            continue
+
         logger.success(
             f"[selector] beat {beat.idx}: stock hit ({provider.name}) {top.url}"
         )
         return BeatArtifact(
             idx=beat.idx,
             first_frame_path=None,
-            video_path=local_path,
+            video_path=trimmed,
             source=top.provider,
-            duration_s=top.duration_s,
+            duration_s=float(beat.veo_duration),
         )
 
     return None
