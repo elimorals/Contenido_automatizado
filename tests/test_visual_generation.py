@@ -93,9 +93,12 @@ def test_ken_burns_builds_correct_ffmpeg_command(tmp_path: Path) -> None:
     out = tmp_path / "out.mp4"
     cmd = _build_ffmpeg_cmd(frame, out, duration_s=4.0, zoom_target=1.06)
 
-    assert cmd[0] == "ffmpeg"
+    assert Path(cmd[0]).name.startswith("ffmpeg")
     assert "-y" in cmd
-    assert "-loop" in cmd and "1" in cmd
+    # NO debe llevar `-loop`: con él, zoompan genera `d` frames por CADA frame
+    # de entrada y un clip de 4s tardaba >9 min en vez de 2.4s. Un JPEG sin
+    # loop es una sola frame de entrada, que es lo que zoompan espera.
+    assert "-loop" not in cmd
     assert "-t" in cmd
     # zoompan filter present con dimensiones nativas Veo
     vf_idx = cmd.index("-vf")
@@ -132,7 +135,7 @@ async def test_render_ken_burns_invokes_subprocess(
 
     assert result == out
     args = mock_spawn.call_args[0]
-    assert args[0] == "ffmpeg"
+    assert Path(args[0]).name.startswith("ffmpeg")
     assert "-vf" in args
     # zoompan en el siguiente arg después de -vf
     vf_arg = args[args.index("-vf") + 1]

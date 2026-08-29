@@ -11,6 +11,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
+from core.editor.encoders import _ffmpeg_binary
 from core.visual.generation.base import VisualGenerationError, VisualGenerator
 from shared.config import load_config
 from shared.schemas import Beat, BeatArtifact, BeatVisual, MotionHint, VideoSource
@@ -68,15 +69,18 @@ def _build_ffmpeg_cmd(
         f"zoompan=z='min(zoom+{zoom_step:.6f},{zoom_target:.3f})':"
         f"d={n_frames}:s={_CANVAS_W}x{_CANVAS_H}:fps={_FPS}"
     )
+    # OJO con `-loop 1`: `d=` es "frames de salida POR frame de entrada". Con
+    # el loop, ffmpeg alimentaba ~25 frames por segundo y zoompan generaba
+    # `n_frames` por cada una — ~12 000 frames renderizados para entregar 120.
+    # Un clip de 4 s tardaba >9 min al 189% de CPU; sin el loop, 2.4 s.
+    # Un JPEG sin loop es exactamente una frame de entrada → exactamente
+    # `n_frames` de salida, que es lo que se quería desde el principio. `-t`
+    # se queda como recorte defensivo.
     return [
-        "ffmpeg",
+        _ffmpeg_binary(),
         "-y",
         "-loglevel",
         "error",
-        "-loop",
-        "1",
-        "-t",
-        str(dur_int),
         "-i",
         str(frame_path),
         "-vf",
@@ -87,6 +91,8 @@ def _build_ffmpeg_cmd(
         "yuv420p",
         "-r",
         str(_FPS),
+        "-t",
+        str(dur_int),
         str(out_path),
     ]
 
