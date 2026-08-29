@@ -145,6 +145,16 @@ class LongFormConfig(BaseModel):
     candidates_per_shot: int = 3
     max_reference_anchors: int = 8  # max images mostradas al VLM (de ViMax)
 
+    # Veredicto por shot (ADR-029): score absoluto 0-10 bajo el cual el mejor
+    # candidato se considera "no shippeable" y el shot se marca needs_rework.
+    # 0.0 = desactivado (acepta lo que el VLM marque como acceptable y ya).
+    shot_accept_threshold: float = 0.0     # LONG_FORM_SHOT_ACCEPT_THRESHOLD
+    # Reintentos de generación cuando el veredicto rechaza el lote.
+    shot_max_rework: int = 1               # LONG_FORM_SHOT_MAX_REWORK
+
+    # Checkpoint reanudable (ADR-024): saltar shots ya renderizados en un re-run.
+    resume_enabled: bool = True            # LONG_FORM_RESUME_ENABLED
+
     # Producción
     default_target_minutes: float = 10.0
     max_target_minutes: float = 60.0
@@ -603,6 +613,15 @@ def _apply_env_overrides(cfg: Config) -> Config:
     lf.faiss_enabled = os.getenv("LONG_FORM_FAISS_ENABLED", str(lf.faiss_enabled)).lower() == "true"
     if os.getenv("LONG_FORM_VLM_MODEL"):
         lf.vlm_model_name = os.getenv("LONG_FORM_VLM_MODEL", "")
+    if os.getenv("LONG_FORM_SHOT_ACCEPT_THRESHOLD"):
+        lf.shot_accept_threshold = float(
+            os.getenv("LONG_FORM_SHOT_ACCEPT_THRESHOLD", lf.shot_accept_threshold)
+        )
+    if os.getenv("LONG_FORM_SHOT_MAX_REWORK"):
+        lf.shot_max_rework = int(os.getenv("LONG_FORM_SHOT_MAX_REWORK", lf.shot_max_rework))
+    lf.resume_enabled = os.getenv(
+        "LONG_FORM_RESUME_ENABLED", str(lf.resume_enabled)
+    ).lower() == "true"
 
     # Quality (core/quality/ — gate determinista + plateau)
     q = cfg.quality

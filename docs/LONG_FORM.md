@@ -124,7 +124,14 @@ uv run python -m apps.cli.main book plan ./mi_idea.txt \
 # 2. Inspeccionar
 uv run python -m apps.cli.main book show <job_id>
 
-# 3. (TODO: requiere GPU) Producir
+# 3. Producir
+#    intent=montage      → concreto y sin GPU (ADR-029)
+#    intent=talking_head → concreto, requiere LiveAvatar (ADR-016)
+#    intent=narrative|motion → todavía stub (requiere GPU + ComfyUI)
+uv run python -m apps.cli.main book produce <job_id>
+
+# Si el proceso muere a mitad, re-lanzar el MISMO job_id reanuda:
+# los shots ya renderizados salen del checkpoint y no se vuelven a pagar.
 uv run python -m apps.cli.main book produce <job_id>
 ```
 
@@ -152,9 +159,57 @@ for scene in script.scenes:
 # Recuperar después
 job, script = Director.load_job(job.job_id)
 
-# Fase 2: producir (TODO: requiere GPU + ComfyUI)
+# Fase 2: producir. Rutea por intent — montage y talking_head son concretos.
 job = await produce_long_form(job, script)
 ```
+
+### Montage: producción reanudable (ADR-029)
+
+`intent=montage` es el primer intent genérico con `produce` real. No necesita GPU:
+reusa el selector stock/IA del pipeline de reels, el TTS sample-accurate y el
+stitch single-pass.
+
+```python
+from core.long_form import produce_montage
+from shared.schemas import VideoAspect
+
+job = await produce_montage(
+    job, script,
+    aspect=VideoAspect.LANDSCAPE,   # long-form es horizontal
+    voice_name="no-voice",           # montage clásico: BGM sola, sin narración
+    bgm_type="random",
+)
+print(job.final_video_path)
+```
+
+Cada shot se persiste al checkpoint apenas termina. Si el proceso muere en el
+shot 40 de 120, volver a llamar con el mismo `job` cuesta 80 generaciones, no
+120. Para desactivarlo: `produce_montage(..., resume=False)` o
+`LONG_FORM_RESUME_ENABLED=false`.
+
+**Assets anclados.** Los entornos y props declarados en `LongFormScript.assets`
+se inyectan en el prompt visual de cada shot que los referencie (vía
+`Shot.assets_present`) y de todos los shots de una escena que declare
+`Scene.environment`. Es lo que hace que el mismo café se vea igual en la escena
+2 y en la 9:
+
+```python
+from shared.schemas import AssetProfile
+
+script.assets = [
+    AssetProfile(
+        name="Café Luna", kind="environment",
+        description="local estrecho, azulejo verde, neón azul en la ventana",
+    ),
+]
+script.scenes[0].environment = "Café Luna"
+```
+
+**Veredicto por shot.** Con `LONG_FORM_SHOT_ACCEPT_THRESHOLD > 0`, cada shot
+pasa por `BestImageSelector.judge()` — que dictamina si el resultado es
+shippeable en absoluto, no sólo si es el mejor del lote. Los rechazados se
+re-generan hasta `shot_max_rework` veces; si siguen fallando se entregan igual
+marcados `needs_rework` en el checkpoint. Apagado por default.
 
 ## Componentes
 
@@ -309,19 +364,25 @@ Resultado: ~200MB de overhead vs ~500MB de LangChain entero, sin perder calidad 
 
 Para video de 30min con 150 shots: ~$45-50 total. Para una hora con 250 shots: ~$70-80.
 
-## Estado actual (2026-06-15)
+## Estado actual (2026-08-29)
 
-- ✅ Schemas: 8 modelos Pydantic (`LongFormScript`, `Scene`, `Shot`, `NarrativeArc`, etc)
+- ✅ Schemas: 9 modelos Pydantic (`LongFormScript`, `Scene`, `Shot`, `NarrativeArc`, `AssetProfile`, etc)
 - ✅ NovelCompressor con chunking + parallel LLM compress
 - ✅ RAGStore híbrido numpy/FAISS con persistencia
 - ✅ ScriptPlanner con intent routing
 - ✅ SceneExtractor + StoryboardArtist + VisualDecompose
 - ✅ ReferenceImageSelector + BestImageSelector (2-stage VLM)
-- ✅ Director con `plan_long_form()` y `produce_long_form()` (stub)
+- ✅ `ShotVerdict` + `BestImageSelector.judge()` — veredicto absoluto por shot (opt-in, ADR-029)
+- ✅ `AssetProfile` — entornos y props como anclas de consistencia cross-scene (ADR-029)
+- ✅ Director con `plan_long_form()` + routing por intent en `produce_long_form()`
+- ✅ **`produce_montage()`** — primer intent genérico concreto, sin GPU, reanudable (ADR-029)
+- ✅ `produce_talking_head()` — concreto vía LiveAvatar (ADR-016)
+- ✅ Checkpoint reanudable cableado: un re-run salta los shots ya pagados (ADR-024)
 - ✅ Entry point en `VideoParams.long_form_input`
 - ✅ CLI: `contenido book plan/show/produce`
-- ✅ 30 tests verde
-- ⏳ `produce_long_form()` real (requiere GPU + ComfyUI corriendo para validar E2E)
+- ✅ 62 tests verde (30 base + 32 montage)
+- ⏳ `produce` para `intent=narrative` y `intent=motion` (requiere GPU + ComfyUI para
+  portraits y reference chaining; reusarán el esqueleto de `montage_director`)
 
 ## Crédito
 

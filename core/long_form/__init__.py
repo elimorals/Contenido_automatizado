@@ -21,8 +21,13 @@ https://github.com/HKUDS/ViMax (MIT License).
 from __future__ import annotations
 
 from core.long_form.compressor import NovelCompressor
-from core.long_form.consistency import BestImageSelector, ReferenceImageSelector
+from core.long_form.consistency import (
+    BestImageSelector,
+    ReferenceImageSelector,
+    ShotVerdict,
+)
 from core.long_form.director import Director, plan_long_form, produce_long_form
+from core.long_form.montage_director import produce_montage
 from core.long_form.rag import RAGStore, chunk_text
 from core.long_form.script_planner import (
     LongFormIntent,
@@ -48,9 +53,11 @@ __all__ = [
     "ReferenceImageSelector",
     "SceneExtractor",
     "ScriptPlanner",
+    "ShotVerdict",
     "StoryboardArtist",
     "chunk_text",
     "detect_intent",
     "plan_long_form",
     "produce_long_form",
+    "produce_montage",
 ]

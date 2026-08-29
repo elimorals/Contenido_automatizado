@@ -1034,3 +1034,130 @@ Idea inspirada (NO copiada) en `lib/scoring.py` de OpenMontage (AGPLv3). Propio 
 `tests/test_selector_decision_log.py`.
 **Modificados**: `core/visual/selector.py` (`_audit_candidates`, `_record_decision`, param
 `decision_log`), `apps/api/pipeline.py` (crea/pasa/persiste el `DecisionLog`).
+
+---
+
+## ADR-029: `produce` real para MONTAGE — checkpoint reanudable, veredicto por shot y assets anclados
+
+**Fecha**: 2026-08-29 | **Estado**: Aceptado
+
+### Contexto
+
+`plan_long_form()` era sólido (arco → escenas → shots con descomposición
+first/last frame + motion) pero `produce_long_form()` era un **stub** para
+NARRATIVE, MOTION y MONTAGE: sólo TALKING_HEAD tenía director concreto
+(ADR-016). Un job planificaba bien y no renderizaba nada.
+
+En paralelo, `core/checkpoint.py` (ADR-024) llevaba escrito y testeado desde su
+commit **sin un solo caller**. La primitiva de reanudación existía en el vacío.
+
+El disparador fue analizar [HyCreator](https://hycreator.tencent.com) (Tencent
+Hunyuan), un *agent harness* para video largo cuyas tres funciones diferenciales
+resultaron ser justo las tres piezas que faltaban aquí:
+
+1. *"divide-and-conquer checking"* — el fallo de un fragmento no tira el
+   proyecto; sólo se re-hace el fragmento defectuoso.
+2. Inspección por capas que distingue "el mejor del lote" de "bueno".
+3. Assets (personajes, entornos, props) como entidades reutilizables con
+   *unified style consistency*, no strings sueltos dentro del guion.
+
+Nada de esto es novedad arquitectónica: es control de flujo. Las tres se
+implementan con lo que el repo ya tenía.
+
+### Decisión
+
+**1. `core/long_form/montage_director.py` — el primer `produce` genérico.**
+
+Se estrena con MONTAGE, no con NARRATIVE, porque es el intent más barato de
+validar: sin diálogo obligatorio, sin consistencia de personaje cross-shot, sin
+ComfyUI ni GPU. El módulo es **pegamento, no motor** — cada etapa delega:
+
+```
+Shot → Beat + BeatVisual → core.visual.selector (stock vs IA + DecisionLog)
+     → core.tts (sample-accurate; engine `silent` si el shot no tiene diálogo)
+     → core.editor.stitch_video (single-pass ffmpeg + BGM, ADR-001)
+```
+
+La duración **medida** del audio pisa a la planificada shot a shot, para no
+acumular drift (mismo principio que ADR-001). Los shots sin diálogo pasan por
+el engine `silent` en vez de por una rama aparte: un solo camino, no dos.
+
+**2. Checkpoint cableado (cierra ADR-024).**
+
+Cada shot renderizado se persiste al `CheckpointStore` en el acto, bajo un lock
+porque el fan-out es concurrente. Un re-run del mismo `job_id` arranca desde
+`pending_beats()`. Morir en el shot 40 de 120 pasa a costar 80 generaciones en
+vez de 120 — para un job de $16-80, la diferencia entre reintentar y no. El
+checkpoint se borra al completar, para que un re-run futuro con el mismo id no
+herede basura.
+
+**3. Veredicto por shot (`ShotVerdict`), opt-in.**
+
+`BestImageSelector` elegía el mejor de N y lo aceptaba siempre; un lote entero
+malo entregaba el menos malo sin dejar rastro. Se añade `judge()`, que devuelve
+`ShotVerdict(path, reason, acceptable, score)`. `select_best()` queda como
+wrapper delgado — la firma histórica no cambia y sus tests siguen pasando.
+
+- El prompt pide ahora un `score` **absoluto** (0-10, no relativo al lote) con
+  anclas explícitas, más un booleano `acceptable`.
+- Ambos campos tienen default permisivo (`acceptable=True`, `score=-1`): un VLM
+  que ignore las claves nuevas se comporta exactamente como antes.
+- Con `shot_accept_threshold > 0`, el montage re-genera hasta `shot_max_rework`
+  veces; si sigue rechazado **entrega igual** y anota `needs_rework: true` en el
+  checkpoint. Se deja rastro sin bloquear la entrega.
+- Un fallo del VLM (timeout, JSON inválido, índice fuera de rango) nunca produce
+  `acceptable=False`. Un gate que se cae no debe convertirse en una fuente nueva
+  de trabajo perdido.
+- Con un solo candidato y umbral configurado se juzga igual: no hay nada que
+  *comparar*, pero sí que juzgar.
+
+**4. `AssetProfile` — assets como entidades de primera clase.**
+
+`CharacterProfile` ya anclaba personas vía `portrait_path`. Los entornos y props
+vivían como texto libre en `Scene.setting`, así que "el café" de la escena 2 y el
+de la 9 eran dos strings y el generador los dibujaba distintos.
+
+`AssetProfile(name, kind, description, reference_path)` es el **hermano** de
+`CharacterProfile`, no una jerarquía con base común: comparten función (ancla de
+consistencia) pero no ciclo de vida — un personaje tiene vistas alternativas y
+arco de persona, un prop no. Una base común obligaría a ambos a cargar campos
+que uno nunca usa.
+
+Se añaden `Scene.environment` / `Scene.props`, `Shot.assets_present` y
+`LongFormScript.assets`. `_enrich_prompt()` inyecta las descripciones de los
+assets del shot **más el entorno de su escena** en el prompt visual, que es donde
+se gana la consistencia. `Scene.setting` sigue siendo la verdad narrativa; esto
+es la capa de anclaje visual encima, y puede quedar vacía.
+
+### Razón
+
+- **La pieza cara es la generación, no la orquestación**: el checkpoint protege
+  exactamente el gasto, y ya estaba escrito.
+- **Estrenar por lo barato**: MONTAGE valida el camino completo (mapeo, bucle,
+  stitch) sin GPU. NARRATIVE reusará el mismo esqueleto añadiendo portraits y
+  reference chaining.
+- **Todo opt-in y permisivo por default**: `shot_accept_threshold=0.0` deja el
+  comportamiento idéntico al de antes y no cuesta un token.
+- **Sin motor nuevo**: el selector, el TTS y el stitcher son los del pipeline de
+  reels. Lo único añadido es el pegamento.
+
+### Consecuencias
+
+- NARRATIVE y MOTION **siguen en stub**. Este ADR no los cierra.
+- El veredicto sobre un solo frame juzga la *imagen*, no el movimiento del clip:
+  un first frame correcto con un i2v malo pasa el gate.
+- `shot_max_rework` reintentos son generaciones pagadas. Con umbral alto y
+  proveedor flojo, el coste sube — de ahí que el default sea 0 (desactivado).
+- El checkpoint se indexa por `job_id`: reusar un `job_id` con un script
+  distinto reanudaría contra shots que ya no corresponden. Cada `plan_long_form`
+  genera un id nuevo, así que sólo pasa si se fuerza a mano.
+
+### Archivos
+
+**Nuevos**: `core/long_form/montage_director.py`, `tests/test_long_form_montage.py`.
+**Modificados**: `shared/schemas.py` (`AssetProfile`, `Scene.environment/props`,
+`Shot.assets_present`, `LongFormScript.assets` + `assets_by_name()`),
+`core/long_form/consistency.py` (`ShotVerdict`, `judge()`), `core/long_form/prompts.py`
+(rúbrica de scoring), `core/long_form/director.py` (routing MONTAGE),
+`core/long_form/__init__.py`, `shared/config.py` (`shot_accept_threshold`,
+`shot_max_rework`, `resume_enabled` + env overrides).

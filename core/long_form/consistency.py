@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+from dataclasses import dataclass
 from pathlib import Path
 
 from loguru import logger
@@ -40,6 +41,30 @@ class _RefImageResponse(BaseModel):
 class _BestImageResponse(BaseModel):
     best_image_index: int = Field(..., ge=0)
     reason: str = Field("", max_length=600)
+    # Campos del veredicto (ADR-029). Ambos tienen default permisivo a propósito:
+    # un VLM que ignore las claves nuevas se comporta igual que antes de existir.
+    score: float = Field(-1.0, description="0-10 en absoluto; -1 = no reportado")
+    acceptable: bool = Field(True, description="False = regenerar en vez de usar")
+
+
+@dataclass(frozen=True)
+class ShotVerdict:
+    """Resultado de juzgar los candidatos de UN shot.
+
+    `acceptable=False` no es un error: significa "el mejor candidato no da la
+    talla, re-genera este shot". El caller decide si reintenta, lo marca como
+    `needs_rework` en el checkpoint, o lo acepta igual.
+    """
+
+    path: Path
+    reason: str
+    acceptable: bool = True
+    score: float = -1.0
+
+    @property
+    def scored(self) -> bool:
+        """¿El VLM reportó un score numérico?"""
+        return self.score >= 0.0
 
 
 def _image_to_data_url(path: Path) -> str:
@@ -201,6 +226,7 @@ class BestImageSelector:
         cfg = load_config().long_form
         self.provider = provider or cfg.vlm_model_provider
         self.model = cfg.vlm_model_name
+        self.accept_threshold = cfg.shot_accept_threshold
 
     async def select_best(
         self,
@@ -208,11 +234,33 @@ class BestImageSelector:
         reference_anchors: list[ConsistencyAnchor],
         target_description: str,
     ) -> tuple[Path, str]:
-        """Devuelve (best_path, reason)."""
+        """Devuelve (best_path, reason). Wrapper histórico sobre `judge()`."""
+        verdict = await self.judge(candidates, reference_anchors, target_description)
+        return verdict.path, verdict.reason
+
+    async def judge(
+        self,
+        candidates: list[Path],
+        reference_anchors: list[ConsistencyAnchor],
+        target_description: str,
+    ) -> ShotVerdict:
+        """Elige el mejor candidato Y dictamina si es lo bastante bueno.
+
+        A diferencia de `select_best`, distingue "el mejor de N" de "bueno":
+        un lote entero malo devuelve `acceptable=False` para que el caller
+        re-genere el shot en vez de aceptar el menos malo.
+
+        Un fallo del VLM (timeout, JSON inválido, índice fuera de rango) NUNCA
+        produce `acceptable=False` — un gate que se cae no debe convertirse en
+        una fuente nueva de trabajo perdido.
+        """
         if not candidates:
             raise LongFormError("BestImageSelector: 0 candidatos")
-        if len(candidates) == 1:
-            return candidates[0], "single candidate"
+        # Con un solo candidato no hay nada que *comparar*, pero sí que juzgar:
+        # si hay umbral configurado seguimos adelante y preguntamos al VLM si
+        # esa imagen es shippeable. Sin umbral (default) short-circuit gratis.
+        if len(candidates) == 1 and self.accept_threshold <= 0:
+            return ShotVerdict(candidates[0], "single candidate")
 
         # Construir mensaje multimodal
         content_items: list[dict] = []
@@ -280,15 +328,29 @@ class BestImageSelector:
             logger.warning(
                 f"[long_form.consistency] best-of-N falló ({e}); uso primer candidate"
             )
-            return candidates[0], f"fallback (VLM error: {e})"
+            return ShotVerdict(candidates[0], f"fallback (VLM error: {e})")
 
         idx = response.best_image_index
         if idx < 0 or idx >= len(candidates):
             logger.warning(
                 f"[long_form.consistency] VLM devolvió idx={idx} fuera de rango; uso 0"
             )
-            return candidates[0], "fallback (out of range)"
-        return candidates[idx], response.reason
+            return ShotVerdict(candidates[0], "fallback (out of range)")
+
+        # El score solo puede vetar si de hecho se reportó (-1 = el VLM lo omitió).
+        below_threshold = 0.0 <= response.score < self.accept_threshold
+        acceptable = response.acceptable and not below_threshold
+        if not acceptable:
+            logger.info(
+                f"[long_form.consistency] veredicto RECHAZA el mejor candidato "
+                f"(score={response.score}, umbral={self.accept_threshold}): {response.reason}"
+            )
+        return ShotVerdict(
+            path=candidates[idx],
+            reason=response.reason,
+            acceptable=acceptable,
+            score=response.score,
+        )
 
     async def generate_and_select(
         self,

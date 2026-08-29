@@ -414,6 +414,8 @@ Evaluate which CANDIDATE image best matches:
 [Output]
 {{
   "best_image_index": 0,
+  "score": 7.5,
+  "acceptable": true,
   "reason": "Why this candidate scored highest — be specific about which consistency dimensions it nailed and which it missed."
 }}
 
@@ -424,4 +426,16 @@ Evaluate which CANDIDATE image best matches:
 - If multiple candidates partially meet criteria, select the one with highest OVERALL consistency.
 - If none are ideal, choose the LEAST BAD and explain shortcomings in `reason`.
 - Avoid candidates with white borders, black edges, or framing artifacts.
-- Be objective. Do not let subjective aesthetic preferences override the consistency rubric."""
+- Be objective. Do not let subjective aesthetic preferences override the consistency rubric.
+
+[Scoring]
+- `score` (0.0-10.0) rates the WINNING candidate in absolute terms, NOT relative to the
+  other candidates. A batch where every candidate is bad must score low even though one
+  of them still wins. Anchors:
+    0-3  → wrong character identity, or contradicts the target description outright.
+    4-5  → recognizable but with clear defects (spatial flip, wrong wardrobe, artifacts).
+    6-7  → usable; minor inconsistencies a viewer would likely not notice.
+    8-10 → strong match on character, space and description.
+- `acceptable` is `false` when the winner is NOT good enough to ship in a finished film —
+  i.e. it should be regenerated rather than used. Judge the image on its own merits;
+  do not mark it acceptable merely because it was the best of a weak batch."""

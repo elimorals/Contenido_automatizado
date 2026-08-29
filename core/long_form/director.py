@@ -220,7 +220,11 @@ async def produce_long_form(
       Requiere ``portrait_path`` o ``job.portraits_dir`` con el anchor del
       presentador resuelto upstream.
 
-    - Otros intents (NARRATIVE/MOTION/MONTAGE) → STUB legacy. Flujo esperado:
+    - ``intent == MONTAGE`` → delega a ``produce_montage()`` (concreto,
+      reanudable vía checkpoint, sin GPU: reusa el selector stock/IA del
+      pipeline de reels + stitch single-pass). Ver ADR-029.
+
+    - Otros intents (NARRATIVE/MOTION) → STUB legacy. Flujo esperado:
       1. Para cada character sin portrait → generate_portrait (ComfyUI flux_basic)
       2. Para cada scene:
          a. Para cada shot: build prompt + reference_anchors + N candidates
@@ -264,7 +268,13 @@ async def produce_long_form(
             tts_engine=tts_engine,
         )
 
-    # === STUB legacy (narrative/motion/montage) ===
+    # === Branch: montage (ADR-029) ===
+    if job.intent == LongFormIntent.MONTAGE:
+        from core.long_form.montage_director import produce_montage
+
+        return await produce_montage(job, script)
+
+    # === STUB legacy (narrative/motion) ===
     job.status = "shooting"
     working_dir = Path(cfg.working_dir) / job.job_id
 

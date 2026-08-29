@@ -1058,6 +1058,23 @@ class CharacterProfile(BaseModel):
     )
 
 
+class AssetProfile(BaseModel):
+    """Asset visual reutilizable cross-scene: entorno, prop u objeto recurrente.
+
+    Hermano de `CharacterProfile` — mismo rol (ancla de consistencia) para lo
+    que no es persona. Sin esto, "el café" de la escena 2 y el de la escena 9
+    son dos strings sueltos y el generador los dibuja distintos; con
+    `reference_path` poblado, ambos shots comparten la misma imagen-ancla.
+    """
+
+    name: str = Field(..., min_length=1, max_length=80)
+    kind: Literal["environment", "prop", "vehicle", "creature", "other"] = "prop"
+    description: str = Field(..., description="Rasgos visuales: forma, color, material, estado")
+    reference_path: str | None = Field(
+        None, description="Path a la imagen-ancla generada — referencia base cross-scene"
+    )
+
+
 class Shot(BaseModel):
     """Una toma — equivalente a un Beat pero a nivel long-form."""
 
@@ -1094,6 +1111,9 @@ class Shot(BaseModel):
     # Characters present in this shot (refs to CharacterProfile.name)
     characters_present: list[str] = Field(default_factory=list)
 
+    # Assets present in this shot (refs a AssetProfile.name — entorno + props)
+    assets_present: list[str] = Field(default_factory=list)
+
     # Provenance for VLM consistency
     reference_frame_paths: list[str] = Field(
         default_factory=list,
@@ -1110,6 +1130,13 @@ class Scene(BaseModel):
     summary: str = Field(..., description="Qué pasa narrativamente en esta escena")
     characters_in_scene: list[str] = Field(default_factory=list)
     shots: list[Shot] = Field(default_factory=list)
+
+    # Assets de la escena (refs a AssetProfile.name). `environment` es el asset
+    # de tipo entorno que ancla el lugar; `props` son objetos recurrentes.
+    # `setting` (texto libre) sigue siendo la fuente de verdad narrativa: esto
+    # es la capa de *anclaje visual* encima, y puede quedar vacía.
+    environment: str | None = None
+    props: list[str] = Field(default_factory=list)
 
     # Continuity con la escena previa
     continuation_from_prev: str = Field(
@@ -1136,11 +1163,16 @@ class LongFormScript(BaseModel):
     arc: NarrativeArc
     intent: LongFormIntent = LongFormIntent.NARRATIVE
     characters: list[CharacterProfile] = Field(default_factory=list, max_length=20)
+    assets: list[AssetProfile] = Field(default_factory=list, max_length=60)
     scenes: list[Scene] = Field(..., min_length=1)
 
     # Provenance del input original
     source_kind: Literal["novel", "article", "idea", "script", "podcast_transcript"] = "idea"
     source_text_hash: str = ""  # SHA256 corto del input para cache
+
+    def assets_by_name(self) -> dict[str, AssetProfile]:
+        """Índice name → AssetProfile, para resolver `Shot.assets_present`."""
+        return {a.name: a for a in self.assets}
 
     @property
     def total_shots(self) -> int:

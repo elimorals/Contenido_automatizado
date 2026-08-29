@@ -434,6 +434,11 @@ vlm_model_name = "google/gemini-2.5-flash"        # LONG_FORM_VLM_MODEL
 candidates_per_shot = 3                            # N candidates por shot (best-of-N VLM)
 max_reference_anchors = 8                          # max imágenes mostradas al VLM (de ViMax)
 
+# Veredicto por shot (ADR-029) — 0.0 = desactivado, no cuesta un token
+shot_accept_threshold = 0.0                        # LONG_FORM_SHOT_ACCEPT_THRESHOLD (0-10)
+shot_max_rework = 1                                # LONG_FORM_SHOT_MAX_REWORK
+resume_enabled = true                              # LONG_FORM_RESUME_ENABLED (checkpoint, ADR-024)
+
 default_target_minutes = 10.0
 max_target_minutes = 60.0
 parallel_shot_concurrency = 4                      # cuántos shots en paralelo
@@ -453,6 +458,25 @@ final_audio_codec = "aac"
 | `LONG_FORM_EMBED_DEVICE` | `cpu` | `cpu` o `cuda` |
 | `LONG_FORM_FAISS_ENABLED` | `false` | Opt-in al backend FAISS (corpus >5k chunks) |
 | `LONG_FORM_VLM_MODEL` | `google/gemini-2.5-flash` | Modelo VLM para consistency checks |
+| `LONG_FORM_SHOT_ACCEPT_THRESHOLD` | `0.0` | Score 0-10 bajo el cual un shot se re-genera. `0` = gate apagado |
+| `LONG_FORM_SHOT_MAX_REWORK` | `1` | Reintentos por shot rechazado (cada uno es una generación pagada) |
+| `LONG_FORM_RESUME_ENABLED` | `true` | Saltar shots ya renderizados al re-lanzar un `job_id` |
+
+### Veredicto por shot: cuándo encenderlo
+
+Con `shot_accept_threshold = 0` (default) el pipeline se comporta igual que antes: se acepta
+el mejor candidato de cada shot sin preguntar. Subirlo activa un juicio **absoluto** por parte
+del VLM — "¿esta imagen es shippeable?", no "¿es la mejor de las tres?".
+
+| Valor | Efecto |
+|---|---|
+| `0.0` | Gate apagado. Coste extra: cero. |
+| `5.0` | Rechaza sólo lo claramente roto (identidad equivocada, artefactos). |
+| `7.0` | Exigente: rechaza inconsistencias que un espectador quizá no notaría. |
+
+Cada rechazo dispara hasta `shot_max_rework` regeneraciones **pagadas**. Si tras los
+reintentos sigue rechazado, el shot se entrega igual y queda marcado `needs_rework` en el
+checkpoint — se deja rastro sin bloquear la entrega. Un fallo del VLM nunca rechaza.
 
 ### Trade-offs FAISS vs numpy
 
