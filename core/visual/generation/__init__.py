@@ -74,6 +74,7 @@ from core.visual.generation.live_avatar_client import (
 )
 from core.visual.generation.openai_image import OpenAIImageGenerator
 from core.visual.generation.orchestrator import generate_beat_videos
+from core.visual.generation.sora import SoraGenerator
 from core.visual.generation.veo import (
     VeoGenerator,
     generate_veo_clip,
@@ -81,6 +82,7 @@ from core.visual.generation.veo import (
 
 __all__ = [
     "OpenAIImageGenerator",
+    "SoraGenerator",
     "CLIFallbackError",
     "CLINotInstalledError",
     "GeminiImageGenerator",

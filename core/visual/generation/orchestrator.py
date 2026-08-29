@@ -42,6 +42,7 @@ from core.visual.generation.ken_burns import (
 )
 from core.visual.generation.live_avatar import LiveAvatarGenerator
 from core.visual.generation.openai_image import OpenAIImageGenerator
+from core.visual.generation.sora import SoraGenerator
 from core.visual.generation.veo import VeoGenerator
 from shared.config import load_config
 from shared.schemas import Beat, BeatArtifact, BeatVisual, VideoSource
@@ -172,6 +173,7 @@ async def _generate_one(
     openai_image_gen: OpenAIImageGenerator | None,
     hf_dop_gen: HiggsfieldDopGenerator | None,
     veo_gen: VeoGenerator | None,
+    sora_gen: SoraGenerator | None,
     ken_burns_gen: KenBurnsGenerator,
     effects_gen: HiggsfieldEffectsGenerator | None,
     live_avatar_gen: LiveAvatarGenerator | None = None,
@@ -243,6 +245,24 @@ async def _generate_one(
                 "fallback ken-burns."
             )
 
+    # 2b.4 Sora 2 i2v (ADR-033) — nativo de OpenAI, misma key que el DAG.
+    # Va tras Veo y antes de fal.ai: es el fallback que cubre el caso de tener
+    # solo key de OpenAI, donde DoP/Veo/fal ni pueden intentarlo.
+    if motion_artifact is None and sora_gen is not None and frame_is_real:
+        try:
+            motion_artifact = await sora_gen.generate(
+                beat=beat,
+                visual=visual,
+                content_mode=content_mode,
+                out_dir=out_dir,
+                first_frame_path=frame_path,
+            )
+        except Exception as e:  # noqa: BLE001
+            logger.warning(
+                f"[visual.orchestrator] beat {beat.idx} Sora falló ({e}); "
+                "intentando fal.ai / ken-burns."
+            )
+
     # 2b.5 fal.ai i2v fallback (Kling/Runway/MiniMax) — antes de ken-burns (ADR-023).
     if motion_artifact is None and fal_gen is not None and frame_is_real:
         try:
@@ -312,6 +332,7 @@ async def generate_beat_videos(
     image_gen: GeminiImageGenerator | None = None,
     openai_image_gen: OpenAIImageGenerator | None = None,
     veo_gen: VeoGenerator | None = None,
+    sora_gen: SoraGenerator | None = None,
     hf_dop_gen: HiggsfieldDopGenerator | None = None,
     soul_gen: HiggsfieldSoulGenerator | None = None,
     effects_gen: HiggsfieldEffectsGenerator | None = None,
@@ -373,6 +394,9 @@ async def generate_beat_videos(
     img = image_gen or GeminiImageGenerator()
     # Solo se instancia si hay key de OpenAI: sin ella el tier sobra y
     # dejarlo en None hace explícito en los logs que no había con qué.
+    sora = sora_gen
+    if sora is None and cfg.visual.sora_enabled and cfg.get_llm_provider("openai").api_key:
+        sora = SoraGenerator()
     oai_img = openai_image_gen
     if oai_img is None and cfg.get_llm_provider("openai").api_key:
         oai_img = OpenAIImageGenerator()
@@ -452,6 +476,7 @@ async def generate_beat_videos(
                 openai_image_gen=oai_img,
                 hf_dop_gen=primary_dop,
                 veo_gen=primary_veo,
+                sora_gen=sora,
                 ken_burns_gen=ken_burns,
                 effects_gen=effects,
                 live_avatar_gen=live_avatar,
