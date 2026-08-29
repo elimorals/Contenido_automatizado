@@ -7,6 +7,7 @@ API HTTP (`apps.api.main`).
 from __future__ import annotations
 
 import asyncio
+import datetime as dt
 import json
 from pathlib import Path
 from uuid import uuid4
@@ -23,6 +24,7 @@ from shared.config import load_config
 from shared.schemas import (
     GenerationMode,
     SubtitleStyle,
+    TaskInfo,
     TaskState,
     VideoAspect,
     VideoParams,
@@ -45,8 +47,13 @@ def _entry_label(params: VideoParams) -> str:
     return params.url or params.topic or params.subject or "?"
 
 
-def _run(params: VideoParams, output: Path, quiet: bool) -> None:
-    """Ejecuta el pipeline sincrónicamente con MemoryStateManager (single-shot)."""
+def _run(params: VideoParams, output: Path, quiet: bool) -> TaskInfo:
+    """Ejecuta el pipeline sincrónicamente con MemoryStateManager (single-shot).
+
+    Devuelve el `TaskInfo` final para que el caller pueda cerrar el ciclo
+    (persistir task_id/output/costo/urls en el plan editorial). Antes devolvía
+    `None`, y por eso `produce-week` no podía anotar nada de lo que producía.
+    """
     task_id = str(uuid4())
     state = MemoryStateManager()
 
@@ -131,10 +138,11 @@ def _run(params: VideoParams, output: Path, quiet: bool) -> None:
             # En modo quiet: mostrar solo el path del video
             if final.videos:
                 typer.echo(final.videos[0])
-    else:
-        err = final.timings_s.get("error", "unknown")
-        typer.secho(f"\n✗ Failed: {err}", fg=typer.colors.RED, err=True)
-        raise typer.Exit(code=1)
+        return final
+
+    err = final.timings_s.get("error", "unknown")
+    typer.secho(f"\n✗ Failed: {err}", fg=typer.colors.RED, err=True)
+    raise typer.Exit(code=1)
 
 
 # =============================================================================
@@ -527,13 +535,32 @@ def produce_week(
     use_veo: Annotated[bool, typer.Option(help="Usar Veo i2v")] = False,
     output: Annotated[Path, typer.Option(help="Output dir")] = Path("./output"),
     quiet: Annotated[bool, typer.Option(help="Sin progress")] = False,
+    publish: Annotated[
+        bool,
+        typer.Option(
+            "--publish/--no-publish",
+            help="Publicar en las plataformas que declara cada idea del plan",
+        ),
+    ] = False,
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Re-producir ideas que ya tienen task_id"),
+    ] = False,
 ) -> None:
     """Produce TODAS las ideas aprobadas del plan editorial de la semana.
 
     Por cada idea:
+      - Salta las ya producidas (tienen `task_id`) salvo `--force`
       - Construye VideoParams según entry_type (topic/url/subject)
+      - Con `--publish`, publica en `idea.platforms` respetando `idea.publish_at`
       - Ejecuta el pipeline DAG completo
-      - Persiste task_id + output_path + cost_usd de vuelta en el plan
+      - Persiste task_id + output_path + cost_usd + urls de vuelta en el plan,
+        guardando tras CADA idea para que una caída a media semana no pierda
+        el rastro de lo ya producido
+
+    Publicar es irreversible, así que `--publish` es opt-in por corrida aunque
+    las ideas ya estén aprobadas: el gate editorial autoriza el contenido, esta
+    bandera autoriza *esta* ejecución.
     """
     try:
         from core.editorial import load_plan, save_plan
@@ -562,13 +589,41 @@ def produce_week(
         fg=typer.colors.GREEN, bold=True,
     )
 
+    if not publish:
+        pending_pub = [i for i in approved if not i.published_at]
+        if pending_pub:
+            typer.secho(
+                f"   ℹ {len(pending_pub)} idea(s) con plataformas declaradas NO se "
+                f"publicarán. Corre con --publish para hacerlo.",
+                fg=typer.colors.YELLOW,
+            )
+
+    produced = published = skipped = failed = 0
+
     for i, idea in enumerate(approved, 1):
         typer.echo(f"\n[{i}/{len(approved)}] {idea.id} ({idea.pillar})")
+
+        if idea.task_id and not force:
+            typer.secho(
+                f"  ↷ ya producida (task {idea.task_id[:8]}); --force para rehacer",
+                fg=typer.colors.BLUE,
+            )
+            skipped += 1
+            continue
+
+        # Publicar solo si el operador lo pidió Y esta idea no salió ya.
+        will_publish = publish and not idea.published_at
+        if publish and idea.published_at:
+            typer.secho(f"  ↷ ya publicada el {idea.published_at}", fg=typer.colors.BLUE)
+
         # Mapear entry_type → VideoParams
         params_kwargs: dict = {
             "mode": mode,
             "aspect": aspect,
             "use_veo": use_veo,
+            "auto_upload": will_publish,
+            "upload_platforms": [p.value for p in idea.platforms],
+            "publish_at": idea.publish_at,
         }
         if idea.entry_type.value == "url":
             params_kwargs["url"] = idea.entry_value
@@ -580,17 +635,43 @@ def produce_week(
             params = VideoParams(**params_kwargs)
         except Exception as e:  # noqa: BLE001
             typer.secho(f"  ✗ params inválidos: {e}", fg=typer.colors.RED, err=True)
+            failed += 1
             continue
         try:
-            _run(params, output, quiet)
+            info = _run(params, output, quiet)
         except typer.Exit:
             typer.secho(f"  ✗ idea {idea.id} falló — continuando con siguiente", fg=typer.colors.RED)
+            failed += 1
             continue
-        # NOTE: persistir task_id/output/cost en el plan requiere capturar el TaskInfo
-        # final; lo haremos en una iteración futura cuando _run devuelva el state.
 
+        # Cerrar el ciclo: el plan pasa a saber qué se produjo y qué se publicó.
+        idea.task_id = info.task_id
+        idea.output_path = info.videos[0] if info.videos else None
+        idea.cost_usd = round(sum(info.cost_breakdown.values()), 4) or None
+        produced += 1
+
+        upload = next(
+            (r for r in info.cross_post_results if isinstance(r, dict)), None
+        )
+        if upload and upload.get("success"):
+            idea.published_at = dt.datetime.now(dt.UTC).isoformat(timespec="seconds")
+            idea.upload_request_id = upload.get("request_id")
+            idea.upload_urls = {k: str(v) for k, v in (upload.get("urls") or {}).items()}
+            published += 1
+            typer.secho(f"  ✓ publicado: {idea.upload_urls or '(sin urls)'}", fg=typer.colors.GREEN)
+        elif upload:
+            typer.secho(f"  ⚠ publicación falló: {upload.get('errors')}", fg=typer.colors.YELLOW)
+
+        # Guardar tras CADA idea: una caída en la #5 no debe borrar las 4 previas.
+        try:
+            save_plan(the_plan)
+        except Exception as e:  # noqa: BLE001
+            typer.secho(f"  ⚠ no pude persistir el plan: {e}", fg=typer.colors.YELLOW)
+
+    total_cost = sum(i.cost_usd or 0.0 for i in the_plan.ideas)
     typer.secho(
-        f"\n✓ Semana {target_week} procesada ({len(approved)} ideas)",
+        f"\n✓ Semana {target_week}: {produced} producidas, {published} publicadas, "
+        f"{skipped} saltadas, {failed} fallidas — ${total_cost:.2f} acumulado",
         fg=typer.colors.GREEN, bold=True,
     )
 

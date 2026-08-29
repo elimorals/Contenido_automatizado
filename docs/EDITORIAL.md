@@ -7,8 +7,8 @@ Patrón portado de [`corredor-content`](https://github.com/elimorals/corredor-co
 > *"Una idea mala genera 28 piezas a la basura."* — README de corredor-content
 
 ```
-plan      →   humano revisa  →   produce-week   →   inspecciona   →   publica
-(LLM)         (approved: true)    (DAG completo)     (output/)        (Upload-Post)
+plan      →   humano revisa  →   produce-week --publish   →   el plan se cierra
+(LLM)         (approved: true)    (DAG + Upload-Post)         (task_id, urls, $)
 ```
 
 Si nadie aprueba ideas, el costo es **$0**. El gate previene tasks de $1.20 desperdiciadas en hooks malos.
@@ -43,6 +43,7 @@ editorial/
 | `$EDITOR out/plans/plan-YYYY-Www.json` | Tú marcas `"approved": true` en las que quieras producir |
 | `uv run python -m apps.cli.main plan-show` | Muestra el plan con ✓ por idea aprobada |
 | `uv run python -m apps.cli.main produce-week` | Ejecuta el DAG completo SOLO para `approved: true` |
+| `uv run python -m apps.cli.main produce-week --publish` | Además publica en las plataformas que declara cada idea |
 
 ### 2. Brand voice como código
 
@@ -151,10 +152,61 @@ uv run python -m apps.cli.main plan-show
 # → ✓ 3 aprobadas, ○ 4 rechazadas
 
 uv run python -m apps.cli.main produce-week --mode premium
-# → DAG completo para las 3 aprobadas
+# → DAG completo para las 3 aprobadas, SIN publicar
 
-# Inspecciona output/, publica con upload-post (futuro)
+# Revisa los MP4 en output/. Cuando convenzan:
+uv run python -m apps.cli.main produce-week --publish
+# → salta las 3 ya producidas (tienen task_id) y publica lo pendiente
 ```
+
+## Publicación (ADR-030)
+
+`--publish` es **opt-in por corrida**. El gate editorial (`approved: true`)
+autoriza el *contenido*; la bandera autoriza *esta ejecución*. Publicar es
+irreversible y no debe pasar por inercia de un comando que antes solo generaba
+archivos.
+
+### Qué hace cada idea al publicarse
+
+- Va a `idea.platforms` (lo que el plan decidió), traducido a los nombres del
+  proveedor: `instagram_reels` → `instagram`, `youtube_shorts` → `youtube`.
+- Recibe **un caption distinto por plataforma**, construido desde su
+  `PlatformSpec` en `editorial/platforms.json`: largo objetivo, número de
+  hashtags y título separado de la descripción.
+- Los hashtags son deterministas y cuestan $0: salen del pilar, el dominio de la
+  `Essence`, los search terms del stock y los `visual_anchor` de cada beat. Para
+  imponer los tuyos, `VideoParams.hashtags` va primero en el pool.
+- Lleva de portada el **frame del hook** — ya generado, y justo el fotograma
+  elegido para que alguien se detenga.
+
+### Escalonar la semana
+
+```json
+{ "id": "kerning-101", "approved": true, "publish_at": "2026-09-01T18:00:00" }
+```
+
+`publish_at` (ISO-8601) se envía como `scheduled_date` al proveedor, junto con la
+zona IANA de `VideoParams.timezone` (default `UTC`). Sin él, se publica al
+terminar el render — siete reels de golpe un lunes a las 3am.
+
+### Idempotencia
+
+Tras cada idea, el plan se guarda con lo que se produjo y publicó:
+
+```json
+{
+  "task_id": "9f2c…", "output_path": "output/9f2c…/reel.mp4", "cost_usd": 0.41,
+  "published_at": "2026-08-29T18:04:11+00:00",
+  "upload_request_id": "req-abc",
+  "upload_urls": { "tiktok": "https://tiktok.com/@u/video/1" }
+}
+```
+
+- Una idea con `task_id` se **salta** (`--force` la re-produce).
+- Una idea con `published_at` no se vuelve a publicar, ni con `--force`: borrar
+  esa marca debe ser un acto consciente.
+- El guardado es tras **cada** idea, no al final: una caída en la quinta no
+  pierde las cuatro anteriores.
 
 ## API Python
 

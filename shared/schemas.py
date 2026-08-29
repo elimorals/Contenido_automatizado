@@ -628,7 +628,29 @@ class VideoParams(BaseModel):
 
     # === Distribución ===
     auto_upload: bool = False
-    upload_platforms: list[str] = Field(default_factory=list)
+    upload_platforms: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Plataformas destino. Acepta nombres de la capa editorial "
+            "(`instagram_reels`) o del proveedor (`instagram`) — se traducen "
+            "con `core.distribution.schemas.to_provider`."
+        ),
+    )
+    hashtags: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Semillas de hashtags. Se suman al pool derivado del pilar, el "
+            "dominio de la Essence y los search terms; van primero porque el "
+            "pool respeta el orden y algunas plataformas solo aceptan 3."
+        ),
+    )
+    publish_at: str | None = Field(
+        None,
+        description="ISO-8601 para publicación programada. None = publicar ya.",
+    )
+    timezone: str = Field(
+        "UTC", description="Zona IANA en la que interpretar `publish_at`."
+    )
 
     # === Performance ===
     n_threads: int = Field(2, ge=1, le=16)
@@ -786,10 +808,20 @@ class ReelIdea(BaseModel):
     # Gate humano
     approved: bool = False
 
+    # Cuándo publicar (ISO-8601). None = en cuanto se produzca. Sirve para
+    # escalonar la semana en vez de volcar 7 reels de golpe un lunes a las 3am.
+    publish_at: str | None = None
+
     # Producción (se llena post-produce)
     task_id: str | None = None
     output_path: str | None = None
     cost_usd: float | None = None
+
+    # Publicación (se llena post-upload). `published_at` es la marca de
+    # idempotencia: si está, `produce-week` no vuelve a publicar esta idea.
+    published_at: str | None = None
+    upload_request_id: str | None = None
+    upload_urls: dict[str, str] = Field(default_factory=dict)
 
 
 class EditorialPlan(BaseModel):

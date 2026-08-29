@@ -20,6 +20,7 @@ from core.quality.slop import (
     filter_slop,
     rank_by_slop,
     score_slop,
+    strip_accents,
 )
 
 __all__ = [
@@ -30,4 +31,5 @@ __all__ = [
     "filter_slop",
     "rank_by_slop",
     "score_slop",
+    "strip_accents",
 ]

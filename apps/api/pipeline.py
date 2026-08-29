@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -51,6 +52,7 @@ from core.visual.provider_scoring import DecisionLog
 from shared.config import load_config
 from shared.schemas import (
     ConversationalScript,
+    DistributionPlatform,
     Essence,
     GenerationMode,
     HookVariant,
@@ -198,6 +200,98 @@ async def _update_state(
             setattr(info, k, v)
         await state_manager.set(task_id, info)
         return info
+
+
+async def _distribute(
+    *,
+    params: VideoParams,
+    task_id: str,
+    final_path: Path,
+    hook: str,
+    body: str = "",
+    cover_path: Path | None = None,
+    hashtag_sources: Sequence[Any] = (),
+    timings: dict[str, float],
+) -> list[dict]:
+    """Fase G — publicar. Compartida por TODOS los entry points (ADR-030).
+
+    Vive fuera de `_run_shared_downstream` porque el path `subject` no pasa por
+    ahí: mientras estuvo inline, `contenido subject ... --auto-upload` no
+    publicaba nada y no lo decía.
+
+    Compone un caption y un set de hashtags POR plataforma desde su
+    `PlatformSpec`, en vez de mandar el mismo hook a todas. Non-fatal de punta
+    a punta: un fallo publicando no invalida un video que ya está renderizado.
+    """
+    if not params.auto_upload:
+        return []
+
+    prefix = _log_prefix(task_id)
+    logger.info(f"{prefix} Phase G: distribution upload")
+    t = time.perf_counter()
+    results: list[dict] = []
+    try:
+        dist = get_distribution_service(load_config())
+        if dist is None:
+            logger.info(f"{prefix} distribution: servicio no configurado, skip")
+            return []
+
+        from core.distribution.captions import build_hashtag_pool, build_posts
+        from core.distribution.schemas import to_provider
+        from core.editorial import load_editorial
+
+        raw_platforms = params.upload_platforms or ["tiktok"]
+        editorial_platforms: list[DistributionPlatform] = []
+        for raw in raw_platforms:
+            try:
+                editorial_platforms.append(DistributionPlatform(str(raw).strip().lower()))
+            except ValueError:
+                # Ya venía como nombre de proveedor ("instagram"): no tiene
+                # PlatformSpec propia, así que se publica sin caption a medida.
+                logger.debug(f"{prefix} '{raw}' no es plataforma editorial; paso directo")
+
+        pool = build_hashtag_pool(*hashtag_sources)
+        try:
+            specs = load_editorial().platforms
+        except Exception as e:  # noqa: BLE001 — la capa editorial es opcional
+            logger.warning(f"{prefix} editorial no disponible ({e}); sin captions a medida")
+            specs = {}
+
+        posts = build_posts(editorial_platforms, specs, hook=hook, body=body, hashtag_pool=pool)
+        providers: list[str] = []
+        for name in raw_platforms:
+            provider = to_provider(name)
+            if provider not in providers:
+                providers.append(provider)
+
+        # `caption`/`hashtags` son el fallback global; los overrides por
+        # plataforma viajan en `metadata["posts"]`.
+        primary = posts[0] if posts else None
+        result = await dist.upload_video(
+            video_path=final_path,
+            platforms=providers,
+            caption=primary.description if primary else hook,
+            hashtags=primary.hashtags if primary else (pool[:5] or None),
+            metadata={
+                "aspect": params.aspect.value,
+                "posts": [
+                    {"provider": p.provider, "title": p.title, "caption": p.caption}
+                    for p in posts
+                ],
+                "scheduled_date": params.publish_at,
+                "timezone": params.timezone,
+                "cover_path": str(cover_path) if cover_path else None,
+            },
+        )
+        results.append(result.model_dump())
+        if result.success:
+            logger.info(f"{prefix} publicado en {providers}: {result.urls}")
+        else:
+            logger.warning(f"{prefix} publicación con errores: {result.errors}")
+    except Exception as e:  # noqa: BLE001 — publicar nunca tumba un render hecho
+        logger.warning(f"{prefix} distribution falló (non-fatal): {e}")
+    timings["distribution"] = time.perf_counter() - t
+    return results
 
 
 async def _compute_reference_brief(
@@ -471,25 +565,24 @@ async def _run_shared_downstream(
     )
 
     # ─── Phase G: Distribution (opcional) ────────────────────────────────────
-    cross_post_results: list[dict] = []
-    if params.auto_upload:
-        logger.info(f"{prefix} Phase G: distribution upload")
-        t = time.perf_counter()
-        try:
-            dist = get_distribution_service(load_config())
-            if dist is not None:
-                platforms = params.upload_platforms or ["tiktok"]
-                result = await dist.upload_video(
-                    video_path=final_path,
-                    platforms=platforms,
-                    caption=script_draft.hook,
-                )
-                cross_post_results.append(result.model_dump())
-            else:
-                logger.info(f"{prefix} distribution: servicio no configurado, skip")
-        except Exception as e:
-            logger.warning(f"{prefix} distribution falló (non-fatal): {e}")
-        timings["distribution"] = time.perf_counter() - t
+    # El frame del hook es la portada natural: ya está generado y es justo el
+    # fotograma elegido para que un desconocido se detenga.
+    cover_path = artifacts[0].first_frame_path if artifacts else None
+    cross_post_results = await _distribute(
+        params=params,
+        task_id=task_id,
+        final_path=final_path,
+        hook=script_draft.hook,
+        body=script_draft.narration,
+        cover_path=cover_path,
+        hashtag_sources=(
+            params.hashtags,
+            essence.domain,
+            params.terms or [],
+            [v.visual_anchor for v in visuals],
+        ),
+        timings=timings,
+    )
 
     # ─── Final state ────────────────────────────────────────────────────────
     timings["total"] = sum(v for k, v in timings.items() if k != "total" and isinstance(v, (int, float)))
@@ -962,6 +1055,18 @@ async def run_subject_pipeline(
         raise
     timings["stitch"] = time.perf_counter() - t
 
+    # ─── Phase G: Distribution (opcional) ────────────────────────────────────
+    cross_post_results = await _distribute(
+        params=params,
+        task_id=task_id,
+        final_path=final_path,
+        hook=script_text.split(".")[0] if script_text else (params.subject or ""),
+        body=script_text,
+        cover_path=artifacts[0].first_frame_path if artifacts else None,
+        hashtag_sources=(params.hashtags, params.subject, terms),
+        timings=timings,
+    )
+
     timings["total"] = sum(
         v for k, v in timings.items() if k != "total" and isinstance(v, (int, float))
     )
@@ -973,6 +1078,7 @@ async def run_subject_pipeline(
         videos=[str(final_path)],
         subtitle_path=str(subtitle_path) if subtitle_path else None,
         timings_s=dict(timings),
+        cross_post_results=cross_post_results,
     )
     return info
 

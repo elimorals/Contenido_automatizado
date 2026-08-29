@@ -1161,3 +1161,107 @@ es la capa de anclaje visual encima, y puede quedar vacía.
 (rúbrica de scoring), `core/long_form/director.py` (routing MONTAGE),
 `core/long_form/__init__.py`, `shared/config.py` (`shot_accept_threshold`,
 `shot_max_rework`, `resume_enabled` + env overrides).
+
+---
+
+## ADR-030: Publicación E2E — captions por plataforma, scheduling, portada e idempotencia
+
+**Fecha**: 2026-08-29 | **Estado**: Aceptado
+
+### Contexto
+
+El sistema era un **pipeline de escritura pura**: terminaba en un MP4 en disco.
+Todo lo necesario para publicar existía y estaba desconectado, en seis puntos:
+
+| | Hueco | Evidencia |
+|---|---|---|
+| A | `produce-week` no publicaba | construía `VideoParams` sin `auto_upload` ni `upload_platforms`; el `ReelIdea.platforms` que el plan decidía se descartaba |
+| B | El plan nunca se cerraba | `_run()` devolvía `None`; había un `# NOTE` admitiéndolo. `task_id`/`output_path`/`cost_usd` siempre `None` |
+| C | `PlatformSpec` era código muerto | cargado y validado, **cero** usos fuera del loader. Caption = `script_draft.hook` idéntico en todas, cero hashtags |
+| D | Cero scheduling | el transporte whitelisteaba `schedule_at`, pero la API espera `scheduled_date` — se descartaba en silencio |
+| E | Publicación no idempotente | re-correr `produce-week` re-publicaba todo |
+| F | Cero portada | ídem: `cover_url` en la whitelist, nadie lo poblaba, y cada plataforma usa un campo distinto |
+
+El patrón es el mismo en C, D y F, y el mismo de ADR-024: **la capacidad existe
+en el borde del sistema y nadie la puebla desde arriba**.
+
+Además, `SUPPORTED_PLATFORMS` era `("tiktok", "instagram")` mientras la capa
+editorial declaraba seis plataformas — y con nombres distintos (`instagram_reels`
+vs `instagram`), así que pasar el plan tal cual habría fallado entero.
+
+### Decisión
+
+**1. `_distribute()` — una sola fase G, compartida.**
+
+Estaba inline dentro de `_run_shared_downstream`, y el path `subject` no pasa por
+ahí: `contenido subject … --auto-upload` no publicaba nada y no lo decía.
+Extraída a helper de módulo, la llaman ambos paths. Non-fatal de punta a punta:
+un fallo publicando no invalida un video ya renderizado.
+
+**2. `PLATFORM_TO_PROVIDER` + `to_provider()`.**
+
+La capa editorial distingue formatos que el proveedor no (`youtube_shorts` y
+`youtube_long` son ambos `youtube`), porque a nosotros sí nos cambian el aspect,
+la duración y el largo del caption. `to_provider()` es idempotente: acepta
+nombres de cualquiera de los dos lados. `SUPPORTED_PLATFORMS` se amplió a los
+ocho identificadores verificados contra los docs del proveedor.
+
+**3. `core/distribution/captions.py` — un post por plataforma.**
+
+Determinista y **$0**: los hashtags salen del material que el pipeline ya
+produjo (semillas explícitas → dominio de la `Essence` → search terms →
+`visual_anchor` de cada beat), no de una llamada extra al LLM. Mismo espíritu
+que ADR-028.
+
+- El presupuesto de caracteres usa el extremo alto del rango **recomendado**, no
+  el máximo: 63 206 chars es lo que Facebook *permite*, no lo que conviene.
+- El bloque de hashtags va DENTRO del caption y por tanto compite por ese
+  presupuesto.
+- Si el pool no llega al `hashtags_min` de la plataforma se publica con menos:
+  inventar hashtags de relleno es peor que publicar con tres.
+- Se emiten `{provider}_title` y `{provider}_description` por separado —
+  `youtube_title` es **obligatorio** para publicar en YouTube.
+
+**4. Scheduling con el nombre correcto.** `scheduled_date` (ISO-8601) +
+`timezone` (IANA). `ReelIdea.publish_at` permite escalonar la semana en vez de
+volcar siete reels un lunes a las 3am.
+
+**5. Portada = el frame del hook.** `artifacts[0].first_frame_path` ya está
+generado y es justo el fotograma elegido para que un desconocido se detenga. Se
+adjunta al multipart bajo el campo que espera cada plataforma (`cover_image` en
+Instagram, `thumbnail` en YouTube); las que usan otra cosa (TikTok pide
+`cover_timestamp` en ms) simplemente no lo reciben.
+
+**6. El plan como registro.** `_run()` devuelve el `TaskInfo`; `produce-week`
+persiste `task_id`, `output_path`, `cost_usd`, `published_at`,
+`upload_request_id` y `upload_urls` **tras cada idea** — una caída en la quinta
+no borra las cuatro previas. `published_at` es la marca de idempotencia.
+
+**`--publish` es opt-in por corrida.** El gate editorial (`approved: true`)
+autoriza el *contenido*; esta bandera autoriza *esta ejecución*. Publicar es
+irreversible y no debe ocurrir por inercia de un comando que hasta ayer solo
+generaba archivos.
+
+### Consecuencias
+
+- `--force` re-produce pero **no** re-publica lo ya publicado: hay que limpiar
+  `published_at` a mano. Es deliberado — el borrado de esa marca debe ser un
+  acto consciente.
+- Los hashtags deterministas son tan buenos como los search terms del pipeline.
+  Para un tenant con vocabulario propio, `VideoParams.hashtags` los antepone.
+- Una plataforma sin entrada en `editorial/platforms.json` se publica sin caption
+  a medida (con warning): si no está declarada, nadie decidió cómo debe leerse.
+- El scheduling depende del proveedor; no hay cola local que reintente si la
+  fecha programada falla del lado de Upload-Post.
+
+### Archivos
+
+**Nuevos**: `core/distribution/captions.py`, `tests/test_publishing.py`.
+**Modificados**: `core/distribution/schemas.py` (`PLATFORM_TO_PROVIDER`,
+`to_provider`, `SUPPORTED_PLATFORMS`), `core/distribution/upload_post.py`
+(`scheduled_date`, títulos por plataforma, portada en multipart),
+`apps/api/pipeline.py` (`_distribute()` compartida por ambos paths),
+`apps/cli/main.py` (`_run` devuelve `TaskInfo`; `produce-week` con `--publish` y
+`--force`), `shared/schemas.py` (`VideoParams.hashtags/publish_at/timezone`,
+`ReelIdea.publish_at/published_at/upload_request_id/upload_urls`),
+`core/quality/` (`strip_accents` promovido a público y reusado).

@@ -90,7 +90,7 @@ _TIER3_FILLER: tuple[str, ...] = (
 )
 
 
-def _strip_accents(text: str) -> str:
+def strip_accents(text: str) -> str:
     """Lowercase + remove diacritics so 'Plétora' matches 'pletora'."""
     nfkd = unicodedata.normalize("NFKD", text.lower())
     return "".join(c for c in nfkd if not unicodedata.combining(c))
@@ -98,14 +98,14 @@ def _strip_accents(text: str) -> str:
 
 def _compile_words(words: tuple[str, ...]) -> re.Pattern[str]:
     """One alternation regex with word boundaries, over accent-stripped words."""
-    normalized = sorted({_strip_accents(w) for w in words}, key=len, reverse=True)
+    normalized = sorted({strip_accents(w) for w in words}, key=len, reverse=True)
     alt = "|".join(re.escape(w) for w in normalized)
     return re.compile(rf"\b(?:{alt})\b")
 
 
 _RE_TIER1 = _compile_words(_TIER1_BANNED)
 _RE_TIER2 = _compile_words(_TIER2_SUSPICIOUS)
-_RE_TIER3 = [re.compile(_strip_accents(p), re.MULTILINE) for p in _TIER3_FILLER]
+_RE_TIER3 = [re.compile(strip_accents(p), re.MULTILINE) for p in _TIER3_FILLER]
 
 # Default: flag when weighted penalty per 100 words ≥ this, OR any tier-1 hit.
 DEFAULT_DENSITY_THRESHOLD = 2.0
@@ -162,7 +162,7 @@ def score_slop(
     if not text or not text.strip():
         return SlopReport(word_count=0)
 
-    norm = _strip_accents(text)
+    norm = strip_accents(text)
     word_count = len(re.findall(r"\b\w+\b", norm)) or 1
 
     tier1 = _RE_TIER1.findall(norm)

@@ -13,6 +13,7 @@ Docs: https://docs.upload-post.com
 """
 from __future__ import annotations
 
+from contextlib import ExitStack
 from pathlib import Path
 from typing import Any
 
@@ -246,11 +247,45 @@ class UploadPostService(DistributionService):
         # Plataformas como índices (formato esperado por Upload-Post)
         for i, plat in enumerate(platforms):
             data[f"platform[{i}]"] = plat
-        # Metadata extra opcional (whitelist conservadora)
-        for k in ("schedule_at", "cover_url"):
-            if k in metadata:
+
+        # Scheduling. El parámetro es `scheduled_date` (ISO-8601) + `timezone`
+        # (IANA); durante mucho tiempo aquí se envió `schedule_at`, que la API
+        # ignora en silencio — el post salía inmediatamente sin avisar.
+        scheduled = metadata.get("scheduled_date")
+        if scheduled:
+            data["scheduled_date"] = str(scheduled)
+            data["timezone"] = str(metadata.get("timezone") or "UTC")
+
+        # Título y descripción POR plataforma (`youtube_title` es obligatorio
+        # para publicar en YouTube; `youtube_description` cae al title si falta).
+        for post in metadata.get("posts") or []:
+            provider = str(post.get("provider") or "").strip().lower()
+            if provider not in platforms:
+                continue
+            if post.get("title"):
+                data[f"{provider}_title"] = str(post["title"])
+            if post.get("caption"):
+                data[f"{provider}_description"] = str(post["caption"])
+
+        # Cover/thumbnail por URL pública (la variante por archivo se adjunta en
+        # `_post_with_retries`, porque va en el multipart y no en el form).
+        for k in ("cover_url", "thumbnail_url"):
+            if metadata.get(k):
                 data[k] = str(metadata[k])
         return data
+
+    @staticmethod
+    def _cover_field_for(platform: str) -> str | None:
+        """Nombre del campo multipart de portada para cada plataforma.
+
+        Cada una lo llama distinto; mandar el campo equivocado no da error, la
+        API simplemente lo ignora y el video sale con el frame por defecto.
+        Verificado contra docs.upload-post.com/api/upload-video (2026-08-29).
+        """
+        return {
+            "instagram": "cover_image",
+            "youtube": "thumbnail",
+        }.get(platform)
 
     async def _post_with_retries(
         self,
@@ -264,10 +299,30 @@ class UploadPostService(DistributionService):
         headers = self._auth_headers()
         data = self._build_form_data(platforms, caption, metadata)
 
+        cover_path = metadata.get("cover_path")
+        cover = Path(cover_path) if cover_path else None
+        if cover is not None and not cover.exists():
+            logger.warning(f"cover_path no existe ({cover}); subo sin portada")
+            cover = None
+
         async def _do_post() -> dict[str, Any]:
-            # IMPORTANTE: reabrir el handle en cada intento (los streams se consumen).
-            with video_path.open("rb") as fh:
-                files = {"video": (video_path.name, fh, "video/mp4")}
+            # IMPORTANTE: reabrir los handles en cada intento (los streams se consumen).
+            with ExitStack() as stack:
+                fh = stack.enter_context(video_path.open("rb"))
+                files: dict[str, tuple[str, Any, str]] = {
+                    "video": (video_path.name, fh, "video/mp4")
+                }
+                if cover is not None:
+                    # Un mismo JPEG, bajo el nombre de campo que espera cada
+                    # plataforma de las que aceptan archivo.
+                    for plat in platforms:
+                        field = self._cover_field_for(plat)
+                        if field:
+                            files[field] = (
+                                cover.name,
+                                stack.enter_context(cover.open("rb")),
+                                "image/jpeg",
+                            )
                 async with httpx.AsyncClient(timeout=self.upload_timeout_s) as client:
                     resp = await client.post(url, headers=headers, data=data, files=files)
             if resp.status_code in RETRYABLE_STATUS:
