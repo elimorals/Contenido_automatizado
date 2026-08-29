@@ -34,6 +34,8 @@ import wave
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 
+from loguru import logger
+
 from shared.schemas import WordTiming
 
 # ─── Constantes públicas ──────────────────────────────────────────────
@@ -335,8 +337,21 @@ async def synthesize_with_sample_accurate_timing(
         # Caso degenerado: una sola "frase" sin punctuation final.
         sentences = [text.strip()] if text.strip() else []
 
+    # Descarta las frases que no tienen NADA pronunciable una vez quitados los
+    # tags inline. El narrador premium emite `[curious]`, `[emphasis]`, etc; si
+    # uno cae como frase propia, `strip_tts_tags` lo reduce a "." y Edge
+    # responde "No audio was received" — matando el job entero por un punto.
+    speakable = [s for s in sentences if any(ch.isalnum() for ch in strip_tts_tags(s))]
+    if len(speakable) < len(sentences):
+        dropped = [s for s in sentences if s not in speakable]
+        logger.debug(f"[tts.timing] {len(dropped)} frase(s) sin contenido hablable: {dropped}")
+    sentences = speakable
+
     if not sentences:
-        raise ValueError("synthesize_with_sample_accurate_timing: text vacío")
+        raise ValueError(
+            "synthesize_with_sample_accurate_timing: sin frases pronunciables "
+            f"(input de {len(text)} chars, todo tags o puntuación)"
+        )
 
     # Fase 1: síntesis paralela por frase → WAVs raw canónicos.
     async def _synth_one(idx: int, sent: str) -> tuple[Path, float]:
