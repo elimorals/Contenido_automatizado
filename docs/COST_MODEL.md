@@ -2,7 +2,9 @@
 
 Documentación viva: actualizar cuando cambien precios de providers.
 
-Última actualización: 2026-06-15.
+Última actualización: 2026-06-23.
+
+> **Stock = $0.** Todas las fuentes de stock son gratuitas: Pexels/Pixabay/Coverr (free tier), el corpus libre keyless (Archive.org/Wikimedia/NASA/Unsplash, ADR-022) y el corpus histórico de dominio público (LoC/NARA/Pond5-PD, ADR-026). El rerank visual CLIP (ADR-025) y el scoring auditable (ADR-027) corren en local/CPU sin llamadas de pago → costo negligible.
 
 ## Tabla rápida
 

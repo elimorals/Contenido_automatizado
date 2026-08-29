@@ -156,6 +156,28 @@ class LongFormConfig(BaseModel):
     final_audio_codec: str = "aac"
 
 
+class QualityConfig(BaseModel):
+    """`core/quality/` — primitivas de calidad deterministas ($0, sin LLM).
+
+    Reimplementación clean-room de ideas de autonovel (NousResearch, sin
+    licencia → solo la *idea*, no el código). Todo opt-in; default desactivado
+    para no alterar el comportamiento del pipeline.
+    """
+
+    # Gate de "mechanical slop" antes del Judge (Fase 4 del modo premium):
+    # puntúa cada narración candidata con wordlists EN+ES deterministas y
+    # descarta las marcadas ANTES de gastar tokens del Judge. Garantiza ≥1
+    # superviviente (degrada a "menos-slop gana", nunca a vacío).
+    slop_gate_enabled: bool = False             # QUALITY_SLOP_GATE_ENABLED
+    slop_density_threshold: float = 2.0         # penalty por 100 palabras → flag
+    slop_extra_banned: list[str] = Field(default_factory=list)  # tier-1 extra
+
+    # Plateau detection para loops de revisión iterativa (long_form):
+    # cuántas rondas sin mejora ≥ min_delta antes de declarar meseta y parar.
+    plateau_patience: int = 2                   # QUALITY_PLATEAU_PATIENCE
+    plateau_min_delta: float = 0.1              # QUALITY_PLATEAU_MIN_DELTA
+
+
 class ComfyTenantEntry(BaseModel):
     """Mapeo tenant_id → (lora, workflow). Se carga desde [visual.comfyui.tenants.*].
 
@@ -417,6 +439,7 @@ class Config(BaseModel):
     ui: UIConfig = Field(default_factory=UIConfig)
     upload_post: UploadPostConfig = Field(default_factory=UploadPostConfig)
     long_form: LongFormConfig = Field(default_factory=LongFormConfig)
+    quality: QualityConfig = Field(default_factory=QualityConfig)
 
     # Aspect ratios (no es BaseModel anidado por simplicidad TOML)
     aspect_ratios: dict[str, dict[str, int]] = Field(
@@ -581,6 +604,18 @@ def _apply_env_overrides(cfg: Config) -> Config:
     if os.getenv("LONG_FORM_VLM_MODEL"):
         lf.vlm_model_name = os.getenv("LONG_FORM_VLM_MODEL", "")
 
+    # Quality (core/quality/ — gate determinista + plateau)
+    q = cfg.quality
+    q.slop_gate_enabled = os.getenv(
+        "QUALITY_SLOP_GATE_ENABLED", str(q.slop_gate_enabled)
+    ).lower() == "true"
+    if os.getenv("QUALITY_SLOP_DENSITY_THRESHOLD"):
+        q.slop_density_threshold = float(os.getenv("QUALITY_SLOP_DENSITY_THRESHOLD", q.slop_density_threshold))
+    if os.getenv("QUALITY_PLATEAU_PATIENCE"):
+        q.plateau_patience = int(os.getenv("QUALITY_PLATEAU_PATIENCE", q.plateau_patience))
+    if os.getenv("QUALITY_PLATEAU_MIN_DELTA"):
+        q.plateau_min_delta = float(os.getenv("QUALITY_PLATEAU_MIN_DELTA", q.plateau_min_delta))
+
     # Stock
     if os.getenv("PEXELS_API_KEYS"):
         cfg.stock.pexels_api_keys = [k.strip() for k in os.getenv("PEXELS_API_KEYS", "").split(",") if k.strip()]
@@ -705,6 +740,7 @@ def _coerce_dict_to_config(raw: dict[str, Any]) -> Config:
         "bgm": BGMConfig(**raw.get("bgm", {})),
         "ui": UIConfig(**raw.get("ui", {})),
         "upload_post": UploadPostConfig(**raw.get("upload_post", {})),
+        "quality": QualityConfig(**raw.get("quality", {})),
     }
 
     # Aspect ratios (sección anidada en [editor.aspect])

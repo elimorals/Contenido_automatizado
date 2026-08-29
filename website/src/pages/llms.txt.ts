@@ -35,7 +35,7 @@ const docs = [
   ["cost_model", "Tabla de costos por modo (express/premium/brand-owned/long-form)"],
   ["troubleshooting", "Errores comunes y sus fixes"],
   ["api_reference", "Endpoints REST documentados (incluye POST /reference para input-by-reference)"],
-  ["decisions", "ADRs 1-24 — por qué cada decisión arquitectónica"],
+  ["decisions", "ADRs 1-27 — por qué cada decisión arquitectónica"],
   ["migration_from_mpt", "Mapeo desde MoneyPrinterTurbo"],
   ["contributing", "Guía de contribución"],
 ];
@@ -43,7 +43,7 @@ const docs = [
 export const GET: APIRoute = () => {
   const body = `# contenido
 
-> Plataforma open source para generación de video con IA: reels cinematográficos de 25s, video largo de 5-60min (documentales, libros animados, talking-head con lip-sync), brand-owned con LoRA propia. Fusiona cinco linajes: MoneyPrinterTurbo (industrial), reels-af (DAG cognitivo de 18 reasoners), corredor-content (editorial layer), ComfyUI (visual ownership multi-tenant) y HKUDS/ViMax (long-form). LiveAvatar (Alibaba-Quark, ECCV 2026) para avatares parlantes audio-driven (ADR-016). Operable por agentes vía servidor MCP (ADR-021). Python 3.11+. Apache 2.0. 562 tests verde.
+> Plataforma open source para generación de video con IA: reels cinematográficos de 25s, video largo de 5-60min (documentales, libros animados, talking-head con lip-sync), brand-owned con LoRA propia. Fusiona cinco linajes: MoneyPrinterTurbo (industrial), reels-af (DAG cognitivo de 18 reasoners), corredor-content (editorial layer), ComfyUI (visual ownership multi-tenant) y HKUDS/ViMax (long-form). LiveAvatar (Alibaba-Quark, ECCV 2026) para avatares parlantes audio-driven (ADR-016). Operable por agentes vía servidor MCP (ADR-021). Python 3.11+. Apache 2.0. 608 tests verde.
 
 Este proyecto resuelve un problema real: las herramientas de generación de video con IA actuales producen "AI slop" sin identidad de marca y máximo 25 segundos. \`contenido\` permite (1) entrenar tu LoRA con 30-50 fotos via wizard incluido, (2) usarla en 7 workflows ComfyUI distintos (Flux + ControlNet + IPAdapter + AnimateDiff + Inpaint + Upscale), (3) escalar de reels cortos a video largo de 60min reusando el mismo stack, (4) clonar el ritmo/estructura de un video de referencia (input-by-reference, ADR-017). Cuatro superficies: CLI, REST API, WebUI Streamlit y servidor MCP. Self-hosted (GPU local) o managed (ViewComfy/RunComfy).
 
@@ -75,7 +75,9 @@ fal.ai i2v (3, ADR-023): Kling / Runway / MiniMax — fallback de motion opt-in 
 LiveAvatar (2): remote_http (RunPod/Lambda, ~\$0.05/s) + local_cli (self-host single-GPU 80GB, ~\$0.005/s amortizado) — talking-head audio-driven con lip-sync, ADR-016
 Stock de pago (3): Pexels / Pixabay / Coverr
 Corpus libre (4, ADR-022): Archive.org · Wikimedia Commons · NASA (video keyless) · Unsplash (imágenes → ken-burns) — \$0/clip
-B-roll re-ranking semántico (ADR-018): reordena candidatos de stock por relevancia (léxico por default, embeddings sentence-transformers opt-in)
+Corpus histórico (3, ADR-026): Library of Congress · U.S. National Archives (NARA) · Pond5 Public Domain — API JSON oficial keyless, dominio público (cine temprano, WWII, Apollo), ideal para ciencia/documental — \$0/clip
+B-roll re-ranking (ADR-018 + ADR-025): reordena candidatos de stock por relevancia. Textual léxico (default) → texto↔texto con sentence-transformers (opt-in) → VISUAL texto↔imagen con CLIP clip-ViT-B-32 que rankea por lo que el clip realmente muestra (opt-in)
+Scoring de proveedor auditable (ADR-027): puntúa cada fuente visual en 7 dimensiones (task_fit, calidad, control, fiabilidad, costo, latencia, continuidad) y persiste el audit trail por beat a visual_decisions.json para A/B y multi-tenant
 Long-form (2): plan (book→script, ~\$1-4) + produce (shots→final, ~\$15-80)
 
 ## Input-by-reference (ADR-017)

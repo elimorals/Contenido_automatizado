@@ -642,6 +642,33 @@ async def run_topic_pipeline(
 
     await _update_state(state_manager, task_id, progress=22, timings_s=dict(timings))
 
+    # ─── Phase 3.5: mechanical slop gate (opt-in, $0, pre-Judge) ────────────
+    # Determinista: descarta narraciones AI-slop ANTES de gastar tokens del
+    # Judge. Non-fatal y guardado — si falla o no hay supervivientes claros,
+    # se sigue con todos los candidatos. Garantiza ≥1.
+    cfg_quality = load_config().quality
+    if cfg_quality.slop_gate_enabled and len(scripts) > 1:
+        try:
+            from core.quality import filter_slop
+
+            kept, reports = filter_slop(
+                [s.narration for s in scripts],
+                extra_banned=cfg_quality.slop_extra_banned,
+                density_threshold=cfg_quality.slop_density_threshold,
+            )
+            for i, r in enumerate(reports):
+                logger.info(f"{prefix} slop[{i}] {r.note()}")
+            if 0 < len(kept) < len(scripts):
+                dropped = len(scripts) - len(kept)
+                scripts = [scripts[i] for i in kept]
+                top_essences = [top_essences[i] for i in kept]
+                logger.info(
+                    f"{prefix} slop gate: {dropped} candidato(s) descartado(s), "
+                    f"{len(scripts)} pasan al Judge"
+                )
+        except Exception as e:  # noqa: BLE001 — gate nunca debe tumbar el pipeline
+            logger.warning(f"{prefix} slop gate falló (non-fatal): {e}")
+
     # ─── Phase 4: judge ─────────────────────────────────────────────────────
     t = time.perf_counter()
     try:

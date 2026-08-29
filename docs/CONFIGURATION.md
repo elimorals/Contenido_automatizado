@@ -185,6 +185,13 @@ api_key = ""                           # MIMO_API_KEY
 ```toml
 [visual]
 default_strategy = "hybrid"            # stock | ia | hybrid
+# Re-ranking de B-roll (claves planas — deben ir antes de las subtablas [visual.*]):
+broll_semantic_rerank = false          # ADR-018: rerank textual (sentence-transformers)
+broll_embedder_model = "all-MiniLM-L6-v2"
+broll_visual_rerank = false            # ADR-025: rerank VISUAL CLIP texto↔imagen (opt-in)
+broll_visual_model = "clip-ViT-B-32"   # backend CLIP de sentence-transformers
+broll_visual_frames = 3                # frames por clip a embeber
+broll_visual_candidates = 5            # top-léxico a descargar antes del rerank visual
 
 [visual.gemini_image]
 model = "openrouter/google/gemini-2.5-flash-image"
@@ -208,6 +215,22 @@ direction = "auto"                     # auto | in | out | left | right
 | `stock` | Volumen masivo, contenido genérico | $0 |
 | `ia` | Cada beat necesita visual específico | ~$0.05/reel |
 | `hybrid` | **Default**, mezcla según role + evidence | ~$0.02/reel |
+
+### Re-ranking de B-roll: textual (ADR-018) vs visual (ADR-025)
+
+Cuando el selector usa stock, el provider devuelve N candidatos para el query. Antes de elegir, se reordenan por relevancia contra la descripción rica del beat. Dos backends opt-in, independientes:
+
+| Flag | Qué compara | Costo | Cuándo |
+|---|---|---|---|
+| (off, default) | coseno léxico sobre tokens (bag-of-words) | $0, offline | siempre disponible |
+| `broll_semantic_rerank = true` | texto↔texto con `sentence-transformers` | modelo local (~80MB) | relevancia semántica de tags/descripción |
+| `broll_visual_rerank = true` | **texto↔imagen** con CLIP (`clip-ViT-B-32`) | modelo CLIP + ffmpeg frames | rankea por lo que el clip **realmente muestra** |
+
+El rerank visual (ADR-025) baja los `broll_visual_candidates` mejores del rerank léxico, extrae `broll_visual_frames` frames de cada uno, los embebe con CLIP y elige el de mayor similitud texto↔imagen. Ideal para montaje documental y para los corpus libres (Archive.org/NASA/LoC) cuya metadata es pobre. Requiere `pip install -e '.[broll-visual]'` (reusa `sentence-transformers`, ya en deps base) y `ffmpeg` en PATH.
+
+### Audit trail de decisiones visuales (ADR-027)
+
+Sin flags de config: cuando el pipeline genera media, registra por beat un **scoring de proveedor en 7 dimensiones** (task_fit, calidad, control, fiabilidad, costo, latencia, continuidad) con la fuente real elegida y las alternativas consideradas, y lo persiste a `output/<task>/visual_decisions.json`. Sirve para A/B (heurística vs scoring) y auditoría por tenant. Es no-fatal: nunca tumba la generación.
 
 ### Veo trade-offs
 
@@ -451,7 +474,18 @@ Ver [`docs/LONG_FORM.md`](./LONG_FORM.md) para arquitectura completa.
 pexels_api_keys = []                   # PEXELS_API_KEYS=key1,key2
 pixabay_api_keys = []                  # PIXABAY_API_KEYS=key1,key2
 coverr_api_keys = []                   # COVERR_API_KEYS=key1
-provider_order = ["pexels", "pixabay", "coverr"]  # Fallback order
+# Corpus libre keyless (ADR-022): se activan por flag, no por key.
+unsplash_api_keys = []                 # UNSPLASH_ACCESS_KEY (imágenes → ken-burns)
+archive_enabled = false                # Archive.org (dominio público)
+wikimedia_enabled = false              # Wikimedia Commons (CC)
+nasa_enabled = false                   # NASA image & video library
+# Corpus libre histórico (ADR-026): API JSON oficial, dominio público.
+loc_enabled = false                    # Library of Congress (cine temprano, newsreels)
+nara_enabled = false                   # U.S. National Archives (WWII, Apollo, gobierno)
+nara_api_key = ""                      # opcional — NARA_API_KEY (rate limit mayor)
+pond5_pd_enabled = false               # Pond5 Public Domain (histórico)
+pond5_api_key = ""                     # opcional — POND5_API_KEY (rate limit mayor)
+provider_order = ["pexels", "pixabay", "coverr"]  # los keyless habilitados se anexan al final
 
 cache_dir = "./storage/materials_cache"
 min_duration_s = 3.0                   # Filtrar videos muy cortos
@@ -464,6 +498,8 @@ PEXELS_API_KEYS=key1,key2,key3
 ```
 
 El sistema rota automáticamente. Si una key da 429/401, marca como exhausted hasta el siguiente reinicio.
+
+**Corpus libre histórico (ADR-026)**: LoC, NARA y Pond5-PD son APIs JSON oficiales de dominio público (cine temprano, WWII, Apollo, newsreels) — costo $0, sin key obligatoria. Se activan con su flag `*_enabled` y se anexan al `provider_order`. NARA/Pond5 aceptan una key opcional (`NARA_API_KEY`/`POND5_API_KEY`) solo para subir el rate limit. Ideales para los tenants `ciencia`/documental y para long-form. (No se portaron ESA/JAXA/NOAA/Mixkit por ser scraping HTML frágil, ni Videvo por requerir key obligatoria — ver ADR-026.)
 
 ---
 

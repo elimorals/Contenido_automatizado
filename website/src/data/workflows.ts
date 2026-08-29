@@ -175,7 +175,7 @@ export const capabilities: Capability[] = [
     videoLen: "variable",
     vramOrCost: "$0 (free tier)",
     timeEstimate: "instant",
-    tags: ["stock", "fast", "express", "semantic-rerank"],
+    tags: ["stock", "fast", "express", "semantic-rerank", "visual-rerank"],
   },
   // === Corpus libre (ADR-022) — recuperación semántica de archivos abiertos ===
   {
@@ -205,6 +205,21 @@ export const capabilities: Capability[] = [
     vramOrCost: "$0 (Access Key)",
     timeEstimate: "~3s",
     tags: ["stock", "image", "ken-burns", "free"],
+  },
+  // === Corpus histórico de dominio público (ADR-026) — API JSON oficial ===
+  {
+    id: "historical_corpus_video",
+    name: "Corpus histórico (LoC / NARA / Pond5-PD)",
+    family: "free_corpus",
+    output: "video",
+    brandLora: false,
+    layoutStrict: false,
+    styleRef: false,
+    charConsistency: false,
+    videoLen: "variable",
+    vramOrCost: "$0 (keyless)",
+    timeEstimate: "instant",
+    tags: ["stock", "public-domain", "historical", "documentary", "free"],
   },
   // === fal.ai i2v (ADR-023) — Kling / Runway / MiniMax ===
   {

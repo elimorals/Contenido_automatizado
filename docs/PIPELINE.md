@@ -96,9 +96,13 @@ Output: `AudioArtifact(path, duration_s, word_timings)`.
 ### Fase 9: Media (per-beat, ~38s — bottleneck)
 
 `core/visual/selector.py` decide per beat:
-- Stock (Pexels/Pixabay/Coverr) — barato
-- IA (Gemini Image first frame + Veo i2v) — premium
+- Stock keyless gratuito (Pexels/Pixabay/Coverr + corpus libre Archive.org/Wikimedia/NASA/Unsplash + histórico LoC/NARA/Pond5-PD) — $0
+- IA (Gemini Image first frame + Veo i2v / Higgsfield DoP / ComfyUI / fal.ai) — premium
 - Mixto — primer plano IA + cortes de stock
+
+**Resolución del clip de stock** (`_resolve_stock_clip`): tras el rerank léxico/semántico textual (ADR-018), si `broll_visual_rerank=true` (ADR-025) baja el top-K, extrae frames y los re-rankea con **CLIP texto↔imagen** para elegir el clip que mejor representa el beat visualmente.
+
+**Audit trail** (ADR-027): cada decisión de fuente se puntúa en 7 dimensiones y se persiste a `output/<task>/visual_decisions.json` (no-fatal, para A/B y multi-tenant).
 
 **Two-tier fallback**:
 - Image gen fail → solid color placeholder + beat idx
@@ -135,6 +139,7 @@ ffmpeg \
 ```
 output/topic-{uuid}/
 ├── reel.mp4              # 1080×1920, 20-25s, H.264+AAC
+├── visual_decisions.json # audit trail por beat: scoring 7-dim + alternativas (ADR-027)
 └── result.json
     ├── source: "topic"
     ├── topic: "..."

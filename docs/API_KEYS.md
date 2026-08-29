@@ -114,6 +114,21 @@ Si tienes varias accounts para evitar rate limits:
 PEXELS_API_KEYS=key_a,key_b,key_c
 ```
 
+### Corpus libre keyless (ADR-022 + ADR-026) — sin key, dominio público
+
+Se activan por **flag en `config.toml`**, no por API key. Costo $0.
+
+| Fuente | Flag (`[stock]`) | Key | Cobertura |
+|---|---|---|---|
+| Archive.org | `archive_enabled = true` | — | películas de dominio público |
+| Wikimedia Commons | `wikimedia_enabled = true` | — | video CC educativo |
+| NASA | `nasa_enabled = true` | — | espacio, tierra, atmósfera |
+| **Library of Congress** | `loc_enabled = true` | — | cine temprano, newsreels históricos |
+| **U.S. National Archives (NARA)** | `nara_enabled = true` | opcional `NARA_API_KEY` | WWII, Apollo, gobierno |
+| **Pond5 Public Domain** | `pond5_pd_enabled = true` | opcional `POND5_API_KEY` | histórico (WWI/WWII, space race) |
+
+Las keys opcionales de NARA/Pond5 solo elevan el rate limit; sin ellas funcionan igual. Las 3 fuentes históricas (LoC/NARA/Pond5-PD, ADR-026) son ideales para los tenants `ciencia`/documental y para long-form.
+
 ## Categoría 3 — TTS (opcional, Edge es gratis por default)
 
 ### Edge TTS (Microsoft) — DEFAULT, GRATIS
