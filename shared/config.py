@@ -347,6 +347,8 @@ class FalConfig(BaseModel):
 class VisualConfig(BaseModel):
     default_strategy: str = "hybrid"
     gemini_image_model: str = "openrouter/google/gemini-2.5-flash-image"
+    # Fallback nativo de OpenAI cuando no hay OpenRouter (ADR-032).
+    openai_image_model: str = "gpt-image-1"   # OPENAI_IMAGE_MODEL
     canvas_w: int = 720
     canvas_h: int = 1280
     veo_enabled: bool = False
@@ -562,6 +564,8 @@ def _apply_env_overrides(cfg: Config) -> Config:
     cfg.visual.veo_enabled = os.getenv("REEL_AF_USE_VEO", str(cfg.visual.veo_enabled)).lower() == "true"
     if os.getenv("REEL_AF_IMAGE_MODEL"):
         cfg.visual.gemini_image_model = os.getenv("REEL_AF_IMAGE_MODEL", "")
+    if os.getenv("OPENAI_IMAGE_MODEL"):
+        cfg.visual.openai_image_model = os.getenv("OPENAI_IMAGE_MODEL", "")
     if os.getenv("REEL_AF_VIDEO_MODEL"):
         cfg.visual.veo_model = os.getenv("REEL_AF_VIDEO_MODEL", "")
 

@@ -41,6 +41,7 @@ from core.visual.generation.ken_burns import (
     _placeholder_frame,
 )
 from core.visual.generation.live_avatar import LiveAvatarGenerator
+from core.visual.generation.openai_image import OpenAIImageGenerator
 from core.visual.generation.veo import VeoGenerator
 from shared.config import load_config
 from shared.schemas import Beat, BeatArtifact, BeatVisual, VideoSource
@@ -54,6 +55,7 @@ async def _generate_first_frame_with_fallback(
     comfy_gen: ComfyUIGenerator | None,
     soul_gen: HiggsfieldSoulGenerator | None,
     image_gen: GeminiImageGenerator,
+    openai_image_gen: OpenAIImageGenerator | None,
     beat: Beat,
     visual: BeatVisual,
     content_mode: str,
@@ -67,8 +69,10 @@ async def _generate_first_frame_with_fallback(
        el caller ya tiene la imagen lista (anchor brand, upload manual).
     1. ComfyUI (workflow custom con brand LoRA) — moat de identidad de marca
     2. HiggsfieldSoul (character consistency cross-beat)
-    3. Gemini Image (default genérico)
-    4. Placeholder sólido (último recurso)
+    3. Gemini Image vía OpenRouter (default genérico)
+    4. OpenAI `gpt-image-*` nativo (ADR-032) — cubre el caso de tener solo
+       key de OpenAI, donde el tier 3 no puede ni intentarlo
+    5. Placeholder sólido (último recurso)
     """
     # Short-circuit: reference image suministrada explícitamente.
     # Confiamos en el caller — no regeneramos, ahorrando costo + latencia.
@@ -99,22 +103,44 @@ async def _generate_first_frame_with_fallback(
                 "fallback a Gemini Image."
             )
 
-    # Gemini Image tier
+    # Gemini Image tier (vía OpenRouter)
+    gemini_err: Exception | None = None
     try:
         artifact = await image_gen.generate(beat, visual, content_mode, out_dir)
         if artifact.first_frame_path is None:
             raise VisualGenerationError("image gen returned None path")
         return artifact.first_frame_path, True, VideoSource.GEMINI_IMAGE
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
+        gemini_err = e
         logger.warning(
-            f"[visual.orchestrator] beat {beat.idx} image gen falló ({e}); "
-            "placeholder."
+            f"[visual.orchestrator] beat {beat.idx} Gemini image falló ({e}); "
+            "fallback a OpenAI image."
         )
-        placeholder = _placeholder_frame(
-            out_dir / f"frame-{beat.idx:02d}-placeholder.jpg",
-            beat.idx,
-        )
-        return placeholder, False, VideoSource.LOCAL
+
+    # OpenAI Image tier (ADR-032) — nativo, misma key que el DAG narrativo.
+    # Existe porque el tier de arriba exige OPENROUTER_API_KEY: sin ella, un
+    # repo con solo key de OpenAI caía directo a placeholder sólido.
+    if openai_image_gen is not None:
+        try:
+            artifact = await openai_image_gen.generate(beat, visual, content_mode, out_dir)
+            if artifact.first_frame_path is None:
+                raise VisualGenerationError("openai image gen returned None path")
+            return artifact.first_frame_path, True, VideoSource.OPENAI_IMAGE
+        except Exception as e:  # noqa: BLE001
+            logger.warning(
+                f"[visual.orchestrator] beat {beat.idx} OpenAI image falló ({e}); "
+                "placeholder."
+            )
+
+    logger.warning(
+        f"[visual.orchestrator] beat {beat.idx} sin generador de imagen "
+        f"disponible (gemini: {gemini_err}); usando placeholder."
+    )
+    placeholder = _placeholder_frame(
+        out_dir / f"frame-{beat.idx:02d}-placeholder.jpg",
+        beat.idx,
+    )
+    return placeholder, False, VideoSource.LOCAL
 
 
 # =============================================================================
@@ -143,6 +169,7 @@ async def _generate_one(
     comfy_gen: ComfyUIGenerator | None,
     soul_gen: HiggsfieldSoulGenerator | None,
     image_gen: GeminiImageGenerator,
+    openai_image_gen: OpenAIImageGenerator | None,
     hf_dop_gen: HiggsfieldDopGenerator | None,
     veo_gen: VeoGenerator | None,
     ken_burns_gen: KenBurnsGenerator,
@@ -155,7 +182,7 @@ async def _generate_one(
 
     # === Tier 1: first frame ===
     frame_path, frame_is_real, frame_source = await _generate_first_frame_with_fallback(
-        comfy_gen, soul_gen, image_gen, beat, visual, content_mode, out_dir
+        comfy_gen, soul_gen, image_gen, openai_image_gen, beat, visual, content_mode, out_dir
     )
 
     # === Tier 2: motion (o talking-head si hay audio) ===
@@ -283,6 +310,7 @@ async def generate_beat_videos(
     use_live_avatar: bool | None = None,
     use_fal: bool | None = None,
     image_gen: GeminiImageGenerator | None = None,
+    openai_image_gen: OpenAIImageGenerator | None = None,
     veo_gen: VeoGenerator | None = None,
     hf_dop_gen: HiggsfieldDopGenerator | None = None,
     soul_gen: HiggsfieldSoulGenerator | None = None,
@@ -343,6 +371,11 @@ async def generate_beat_videos(
     fal_enabled = fal_cfg.enabled if use_fal is None else use_fal
 
     img = image_gen or GeminiImageGenerator()
+    # Solo se instancia si hay key de OpenAI: sin ella el tier sobra y
+    # dejarlo en None hace explícito en los logs que no había con qué.
+    oai_img = openai_image_gen
+    if oai_img is None and cfg.get_llm_provider("openai").api_key:
+        oai_img = OpenAIImageGenerator()
 
     # ComfyUI (brand identity vía LoRA + workflow custom)
     comfy = comfy_gen
@@ -416,6 +449,7 @@ async def generate_beat_videos(
                 comfy_gen=comfy,
                 soul_gen=soul,
                 image_gen=img,
+                openai_image_gen=oai_img,
                 hf_dop_gen=primary_dop,
                 veo_gen=primary_veo,
                 ken_burns_gen=ken_burns,

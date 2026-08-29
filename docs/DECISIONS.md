@@ -1355,3 +1355,79 @@ no-abstracto), `core/distribution/upload_post.py` (implementación),
 `core/editorial/plan.py` (`use_performance`, `lookback_weeks`,
 `performance_block` en el system prompt), `apps/cli/main.py` (`plan-report`,
 flags `--performance/--lookback` en `plan`), `core/{distribution,editorial}/__init__.py`.
+
+---
+
+## ADR-032: Generación de imágenes nativa de OpenAI como tier de fallback
+
+**Fecha**: 2026-08-29 | **Estado**: Aceptado
+
+### Contexto
+
+`GeminiImageGenerator` no es un cliente de Google: llama al modelo de imagen de
+Gemini **a través de OpenRouter**, y por tanto exige `OPENROUTER_API_KEY`. El
+nombre esconde la dependencia — se descubre leyendo el módulo o, como pasó aquí,
+viendo el log:
+
+```
+[visual.orchestrator] beat 1 image gen falló
+  (GeminiImageGenerator: OPENROUTER_API_KEY no configurada); placeholder.
+```
+
+Consecuencia: un repo configurado **solo** con una key de OpenAI corría el DAG
+narrativo entero —hunters, critic, narrators, judge— y luego entregaba los cinco
+beats con **placeholders sólidos**. La rama de IA visual no estaba rota; era
+inalcanzable.
+
+### Decisión
+
+`core/visual/generation/openai_image.py` habla directo con
+`POST /v1/images/generations` usando la **misma key que ya mueve el DAG**
+(`cfg.get_llm_provider("openai").api_key`, no una env var propia — dos sitios
+para la misma credencial es una invitación a que diverjan).
+
+Entra como **tier 4** de la cadena, entre Gemini y el placeholder:
+
+```
+reference explícita → ComfyUI → Soul → Gemini/OpenRouter → OpenAI → placeholder
+```
+
+Es fallback, no reemplazo: si OpenRouter está configurado, Gemini sigue ganando y
+el tier nuevo ni se instancia. Sin key de OpenAI se pasa `None` y la cadena
+degrada exactamente como antes.
+
+**Se pide vertical.** `gpt-image-*` acepta `size="1024x1536"` (2:3). Recortarlo a
+9:16 tira ~10% de altura; el cuadrado que devuelve Gemini pierde ~44% en el crop
+—de ahí los encuadres decapitados—. Es la ventaja no obvia de la ruta nativa:
+no es solo un proveedor menos en la cadena, es mejor encuadre.
+
+Se reusan `_augment` y `_crop_to_9x16` de `gemini_image`: el style block y el
+crop son idénticos, y duplicarlos sería garantizar que diverjan.
+
+### Razón
+
+- **Desbloquea el caso real**: una key de OpenAI ya alcanza para reels con
+  imagen generada, sin contratar un segundo proveedor.
+- **Menos intermediario**: sin margen de OpenRouter y con una latencia menos.
+- **Riesgo acotado**: nada cambia para quien ya usa OpenRouter.
+
+### Consecuencias
+
+- **La suite pasó a llamar a la API de verdad.** Los generadores se
+  auto-instancian al detectar key en config, así que con ADR-030 cargando el
+  `.env` un test de fallback llegó a gastar dinero real y a tardar segundos. El
+  fixture autouse de `tests/conftest.py` ahora borra también las API keys: un
+  test que toque red falla ruidosamente en vez de facturar.
+- Sigue faltando **motion**: esto produce first frames, no video. Sin Veo ni
+  Higgsfield, los clips los hace ken-burns sobre la imagen. La misma key da
+  acceso a `sora-2`, que sería el tier natural de i2v — no está implementado.
+- `gpt-image-1` tarda ~20 s por imagen. Con 5 beats en paralelo son ~2 min y
+  domina el tiempo del modo premium.
+
+### Archivos
+
+**Nuevos**: `core/visual/generation/openai_image.py`, `tests/test_openai_image.py`.
+**Modificados**: `core/visual/generation/orchestrator.py` (tier 4 en la cadena),
+`core/visual/generation/__init__.py`, `shared/schemas.py`
+(`VideoSource.OPENAI_IMAGE`), `shared/config.py` (`visual.openai_image_model` +
+`OPENAI_IMAGE_MODEL`), `tests/conftest.py` (aislar keys).

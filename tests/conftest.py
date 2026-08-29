@@ -10,16 +10,30 @@ from shared.schemas import GenerationMode, VideoAspect, VideoParams
 
 
 @pytest.fixture(autouse=True)
-def _isolate_local_env(monkeypatch: pytest.MonkeyPatch) -> None:
+def _isolate_local_env(monkeypatch: pytest.MonkeyPatch):
     """Neutraliza las env vars del `.env` local que cambian comportamiento.
 
     `shared.config` carga el `.env` al importarse, así que sin esto la suite
     dependería de cómo tenga configurada su máquina quien la corre: un
     `FFMPEG_BINARY` apuntando a otro build haría que los tests del editor
-    resuelvan un binario real en vez del mock. Las API keys no se tocan — los
-    tests no llaman a red, y borrarlas escondería un test que sí lo hiciera.
+    resuelvan un binario real en vez del mock.
+
+    Las API keys se borran también, y no por higiene: los generadores se
+    auto-instancian cuando detectan una key en config, así que con un `.env`
+    poblado un test de fallback llegaba a llamar a la API de imágenes **de
+    verdad** — segundos de latencia y dinero real en cada corrida de la suite.
+    Sin keys, un test que toque red falla ruidosamente en vez de gastar.
     """
     monkeypatch.delenv("FFMPEG_BINARY", raising=False)
+    for key in (
+        "OPENAI_API_KEY", "OPENROUTER_API_KEY", "GEMINI_API_KEY",
+        "ANTHROPIC_API_KEY", "UPLOAD_POST_API_KEY", "FAL_KEY",
+        "HIGGSFIELD_CREDENTIALS", "PEXELS_API_KEYS", "PIXABAY_API_KEYS",
+    ):
+        monkeypatch.delenv(key, raising=False)
+    load_config.cache_clear()  # el config cacheado ya vio las keys del .env
+    yield
+    load_config.cache_clear()
 
 
 @pytest.fixture

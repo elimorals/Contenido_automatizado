@@ -31,6 +31,7 @@ from core.visual.generation.higgsfield_client import (
     HiggsfieldTimeoutError,
     JobResult,
 )
+from core.visual.generation.higgsfield_effects import HiggsfieldEffectsGenerator
 from core.visual.generation.higgsfield_prompts import (
     HIGGSFIELD_IMAGE_MODELS,
     HIGGSFIELD_VIDEO_MODELS,
@@ -41,7 +42,6 @@ from core.visual.generation.higgsfield_prompts import (
     quick_safety_check,
     validate_soul_training_set,
 )
-from core.visual.generation.higgsfield_effects import HiggsfieldEffectsGenerator
 from core.visual.generation.higgsfield_soul import (
     HiggsfieldSoulGenerator,
     create_soul_id,
@@ -53,6 +53,8 @@ from core.visual.generation.ken_burns import (
 from core.visual.generation.live_avatar import (
     LiveAvatarGenerator,
     generate_live_avatar_clip,
+)
+from core.visual.generation.live_avatar import (
     reset_cost_tracker as reset_live_avatar_cost_tracker,
 )
 from core.visual.generation.live_avatar_client import (
@@ -66,8 +68,11 @@ from core.visual.generation.live_avatar_client import (
     LiveAvatarTimeoutError,
     LocalCliBackend,
     RemoteHttpBackend,
+)
+from core.visual.generation.live_avatar_client import (
     make_backend as make_live_avatar_backend,
 )
+from core.visual.generation.openai_image import OpenAIImageGenerator
 from core.visual.generation.orchestrator import generate_beat_videos
 from core.visual.generation.veo import (
     VeoGenerator,
@@ -75,9 +80,11 @@ from core.visual.generation.veo import (
 )
 
 __all__ = [
+    "OpenAIImageGenerator",
     "CLIFallbackError",
     "CLINotInstalledError",
     "GeminiImageGenerator",
+    "OpenAIImageGenerator",
     "HIGGSFIELD_IMAGE_MODELS",
     "HIGGSFIELD_VIDEO_MODELS",
     "HiggsfieldAPIError",

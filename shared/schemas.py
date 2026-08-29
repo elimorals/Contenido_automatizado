@@ -41,6 +41,7 @@ class VideoSource(str, Enum):
     COVERR = "coverr"
     LOCAL = "local"
     GEMINI_IMAGE = "gemini_image"
+    OPENAI_IMAGE = "openai_image"  # gpt-image-* nativo (ADR-032)
     VEO = "veo"
     HIGGSFIELD_DOP = "higgsfield_dop"
     HIGGSFIELD_SOUL = "higgsfield_soul"
