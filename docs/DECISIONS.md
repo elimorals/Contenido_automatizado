@@ -1639,3 +1639,62 @@ De paso, el comando pasa a resolverse por `_ffmpeg_binary()` en vez del literal
 
 **Modificados**: `core/visual/generation/ken_burns.py` (`_build_ffmpeg_cmd`),
 `tests/test_visual_generation.py`.
+
+---
+
+## ADR-036: El clip de stock es la fuente entera — hay que recortarlo
+
+**Fecha**: 2026-08-29 | **Estado**: Aceptado
+
+### Contexto
+
+Bug latente que **solo apareció al arreglar ADR-034**. La rama de stock de
+`_try_stock` devolvía el archivo cacheado tal cual:
+
+```python
+return BeatArtifact(video_path=local_path, duration_s=top.duration_s)
+```
+
+`local_path` es la **fuente completa**: un documental de Archive.org de 468 s,
+un archivo de Wikimedia de **3 600 s**. El concat demuxer del stitch los metía
+enteros, y un reel de 25 s salió de **397 s**.
+
+Nunca se había visto porque el stock jamás encontraba nada — la query era una
+cita académica (ADR-034). Arreglar la búsqueda destapó el bug de aguas abajo.
+
+`stitch_video` usa `-shortest`, pero eso recorta por el audio **después** de
+concatenar; el trabajo de más ya está hecho y el orden de los beats queda
+destruido.
+
+### Decisión
+
+`trim_clip()` en `ken_burns.py` recorta a la duración del beat y **normaliza al
+canvas**: los clips de stock vienen con cualquier resolución y el concat demuxer
+exige que todos los segmentos coincidan en dimensiones y fps.
+
+Se re-encoda a propósito en vez de `-c copy`: un corte por stream-copy cae en el
+keyframe más cercano, que puede estar segundos antes del punto pedido. Cuesta
+0.2 s por clip — irrelevante frente a la corrección.
+
+`-an` descarta el audio del stock: manda la narración TTS.
+
+Si el recorte falla, el candidato **se descarta** y se pasa al siguiente
+proveedor. Sin recorte no se puede usar, y devolver la fuente entera es peor que
+no devolver nada.
+
+### Consecuencias
+
+- Un clip por beat, no la fuente entera. El material cacheado se conserva para
+  reutilizarlo entre beats y jobs; lo que se recorta es una copia.
+- El recorte empieza siempre en `start_s=0`. Para un documental de una hora, los
+  primeros 4 s pueden ser créditos. Un selector de fragmento —por escena o por
+  rerank visual sobre varios puntos— es trabajo aparte.
+- Este bug es un buen argumento contra celebrar un fix sin ejecutar el pipeline
+  entero después: ADR-034 estaba bien y aun así el reel salió peor, porque
+  desbloqueó un camino que llevaba años sin recorrerse.
+
+### Archivos
+
+**Modificados**: `core/visual/generation/ken_burns.py` (`trim_clip`),
+`core/visual/selector.py` (`_try_stock` recorta antes de devolver),
+`tests/test_visual_selector.py`, `tests/test_stock_keywords.py`.
