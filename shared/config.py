@@ -352,6 +352,11 @@ class VisualConfig(BaseModel):
     canvas_w: int = 720
     canvas_h: int = 1280
     veo_enabled: bool = False
+    # Sora 2 i2v nativo de OpenAI (ADR-033). Off por default: cuesta y tarda.
+    sora_enabled: bool = False                 # SORA_ENABLED
+    sora_model: str = "sora-2"                 # SORA_MODEL (sora-2 | sora-2-pro)
+    sora_poll_interval_s: float = 6.0
+    sora_max_poll_time_s: float = 600.0
     veo_model: str = "openrouter/google/veo-3.1-lite"
     ken_burns_zoom: float = 1.15
     higgsfield: HiggsfieldConfig = Field(default_factory=HiggsfieldConfig)
@@ -564,6 +569,11 @@ def _apply_env_overrides(cfg: Config) -> Config:
     cfg.visual.veo_enabled = os.getenv("REEL_AF_USE_VEO", str(cfg.visual.veo_enabled)).lower() == "true"
     if os.getenv("REEL_AF_IMAGE_MODEL"):
         cfg.visual.gemini_image_model = os.getenv("REEL_AF_IMAGE_MODEL", "")
+    cfg.visual.sora_enabled = os.getenv(
+        "SORA_ENABLED", str(cfg.visual.sora_enabled)
+    ).lower() == "true"
+    if os.getenv("SORA_MODEL"):
+        cfg.visual.sora_model = os.getenv("SORA_MODEL", "")
     if os.getenv("OPENAI_IMAGE_MODEL"):
         cfg.visual.openai_image_model = os.getenv("OPENAI_IMAGE_MODEL", "")
     if os.getenv("REEL_AF_VIDEO_MODEL"):

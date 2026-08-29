@@ -1431,3 +1431,211 @@ crop son idénticos, y duplicarlos sería garantizar que diverjan.
 `core/visual/generation/__init__.py`, `shared/schemas.py`
 (`VideoSource.OPENAI_IMAGE`), `shared/config.py` (`visual.openai_image_model` +
 `OPENAI_IMAGE_MODEL`), `tests/conftest.py` (aislar keys).
+
+---
+
+## ADR-033: Motion i2v con Sora 2 — la contraparte de vídeo de ADR-032
+
+**Fecha**: 2026-08-29 | **Estado**: Aceptado
+
+### Contexto
+
+Con ADR-032 el pipeline ya generaba imágenes con la key de OpenAI, pero seguía
+sin **movimiento**: sin Veo (OpenRouter), Higgsfield o fal.ai, los clips los
+hacía ken-burns sobre stills. El guard anti-slideshow (ADR-019) lo diagnosticó
+solo, sin que nadie lo tocara:
+
+```
+[ERROR]   slideshow: 6/6 beats son estáticos (ratio 100% > umbral 60%).
+          El reel prometió movimiento pero quedó como slideshow.
+risk=0.70
+```
+
+Un sistema que sabe cuándo su propio output es mediocre vale más que uno que lo
+entrega en silencio — y esa señal es la que fijó la prioridad.
+
+### Decisión
+
+`core/visual/generation/sora.py` entra como **tier 2b.4** de la cadena de
+motion, entre Veo y fal.ai:
+
+```
+LiveAvatar → Higgsfield DoP → Veo → Sora → fal.ai → ken-burns
+```
+
+Es fallback, no reemplazo: cubre el caso de tener solo key de OpenAI, donde los
+tres tiers de arriba ni pueden intentarlo. Usa la **misma credencial** que el
+DAG narrativo y `openai_image`.
+
+**Cuatro diferencias con Veo condicionaron el diseño**, todas verificadas contra
+la API real y no contra la documentación (que devuelve 403 sin sesión):
+
+1. **Es un job asíncrono**, no una llamada que devuelve bytes: crear → sondear →
+   descargar. ~90 s por clip de 4 s.
+2. **`input_reference` viaja como multipart**, no como data-URL en JSON.
+3. **`size="720x1280"` es nativo** — coincide con el canvas del repo, así que a
+   diferencia de todo lo demás aquí **no hay recorte ni pérdida**.
+4. **`seconds` solo acepta 4, 8 y 12.** Verificado: un `5` devuelve
+   `Invalid value: '5'. Supported values are: '4', '8', and '12'`. Los buckets
+   del repo son 4/6/8, así que `_clamp_seconds` redondea hacia **arriba**: un
+   clip corto deja negro al final del beat, uno largo simplemente se recorta en
+   el stitch.
+
+El enlace de descarga **expira a las 48 h** (verificado: un job de anteayer
+devuelve `The video is no longer available`), así que se baja en cuanto termina
+en vez de guardar el id.
+
+`_build_prompt` reusa `_motion_clause` de `veo.py` — el mapeo `motion_hint` →
+texto de cámara es el mismo y duplicarlo sería garantizar que diverja. Se pide
+movimiento contenido a propósito: en un reel de 4 s una cámara agitada lee como
+error, no como estilo.
+
+### Consecuencias
+
+- **Off por default** (`sora_enabled = false`): cuesta y tarda. Se enciende con
+  `SORA_ENABLED=true`.
+- **El clip trae audio** generado por el modelo. El stitch lo descarta —la
+  narración TTS manda— pero conviene saberlo si algún día se reusan los clips.
+- ~90 s por clip contra ~3 s de ken-burns. En paralelo son ~2 min para 6 beats,
+  que sigue siendo **menos** que los 16 min que tardaba ken-burns re-encodando.
+- Sora tiene filtro de contenido: un beat rechazado cae a fal.ai/ken-burns por
+  la cadena normal, sin romper el job.
+
+### Archivos
+
+**Nuevos**: `core/visual/generation/sora.py`, `tests/test_sora.py`.
+**Modificados**: `core/visual/generation/orchestrator.py` (tier 2b.4),
+`core/visual/generation/__init__.py`, `shared/schemas.py` (`VideoSource.SORA`),
+`shared/config.py` (`sora_enabled`/`sora_model` + env overrides).
+
+---
+
+## ADR-034: Keywords de stock derivadas del plan visual, no del anchor
+
+**Fecha**: 2026-08-29 | **Estado**: Aceptado
+
+### Contexto
+
+Todos los beats del modo premium caían a IA porque el stock nunca encontraba
+nada. El guard lo reportaba como `source_diversity: 1`, y la causa aparente era
+"los proveedores de stock son malos". No lo eran: **la query era el problema**.
+
+`_try_stock` usaba `BeatVisual.visual_anchor` como término de búsqueda:
+
+```
+query = "Dement and Kleitman, 1957: systematic awakenings established that
+         dream reports could be obtained from both REM and non-REM sleep."
+→ Archive.org, Wikimedia, NASA, LoC: 0 resultados, siempre.
+```
+
+Pero `visual_anchor` **no es un keyword y nunca pretendió serlo**. Es un campo
+de *procedencia*: el prompt del planner lo exige verbatim —"MUST be one of the
+evidence items, copied verbatim"— precisamente para poder auditar sobre qué
+evidencia se apoya cada beat. Es una pieza del sistema anti-alucinación.
+
+Dos trabajos distintos —probar de dónde sale un beat, y buscar material que lo
+ilustre— compartían un campo. Y el que mandaba era el equivocado.
+
+### Decisión
+
+`core/visual/stock/keywords.py` deriva términos cortos, con esta prioridad:
+
+1. **`image_prompt`** — ya describe una escena concreta ("sleep laboratory at
+   night, EEG machine, electrodes"): exactamente el registro en el que está
+   etiquetado el material de stock.
+2. `visual_anchor` — a veces contiene la única entidad concreta del beat.
+3. `beat.text` — último recurso.
+
+```
+"Dement and Kleitman, 1957: systematic awakenings…"  →  "sleep laboratory night"
+```
+
+El anchor **no se toca**: sigue siendo verbatim, que es su trabajo.
+
+Determinista y $0 —regex y wordlists, sin una llamada extra al LLM—, igual que
+`core.quality` (ADR-028) y `core.distribution.captions` (ADR-030). Filtra tres
+clases de ruido: cita académica (años, "et al.", "study"), vocabulario de
+fotografía ("cinematic", "bokeh": describen CÓMO se filma, no QUÉ se ve) y
+palabras abstractas ("evidence", "concepto": un buscador indexa cosas que se
+ven).
+
+**Query vacía es un resultado válido y explícito**: significa "este beat no
+tiene nada buscable", y el selector va directo a IA en vez de gastar una ronda
+de peticiones a seis proveedores para recibir seis ceros.
+
+**Máximo 3 términos.** Los buscadores de stock degradan rápido con queries
+largas: cada palabra extra reduce el recall en vez de afinarlo.
+
+### Consecuencias
+
+- Las wordlists son curación humana y hay que revisarlas cuando cambie el estilo
+  de los prompts. `MAX_TERMS` es parámetro, no constante mágica.
+- Un `image_prompt` que sea puro estilo ("cinematic, dramatic lighting, 4k")
+  cae al anchor y luego al `beat.text` — degradación explícita, no silenciosa.
+- Extraer sustantivos por stopwords es una heurística, no NLP. Un extractor
+  basado en POS-tagging sería mejor y costaría una dependencia y latencia; a
+  este tamaño de query no compensa.
+- Un test destapó un bug del propio módulo: el filtro de ruido corría **antes**
+  de quitar acentos, así que `investigación` no casaba con `investigacion`. Es
+  la misma lección que ya había aprendido `core.quality.slop`.
+
+### Archivos
+
+**Nuevos**: `core/visual/stock/keywords.py`, `tests/test_stock_keywords.py`.
+**Modificados**: `core/visual/selector.py` (`_try_stock` construye la query y
+salta el stock cuando no hay términos).
+
+---
+
+## ADR-035: `-loop 1` hacía que ken-burns renderizara 100× los frames necesarios
+
+**Fecha**: 2026-08-29 | **Estado**: Aceptado
+
+### Contexto
+
+Un reel de 6 beats tardaba ~20 minutos, y ~16 se iban en ken-burns. Se asumía
+que era el coste normal de re-encodar seis clips. No lo era: era un bug de una
+sola bandera.
+
+`zoompan` interpreta `d=` como **frames de salida por cada frame de ENTRADA**.
+El comando llevaba `-loop 1`, que convierte el JPEG en un stream infinito, así
+que ffmpeg alimentaba ~25 frames por segundo y zoompan generaba `n_frames` por
+cada una:
+
+```
+-loop 1 -t 4 -i frame.jpg -vf zoompan=...:d=120:fps=30
+→ ~100 frames de entrada × 120 de salida = ~12 000 frames renderizados
+  para entregar 120.
+```
+
+Medido en el mismo frame y misma duración:
+
+| | 4 s de clip | 8 s de clip |
+|---|---|---|
+| con `-loop 1` | **> 2 min** (abortado) | **> 9 min** al 189% CPU |
+| sin `-loop` | 2.4 s | **0.6 s** |
+
+### Decisión
+
+Quitar `-loop 1`. Un JPEG sin loop es exactamente **una** frame de entrada, así
+que zoompan produce exactamente `n_frames` de salida — que es lo que se quería
+desde el principio. `-t` se conserva como recorte defensivo.
+
+De paso, el comando pasa a resolverse por `_ffmpeg_binary()` en vez del literal
+`"ffmpeg"`, para que respete `FFMPEG_BINARY` como el resto del repo.
+
+### Consecuencias
+
+- El fallback gratis deja de ser el tramo más caro del pipeline. Con ADR-033
+  (Sora) el motion de verdad cuesta ~90 s por clip; que el fallback tardara
+  **seis veces más** que la alternativa buena invertía por completo el sentido
+  de la palabra "fallback".
+- El output es idéntico: mismo filtro, misma duración, mismo zoom. Solo se
+  dejan de renderizar frames que se descartaban.
+- El test que asertaba `"-loop" in cmd` ahora aserta lo contrario, con el
+  porqué escrito al lado — la bandera parecía inocente y volvería a colarse.
+
+### Archivos
+
+**Modificados**: `core/visual/generation/ken_burns.py` (`_build_ffmpeg_cmd`),
+`tests/test_visual_generation.py`.
