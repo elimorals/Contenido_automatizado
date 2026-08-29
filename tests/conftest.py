@@ -25,6 +25,12 @@ def _isolate_local_env(monkeypatch: pytest.MonkeyPatch):
     Sin keys, un test que toque red falla ruidosamente en vez de gastar.
     """
     monkeypatch.delenv("FFMPEG_BINARY", raising=False)
+    # Flags que cambian DECISIONES, no solo disponibilidad: con
+    # HIGGSFIELD_ENABLED=true en el .env local, `_decide_source` rutea el hook
+    # a IA en vez de stock y el test correspondiente falla en la máquina de
+    # quien tenga la integración encendida.
+    for flag in ("HIGGSFIELD_ENABLED", "SORA_ENABLED", "LONG_FORM_ENABLED"):
+        monkeypatch.delenv(flag, raising=False)
     for key in (
         "OPENAI_API_KEY", "OPENROUTER_API_KEY", "GEMINI_API_KEY",
         "ANTHROPIC_API_KEY", "UPLOAD_POST_API_KEY", "FAL_KEY",

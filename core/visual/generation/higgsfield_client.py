@@ -164,9 +164,16 @@ class HiggsfieldClient:
 
         El endpoint debe ser path-only ('/v1/image2video/dop'); base_url ya
         está en el client.
+
+        El body va envuelto en `{"params": {...}}`. Verificado contra la API
+        real (2026-08-29): un body plano devuelve HTTP 422
+        `{"loc": ["body", "params"], "msg": "Field required"}`. Los callers
+        siguen construyendo el payload plano — el wrapper es detalle de
+        transporte y vive aquí, no repetido en cada generador.
         """
         client = self._ensure_client()
-        resp = await client.post(endpoint, json=payload)
+        body = payload if "params" in payload else {"params": payload}
+        resp = await client.post(endpoint, json=body)
         self._raise_for_status(resp, ctx=f"submit {endpoint}")
         data = resp.json()
         # La API responde con request_id (o id) en formato diverso.

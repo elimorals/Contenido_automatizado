@@ -753,3 +753,59 @@ class TestOrchestratorIntegration:
         # Ken-burns devuelve LOCAL source (no DoP/Veo intentado)
         assert artifacts[0].source == VideoSource.LOCAL
         kb_mock.generate.assert_called_once()
+
+
+class TestSubmitWirePayload:
+    """El body va envuelto en `{"params": {...}}`.
+
+    Verificado contra la API real (2026-08-29): un body plano devuelve
+    HTTP 422 `{"loc": ["body","params"], "msg": "Field required"}`. El cliente
+    lo enviaba plano y ningun test miraba la forma del body, asi que el fallo
+    solo era visible con credenciales de verdad.
+    """
+
+    @pytest.mark.asyncio
+    async def test_flat_payload_is_wrapped_in_params(
+        self, hf_config: HiggsfieldConfig
+    ) -> None:
+        sent: dict = {}
+
+        async def fake_post(path: str, **kwargs):  # noqa: ANN001
+            sent.update(kwargs.get("json") or {})
+            r = MagicMock(spec=httpx.Response)
+            r.status_code = 200
+            r.json = MagicMock(return_value={"request_id": "req-1"})
+            return r
+
+        cli = HiggsfieldClient(hf_config)
+        cli._client = MagicMock()
+        cli._client.post = AsyncMock(side_effect=fake_post)
+
+        await cli.submit("/v1/image2video/dop", {"model": "dop-turbo", "prompt": "x"})
+
+        assert set(sent) == {"params"}          # nada suelto en el top level
+        assert sent["params"]["model"] == "dop-turbo"
+        assert sent["params"]["prompt"] == "x"
+
+    @pytest.mark.asyncio
+    async def test_already_wrapped_payload_is_not_double_wrapped(
+        self, hf_config: HiggsfieldConfig
+    ) -> None:
+        """Un caller que ya envuelva no debe acabar con `params.params`."""
+        sent: dict = {}
+
+        async def fake_post(path: str, **kwargs):  # noqa: ANN001
+            sent.update(kwargs.get("json") or {})
+            r = MagicMock(spec=httpx.Response)
+            r.status_code = 200
+            r.json = MagicMock(return_value={"request_id": "req-2"})
+            return r
+
+        cli = HiggsfieldClient(hf_config)
+        cli._client = MagicMock()
+        cli._client.post = AsyncMock(side_effect=fake_post)
+
+        await cli.submit("/v1/image2video/dop", {"params": {"prompt": "y"}})
+
+        assert sent["params"] == {"prompt": "y"}
+        assert "params" not in sent["params"]
