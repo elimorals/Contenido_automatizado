@@ -94,37 +94,47 @@ def _shot_to_visual(
 async def _synthesize_shot_audio(
     *,
     text: str,
-    out_path: Path,
+    out_dir: Path,
     voice: str | None = None,
     engine: str = "edge",
-) -> Path:
-    """TTS de un solo shot. Wrapper sobre ``core.tts``.
+) -> tuple[Path, float]:
+    """TTS de un solo shot. Devuelve ``(wav_path, duration_s)``.
 
-    Usa el motor configurado (Edge por default — gratis). El resultado se
-    guarda en ``out_path`` (WAV). Devuelve el path al WAV.
+    ``voice`` en el formato canónico del repo (``"en-US-AvaNeural-Female"``,
+    ``"gemini:Zephyr-Female"``) determina TAMBIÉN el engine; ``engine`` solo
+    decide cuando no se pasó voz, y entonces la voz sale de
+    ``[tts.<engine>].default_voice``.
 
-    Si ``core.tts`` no está disponible (env minimal), levantamos error
-    explícito — talking-head requiere audio.
+    A diferencia del montage, aquí el **silencio no es una opción**: un avatar
+    sin audio no tiene nada que sincronizar, así que una voz que resuelva al
+    engine ``silent`` (o vacía) levanta error en vez de entregar un presentador
+    mudo. `detect_engine_and_voice("")` devuelve ``("silent", "")``, así que sin
+    esta guarda el caso por defecto sería justamente el roto.
     """
-    try:
-        from core.tts import tts_synthesize  # type: ignore[import-not-found]
-    except ImportError as e:
-        raise LongFormPlanError(
-            "core.tts no disponible — talking-head requiere TTS para lip-sync. "
-            "Install: `uv sync`"
-        ) from e
+    from core.tts import detect_engine_and_voice, get_engine
 
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    audio_artifact = await tts_synthesize(
+    if voice:
+        engine_name, voice_arg = detect_engine_and_voice(voice)
+    else:
+        engine_name = engine
+        voice_arg = load_config().get_tts_engine(engine).default_voice
+
+    if engine_name == "silent" or not voice_arg:
+        raise LongFormPlanError(
+            f"talking-head requiere una voz real para el lip-sync, pero "
+            f"voice={voice!r} / engine={engine!r} resolvió a "
+            f"({engine_name!r}, {voice_arg!r}). Pasa `tts_voice=` explícito "
+            f"o configura `[tts.{engine}].default_voice`."
+        )
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    artifact = await get_engine(engine_name).synthesize(
         text=text,
-        out_path=out_path,
-        engine=engine,
-        voice=voice,
+        voice=voice_arg,
+        out_dir=out_dir,
+        target_duration_s=None,
     )
-    if isinstance(audio_artifact, Path):
-        return audio_artifact
-    # Si tts_synthesize devuelve AudioArtifact (caso normal), tomamos el path
-    return Path(getattr(audio_artifact, "path", out_path))
+    return Path(artifact.path), artifact.duration_s
 
 
 # =============================================================================
@@ -200,13 +210,15 @@ async def produce_talking_head(
     )
 
     # === Paso 1: TTS por shot (paralelo, no consume GPU) ===
-    async def _tts_one(idx: int, shot: Shot) -> Path:
+    async def _tts_one(idx: int, shot: Shot) -> tuple[Path, float]:
         text = (shot.dialogue or shot.visual_description).strip()
         if not text:
             raise LongFormPlanError(f"shot#{idx} sin texto para narrar")
-        out_wav = audio_dir / f"shot_{idx:03d}.wav"
         return await _synthesize_shot_audio(
-            text=text, out_path=out_wav, voice=tts_voice, engine=tts_engine
+            text=text,
+            out_dir=audio_dir / f"shot_{idx:03d}",
+            voice=tts_voice,
+            engine=tts_engine,
         )
 
     tts_results = await asyncio.gather(
@@ -214,13 +226,13 @@ async def produce_talking_head(
         return_exceptions=True,
     )
     audio_paths: dict[int, Path] = {}
-    for (idx, _shot, _scene), result in zip(flat_shots, tts_results):
+    for (idx, _shot, _scene), result in zip(flat_shots, tts_results, strict=True):
         if isinstance(result, Exception):
             logger.error(f"[talking_head] shot#{idx} TTS falló: {result}")
             job.status = "failed"
             job.error_message = f"TTS shot#{idx}: {result}"
             return job
-        audio_paths[idx] = result
+        audio_paths[idx] = result[0]
 
     # === Paso 2: LiveAvatar por shot (chunked por parallel_shots) ===
     # Importamos late para evitar cargar httpx + subprocess deps si no se usa.

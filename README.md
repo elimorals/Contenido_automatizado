@@ -34,7 +34,7 @@ El usuario elige por reel — o el sistema decide automáticamente según presup
 ## Estado
 
 ✅ **Sistema completo y operativo**:
-- **667 tests verde** — long-form, ComfyUI, Higgsfield, LiveAvatar, editorial, pipeline base, y la **cosecha OpenMontage** (rerank visual CLIP, stock histórico LoC/NARA/Pond5, scoring auditable + DecisionLog)
+- **680 tests verde** — long-form, ComfyUI, Higgsfield, LiveAvatar, editorial, pipeline base, y la **cosecha OpenMontage** (rerank visual CLIP, stock histórico LoC/NARA/Pond5, scoring auditable + DecisionLog)
 - 4 entry points operativos (topic / article / subject / **long_form_input**) + workflow editorial (plan / approve / produce-week)
 - DAG de 18 reasoners (hunters → critic → narrators → judge → adapt → visual → accent)
 - 5 patrones editoriales portados (brand voice as code, facts.json, pilares, audiencias, plataformas)
@@ -106,7 +106,7 @@ contenido/
 ├── storage/              # Runtime: caches, RAG stores, embed_cache (gitignored)
 │   └── long_form/<job>/  # Per-job: chunks/, compressed/, rag/, script.json, job.json
 ├── resource/             # Fuentes, BGM, assets estáticos
-├── tests/                # pytest (667 tests)
+├── tests/                # pytest (680 tests)
 ├── scripts/              # A/B harnesses (Higgsfield + ComfyUI)
 ├── docs/                 # ADRs, EDITORIAL, COMFYUI, LONG_FORM, pipeline, cost model
 └── .claude/skills/       # Submodule oficial higgsfield-ai/skills (dev-only)

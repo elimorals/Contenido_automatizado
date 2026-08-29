@@ -380,7 +380,7 @@ Para video de 30min con 150 shots: ~$45-50 total. Para una hora con 250 shots: ~
 - ✅ Checkpoint reanudable cableado: un re-run salta los shots ya pagados (ADR-024)
 - ✅ Entry point en `VideoParams.long_form_input`
 - ✅ CLI: `contenido book plan/show/produce`
-- ✅ 62 tests verde (30 base + 32 montage)
+- ✅ 75 tests verde (30 base + 32 montage + 13 talking-head)
 - ⏳ `produce` para `intent=narrative` y `intent=motion` (requiere GPU + ComfyUI para
   portraits y reference chaining; reusarán el esqueleto de `montage_director`)
 
