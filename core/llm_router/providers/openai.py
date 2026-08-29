@@ -28,6 +28,17 @@ class OpenAIProvider(OpenAICompatibleProvider):
             self.MODERN_TOKEN_PARAM_PREFIXES
         )
 
+    #: Piso de tokens para modelos de razonamiento. Medido: con 2000 los
+    #: prompts narrativos largos agotan el presupuesto razonando y devuelven
+    #: content vacío con finish_reason="length". No encarece las llamadas que
+    #: no lo necesitan — solo se factura lo que el modelo realmente genera.
+    REASONING_MIN_TOKENS = 8000
+
+    def _min_token_budget(self) -> int:
+        if (self.model_name or "").lower().startswith(self.MODERN_TOKEN_PARAM_PREFIXES):
+            return self.REASONING_MIN_TOKENS
+        return 0
+
 
 class MoonshotProvider(OpenAICompatibleProvider):
     name = "moonshot"

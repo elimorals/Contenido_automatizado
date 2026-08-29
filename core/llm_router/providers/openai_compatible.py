@@ -76,8 +76,21 @@ class OpenAICompatibleProvider(LLMProvider):
             raise LLMProviderError("response has no `choices`")
         message = choices[0].get("message") or {}
         content = message.get("content")
-        if content is None:
-            raise LLMProviderError("response message has no `content`")
+        if not content:
+            # `finish_reason` y los tokens de razonamiento son la diferencia
+            # entre "el modelo no contestó" y "se le acabó el presupuesto
+            # razonando". Sin ellos el error de arriba no dice nada útil.
+            finish = choices[0].get("finish_reason")
+            reasoning = (
+                (data.get("usage") or {}).get("completion_tokens_details") or {}
+            ).get("reasoning_tokens")
+            detail = f"finish_reason={finish!r}"
+            if reasoning is not None:
+                detail += f", reasoning_tokens={reasoning}"
+            if finish == "length":
+                detail += " — sube el límite de tokens: en modelos de "
+                detail += "razonamiento cubre razonamiento + respuesta"
+            raise LLMProviderError(f"response message has no `content` ({detail})")
         return content
 
     @staticmethod
@@ -121,6 +134,20 @@ class OpenAICompatibleProvider(LLMProvider):
         if self._supports_temperature():
             payload["temperature"] = temperature
 
+    def _min_token_budget(self) -> int:
+        """Piso del límite de tokens. 0 = respetar lo que pida el caller.
+
+        En los modelos de razonamiento el parámetro cambió de significado: ya no
+        acota la RESPUESTA sino razonamiento **más** respuesta. Un caller que
+        pidió 2000 pensando en la respuesta puede quedarse sin nada — la API
+        devuelve `content: ""` con `finish_reason: "length"`, que aguas abajo
+        aparece como el críptico "empty text content after cleaning".
+        """
+        return 0
+
+    def _effective_token_limit(self, max_tokens: int) -> int:
+        return max(max_tokens, self._min_token_budget())
+
     async def complete(
         self,
         prompt: str,
@@ -133,7 +160,7 @@ class OpenAICompatibleProvider(LLMProvider):
         payload: dict[str, Any] = {
             "model": self.model_name,
             "messages": self._build_messages(prompt, system),
-            self._token_limit_key(): max_tokens,
+            self._token_limit_key(): self._effective_token_limit(max_tokens),
         }
         self._apply_sampling(payload, temperature)
         # Permite a llamadores pasar extras como `top_p`, `seed`, etc.
@@ -173,7 +200,7 @@ class OpenAICompatibleProvider(LLMProvider):
         payload: dict[str, Any] = {
             "model": self.model_name,
             "messages": self._build_messages(prompt, sys_msg),
-            self._token_limit_key(): max_tokens,
+            self._token_limit_key(): self._effective_token_limit(max_tokens),
             "response_format": {"type": "json_object"},
         }
         self._apply_sampling(payload, temperature)
