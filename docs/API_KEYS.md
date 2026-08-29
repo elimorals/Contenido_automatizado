@@ -189,6 +189,71 @@ Video generation desde first frame (Image-to-Video). **Costoso pero cinematográ
   REEL_AF_USE_VEO=true
   ```
 
+### OpenAI nativo (alternativa sin OpenRouter, ADR-032/033)
+
+Si solo tienes key de OpenAI, la rama visual funciona igual — `gpt-image-*` para
+los frames y `sora-2` para el motion. Ambos usan la **misma** `OPENAI_API_KEY`
+que el DAG narrativo; no hay una variable aparte.
+
+```bash
+OPENAI_API_KEY=sk-...        # la misma del router de LLM
+OPENAI_IMAGE_MODEL=gpt-image-1   # opcional (gpt-image-1 | gpt-image-1.5 | gpt-image-2)
+SORA_ENABLED=true            # motion i2v; off por default porque cuesta y tarda
+SORA_MODEL=sora-2            # opcional (sora-2 | sora-2-pro)
+```
+
+- **Costo**: ~$0.04/imagen · Sora ~$0.10-0.50/clip según duración
+- **Ventaja sobre la ruta OpenRouter**: `gpt-image-*` acepta vertical
+  (`1024x1536`) y Sora genera nativo en `720x1280` — el canvas exacto del repo,
+  sin recorte. Gemini devuelve cuadrado y el crop a 9:16 se come ~44%.
+- **Latencia**: ~20 s por imagen, ~90 s por clip de Sora.
+
+### Higgsfield DoP / Soul / Effects (opcional, premium)
+
+⚠️ **No confundir con el MCP de Higgsfield.** Son dos productos distintos:
+
+| | MCP (`mcp.higgsfield.ai`) | Platform API (`platform.higgsfield.ai`) |
+|---|---|---|
+| Auth | OAuth con tu cuenta web | `Key KEY_ID:KEY_SECRET` |
+| Lo usa | tu asistente (Claude Code) | **el pipeline** |
+| Se configura en | `claude mcp add` | `.env` |
+
+Tener el MCP conectado **no** habilita Higgsfield en el pipeline: necesita las
+credenciales de servidor.
+
+**Cómo obtenerlas:**
+
+1. Entra a **https://cloud.higgsfield.ai** con tu cuenta de Higgsfield.
+2. Busca la sección de API keys / credenciales de servidor.
+3. Crea una: te da un **key id** y un **key secret** (dos valores, no uno).
+4. Ponlos en `.env` de cualquiera de estas dos formas:
+
+```bash
+# Opción A — combinados (el formato del header)
+HIGGSFIELD_CREDENTIALS=KEY_ID:KEY_SECRET
+
+# Opción B — por separado
+HIGGSFIELD_KEY_ID=...
+HIGGSFIELD_KEY_SECRET=...
+
+HIGGSFIELD_ENABLED=true
+```
+
+El cliente construye `Authorization: Key KEY_ID:KEY_SECRET`. Para comprobar que
+la credencial sirve, el endpoint responde 401 sin auth y no 404:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' -X POST \
+  https://platform.higgsfield.ai/v1/image2video/dop
+# → 401 (existe; falta credencial)
+```
+
+- **Qué aporta**: DoP es i2v con 50+ presets de cámara nombrados; Soul da
+  consistencia de personaje cross-beat; Effects son overlays VFX.
+- **Costo**: ~$0.13-0.30 por clip según modelo (`dop-lite` / `turbo` / `preview`).
+- **Prioridad en la cadena**: DoP va **antes** que Veo y Sora, así que
+  configurarlo cambia qué genera el motion de tus reels.
+
 ## Categoría 5 — Distribución social (opcional)
 
 ### Upload-Post (TikTok + Instagram)
