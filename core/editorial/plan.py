@@ -87,8 +87,9 @@ def _events_for_month(registry: EditorialRegistry, month: int) -> list[str]:
 def _build_system_prompt(
     registry: EditorialRegistry,
     n_ideas: int,
+    performance_block: str = "",
 ) -> str:
-    """System prompt con brand voice + pillars + facts compactados."""
+    """System prompt con brand voice + pillars + facts + rendimiento pasado."""
     parts: list[str] = []
 
     parts.append(
@@ -124,6 +125,11 @@ def _build_system_prompt(
             parts.append(f"- PERSONA: {p.name} — {p.field} — {p.relevance[:120]}")
         for fact in f.verified_facts[:30]:
             parts.append(f"- FACT: [{fact.id}] {fact.claim[:160]}")
+
+    # Retorno de rendimiento (ADR-031). Va DESPUÉS de los hechos y ANTES de las
+    # reglas: es contexto para decidir, no una regla que obedecer.
+    if performance_block:
+        parts.append(performance_block)
 
     parts.append(
         f"\n## REGLAS\n"
@@ -185,8 +191,18 @@ async def generate_plan(
     *,
     registry: EditorialRegistry | None = None,
     provider_name: str | None = None,
+    use_performance: bool = True,
+    lookback_weeks: int = 4,
 ) -> tuple[EditorialPlan, Path, float]:
     """Genera un plan editorial semanal.
+
+    Con `use_performance` (default), primero lee cómo rindió lo publicado en las
+    últimas `lookback_weeks` semanas y lo inyecta al system prompt (ADR-031).
+    Es el paso que convierte al planner de generador en sistema que aprende.
+
+    El retorno es best-effort: sin servicio de distribución, sin nada publicado
+    o con analytics caído, el prompt queda exactamente como antes de existir la
+    fase — nunca se bloquea la planificación por no poder medir.
 
     Returns: (plan, path_donde_se_guardó, costo_estimado_usd).
     """
@@ -196,7 +212,26 @@ async def generate_plan(
     cfg = load_config()
     provider_name = provider_name or cfg.llm_default_provider_premium
 
-    system = _build_system_prompt(reg, n_ideas)
+    performance_block = ""
+    if use_performance:
+        try:
+            from core.editorial.performance import (
+                collect_performance,
+                recent_weeks,
+                summarize_for_planner,
+            )
+
+            perfs = await collect_performance(recent_weeks(lookback_weeks))
+            performance_block = summarize_for_planner(perfs)
+            if performance_block:
+                logger.info(
+                    f"[editorial.plan] retroalimentando con {len(perfs)} piezas "
+                    f"de las últimas {lookback_weeks} semanas"
+                )
+        except Exception as e:  # noqa: BLE001 — medir nunca bloquea planificar
+            logger.warning(f"[editorial.plan] retorno de rendimiento falló ({e})")
+
+    system = _build_system_prompt(reg, n_ideas, performance_block)
     user = _build_user_prompt(reg, n_ideas, week)
 
     logger.info(f"[editorial.plan] generando {n_ideas} ideas para {week} con {provider_name}")

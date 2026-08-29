@@ -14,6 +14,13 @@ from core.editorial.loader import (
     load_editorial,
     reload_editorial,
 )
+from core.editorial.performance import (
+    IdeaPerformance,
+    aggregate_by_pillar,
+    collect_performance,
+    recent_weeks,
+    summarize_for_planner,
+)
 from core.editorial.plan import generate_plan, load_plan, save_plan
 from core.editorial.slideshow_guard import (
     SlideshowReport,
@@ -28,16 +35,21 @@ from core.editorial.validation import (
 
 __all__ = [
     "EditorialRegistry",
+    "IdeaPerformance",
     "SlideshowReport",
     "ValidationIssue",
+    "aggregate_by_pillar",
     "assess_slideshow_risk",
+    "collect_performance",
     "facts_anti_hallucination_block",
     "generate_plan",
     "is_static_artifact",
     "load_editorial",
     "load_plan",
+    "recent_weeks",
     "reload_editorial",
     "save_plan",
+    "summarize_for_planner",
     "validate_idea",
     "validate_plan",
 ]

@@ -8,6 +8,7 @@ Exports:
     SUPPORTED_PLATFORMS    - Tupla de plataformas soportadas
     get_distribution_service(cfg) -> DistributionService | None
 """
+from core.distribution.analytics import PostMetrics, parse_post_analytics
 from core.distribution.base import DistributionService
 from core.distribution.factory import get_distribution_service
 from core.distribution.schemas import (
@@ -20,8 +21,10 @@ from core.distribution.upload_post import UploadPostService
 __all__ = [
     "SUPPORTED_PLATFORMS",
     "DistributionService",
+    "PostMetrics",
     "UploadPostService",
     "UploadResult",
     "UploadStatus",
     "get_distribution_service",
+    "parse_post_analytics",
 ]

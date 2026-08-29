@@ -35,7 +35,7 @@ const docs = [
   ["cost_model", "Tabla de costos por modo (express/premium/brand-owned/long-form)"],
   ["troubleshooting", "Errores comunes y sus fixes"],
   ["api_reference", "Endpoints REST documentados (incluye POST /reference para input-by-reference)"],
-  ["decisions", "ADRs 1-30 — por qué cada decisión arquitectónica"],
+  ["decisions", "ADRs 1-31 — por qué cada decisión arquitectónica"],
   ["migration_from_mpt", "Mapeo desde MoneyPrinterTurbo"],
   ["contributing", "Guía de contribución"],
 ];
@@ -43,7 +43,7 @@ const docs = [
 export const GET: APIRoute = () => {
   const body = `# contenido
 
-> Plataforma open source para generación de video con IA: reels cinematográficos de 25s, video largo de 5-60min (documentales, libros animados, talking-head con lip-sync), brand-owned con LoRA propia. Fusiona cinco linajes: MoneyPrinterTurbo (industrial), reels-af (DAG cognitivo de 18 reasoners), corredor-content (editorial layer), ComfyUI (visual ownership multi-tenant) y HKUDS/ViMax (long-form). LiveAvatar (Alibaba-Quark, ECCV 2026) para avatares parlantes audio-driven (ADR-016). Operable por agentes vía servidor MCP (ADR-021). Python 3.11+. Apache 2.0. 724 tests verde.
+> Plataforma open source para generación de video con IA: reels cinematográficos de 25s, video largo de 5-60min (documentales, libros animados, talking-head con lip-sync), brand-owned con LoRA propia. Fusiona cinco linajes: MoneyPrinterTurbo (industrial), reels-af (DAG cognitivo de 18 reasoners), corredor-content (editorial layer), ComfyUI (visual ownership multi-tenant) y HKUDS/ViMax (long-form). LiveAvatar (Alibaba-Quark, ECCV 2026) para avatares parlantes audio-driven (ADR-016). Operable por agentes vía servidor MCP (ADR-021). Python 3.11+. Apache 2.0. 765 tests verde.
 
 Este proyecto resuelve un problema real: las herramientas de generación de video con IA actuales producen "AI slop" sin identidad de marca y máximo 25 segundos. \`contenido\` permite (1) entrenar tu LoRA con 30-50 fotos via wizard incluido, (2) usarla en 7 workflows ComfyUI distintos (Flux + ControlNet + IPAdapter + AnimateDiff + Inpaint + Upscale), (3) escalar de reels cortos a video largo de 60min reusando el mismo stack, (4) clonar el ritmo/estructura de un video de referencia (input-by-reference, ADR-017). Cuatro superficies: CLI, REST API, WebUI Streamlit y servidor MCP. Self-hosted (GPU local) o managed (ViewComfy/RunComfy).
 

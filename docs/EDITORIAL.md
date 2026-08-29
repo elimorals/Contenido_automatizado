@@ -7,7 +7,7 @@ Patrón portado de [`corredor-content`](https://github.com/elimorals/corredor-co
 > *"Una idea mala genera 28 piezas a la basura."* — README de corredor-content
 
 ```
-plan      →   humano revisa  →   produce-week --publish   →   el plan se cierra
+plan (con retorno) → humano revisa → produce-week --publish → el plan se cierra → plan-report
 (LLM)         (approved: true)    (DAG + Upload-Post)         (task_id, urls, $)
 ```
 
@@ -44,6 +44,7 @@ editorial/
 | `uv run python -m apps.cli.main plan-show` | Muestra el plan con ✓ por idea aprobada |
 | `uv run python -m apps.cli.main produce-week` | Ejecuta el DAG completo SOLO para `approved: true` |
 | `uv run python -m apps.cli.main produce-week --publish` | Además publica en las plataformas que declara cada idea |
+| `uv run python -m apps.cli.main plan-report` | Rendimiento real de lo publicado — el retorno que `plan` inyecta |
 
 ### 2. Brand voice como código
 
@@ -207,6 +208,39 @@ Tras cada idea, el plan se guarda con lo que se produjo y publicó:
   esa marca debe ser un acto consciente.
 - El guardado es tras **cada** idea, no al final: una caída en la quinta no
   pierde las cuatro anteriores.
+
+## El bucle: el planner aprende de lo publicado (ADR-031)
+
+`plan` ya no propone a ciegas. Antes de generar, lee cómo rindió lo publicado en
+las últimas semanas y lo inyecta en su prompt:
+
+```bash
+# Ver el rendimiento — y el bloque exacto que `plan` verá
+uv run python -m apps.cli.main plan-report --weeks 4
+
+# Planificar con ese retorno (default). --no-performance planifica a ciegas.
+uv run python -m apps.cli.main plan --ideas 7 --lookback 4
+```
+
+La clave que lo hace posible es el `upload_request_id` que `produce-week`
+persiste: es lo que el proveedor pide para devolver métricas de esa pieza.
+
+**Se ordena por engagement, no por vistas.** Las vistas absolutas hablan del
+tamaño de tu cuenta en cada red más que de la pieza; el engagement (interacciones
+por vista) es lo único comparable entre TikTok y LinkedIn.
+
+**"Sin datos" no es "cero".** Una pieza publicada hace dos horas, o una cuya
+lectura falló, se excluye del resumen. Si entrara como cero, el planner
+aprendería a evitar el pilar más *reciente* en vez del que rinde mal.
+
+**Es señal, no molde.** El prompt lo dice explícitamente: repetir el tema ganador
+satura. Lo transferible es el ángulo y el tipo de hook — por eso el resumen
+incluye el hook de cada pieza, no solo su título — aplicados a temas nuevos. La
+regla de rotación de pilares sigue vigente aunque uno rinda mejor.
+
+Todo es best-effort: sin servicio de distribución, sin nada publicado o con el
+analytics caído, el prompt queda idéntico al de antes. Medir nunca bloquea
+planificar.
 
 ## API Python
 

@@ -46,6 +46,7 @@ def _is_retryable(exc: BaseException) -> bool:
         return exc.response.status_code in RETRYABLE_STATUS
     return False
 
+from core.distribution.analytics import PostMetrics, parse_post_analytics
 from core.distribution.base import DistributionService
 from core.distribution.schemas import SUPPORTED_PLATFORMS, UploadResult, UploadStatus
 
@@ -224,6 +225,36 @@ class UploadPostService(DistributionService):
             return UploadStatus(request_id=request_id, state="failed", raw={"error": str(exc)})
 
         return self._parse_status_response(request_id, payload)
+
+    async def get_post_analytics(self, request_id: str) -> dict[str, PostMetrics]:
+        """Métricas del post, por plataforma (ADR-031).
+
+        `GET /api/uploadposts/post-analytics/{request_id}` — la clave es el
+        mismo `request_id` que `upload_video` devolvió y que el plan editorial
+        persiste en `ReelIdea.upload_request_id`.
+
+        Devuelve `{}` ante cualquier fallo: leer métricas es informativo, y un
+        error de red no debe distinguirse aquí de "todavía no hay datos". El
+        caller decide qué hacer con el vacío.
+        """
+        if not request_id:
+            return {}
+        url = f"{self.api_base}/api/uploadposts/post-analytics/{request_id}"
+        try:
+            async with httpx.AsyncClient(timeout=self.status_timeout_s) as client:
+                resp = await client.get(url, headers=self._auth_headers())
+                resp.raise_for_status()
+                payload = resp.json()
+        except httpx.HTTPError as exc:
+            logger.warning(f"get_post_analytics({request_id}) falló: {exc}")
+            return {}
+        except Exception as exc:  # noqa: BLE001 — nunca crashear por analytics
+            logger.warning(f"get_post_analytics({request_id}) inesperado: {exc}")
+            return {}
+
+        if not isinstance(payload, dict):
+            return {}
+        return parse_post_analytics(payload)
 
     # ------------------------------------------------------------------
     # Internals

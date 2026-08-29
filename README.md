@@ -34,7 +34,7 @@ El usuario elige por reel — o el sistema decide automáticamente según presup
 ## Estado
 
 ✅ **Sistema completo y operativo**:
-- **724 tests verde** — long-form, ComfyUI, Higgsfield, LiveAvatar, editorial, pipeline base, y la **cosecha OpenMontage** (rerank visual CLIP, stock histórico LoC/NARA/Pond5, scoring auditable + DecisionLog)
+- **765 tests verde** — long-form, ComfyUI, Higgsfield, LiveAvatar, editorial, pipeline base, y la **cosecha OpenMontage** (rerank visual CLIP, stock histórico LoC/NARA/Pond5, scoring auditable + DecisionLog)
 - 4 entry points operativos (topic / article / subject / **long_form_input**) + workflow editorial (plan / approve / produce-week)
 - DAG de 18 reasoners (hunters → critic → narrators → judge → adapt → visual → accent)
 - 5 patrones editoriales portados (brand voice as code, facts.json, pilares, audiencias, plataformas)
@@ -43,6 +43,7 @@ El usuario elige por reel — o el sistema decide automáticamente según presup
 - **LiveAvatar integrado** (talking-head opt-in): backend dual `remote_http`/`local_cli`, intent router `TALKING_HEAD`, director concreto `produce_talking_head` con TTS + ffmpeg stitch (ADR-016)
 - **Long-form**: NovelCompressor + RAGStore híbrido (numpy/FAISS) + ScriptPlanner (3 actos con intent routing) + SceneExtractor + StoryboardArtist + VLM consistency selectors + Director con 2 fases (plan barato + produce caro)
 - **Long-form `produce` real para MONTAGE** (ADR-029): primer intent genérico que renderiza de verdad, sin GPU — reusa el selector stock/IA, el TTS sample-accurate y el stitch single-pass. **Reanudable**: cada shot se persiste al checkpoint (ADR-024, ahora cableado), así que morir en el shot 40 de 120 cuesta 80 generaciones y no 120. Suma `AssetProfile` (entornos/props como anclas de consistencia cross-scene) y `ShotVerdict` (juicio absoluto por shot: "¿es shippeable?", no sólo "¿es el mejor del lote?", opt-in)
+- **E2E de publicación cerrado** (ADR-030/031): `produce-week --publish` publica en las plataformas que el plan declara, con un caption y hashtags distintos **por plataforma** derivados de `PlatformSpec` (deterministas, $0), scheduling (`publish_at`), portada desde el frame del hook, e idempotencia — el plan queda anotado con `task_id`, costo y URLs. Y el bucle se cierra: `plan` lee cómo rindió lo ya publicado (`plan-report` lo muestra) y lo mete en su prompt, así que el planner deja de repetir y empieza a aprender
 - **Gates de calidad deterministas** (ADR-028): filtro de *mechanical slop* ES+EN a $0 antes del Judge, y detector de meseta para loops de revisión. Ambos opt-in
 - **Cosecha OpenMontage** (3 módulos opt-in, todos reimplementados Apache-2.0): rerank visual de B-roll vía CLIP texto↔imagen (ADR-025), corpus libre histórico LoC/NARA/Pond5-PD (ADR-026), scoring de proveedor auditable 7-dim + DecisionLog persistido a `visual_decisions.json` (ADR-027)
 - Cost tracking USD por LLM call (30+ modelos tabulados)
@@ -106,7 +107,7 @@ contenido/
 ├── storage/              # Runtime: caches, RAG stores, embed_cache (gitignored)
 │   └── long_form/<job>/  # Per-job: chunks/, compressed/, rag/, script.json, job.json
 ├── resource/             # Fuentes, BGM, assets estáticos
-├── tests/                # pytest (724 tests)
+├── tests/                # pytest (765 tests)
 ├── scripts/              # A/B harnesses (Higgsfield + ComfyUI)
 ├── docs/                 # ADRs, EDITORIAL, COMFYUI, LONG_FORM, pipeline, cost model
 └── .claude/skills/       # Submodule oficial higgsfield-ai/skills (dev-only)
@@ -166,7 +167,7 @@ make docker-up
 🔑 **API keys**: [`docs/API_KEYS.md`](./docs/API_KEYS.md) — qué keys, dónde, costos (incluye Higgsfield)
 ⚙️ **Configuración**: [`docs/CONFIGURATION.md`](./docs/CONFIGURATION.md) — TOML + env (incluye Higgsfield + ComfyUI + long_form)
 🛠️ **Errores**: [`docs/TROUBLESHOOTING.md`](./docs/TROUBLESHOOTING.md) — errores comunes y fixes
-🎬 **Decisiones**: [`docs/DECISIONS.md`](./docs/DECISIONS.md) — ADRs 1-30 (incluye ADR-010..016 Higgsfield/Editorial/ComfyUI/Long-form/LiveAvatar, ADR-025..027 cosecha OpenMontage, ADR-028 quality gates, ADR-029 produce real de MONTAGE y ADR-030 publicación E2E)
+🎬 **Decisiones**: [`docs/DECISIONS.md`](./docs/DECISIONS.md) — ADRs 1-31 (incluye ADR-010..016 Higgsfield/Editorial/ComfyUI/Long-form/LiveAvatar, ADR-025..027 cosecha OpenMontage, ADR-028 quality gates, ADR-029 produce real de MONTAGE , ADR-030 publicación E2E y ADR-031 bucle de retroalimentación)
 💻 **Ejemplos**: [`examples/`](./examples/) — curl, Python, batch listos para copiar
 🆚 **A/B harnesses**:
   - [`scripts/higgsfield_ab_test.py`](./scripts/higgsfield_ab_test.py) — Veo vs Higgsfield DoP
@@ -251,7 +252,7 @@ Este proyecto integra, refactoriza y extiende código de:
 - [HKUDS/ViMax](https://github.com/HKUDS/ViMax) — MIT License (algoritmos y prompts canónicos para long-form video; arXiv 2606.07649)
 - [calesthio/OpenMontage](https://github.com/calesthio/OpenMontage) — **AGPLv3**. ⚠️ NO se incorpora código: solo se **reimplementaron conceptos** bajo Apache-2.0 (rerank visual CLIP, fuentes de corpus libre, scoring de proveedor). Cada módulo cita "idea inspirada, NO copiada" en su docstring y ADR. Ningún archivo de OpenMontage se copió ni se enlaza en tiempo de compilación/ejecución, por lo que la licencia Apache-2.0 de `contenido` se mantiene.
 
-Ver [`docs/DECISIONS.md`](./docs/DECISIONS.md) para detalles sobre qué se conservó de cada proyecto y por qué (ADRs 1-30).
+Ver [`docs/DECISIONS.md`](./docs/DECISIONS.md) para detalles sobre qué se conservó de cada proyecto y por qué (ADRs 1-31).
 
 ## Licencia
 

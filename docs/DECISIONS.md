@@ -1265,3 +1265,93 @@ generaba archivos.
 `--force`), `shared/schemas.py` (`VideoParams.hashtags/publish_at/timezone`,
 `ReelIdea.publish_at/published_at/upload_request_id/upload_urls`),
 `core/quality/` (`strip_accents` promovido a público y reusado).
+
+---
+
+## ADR-031: Bucle de retroalimentación — el planner aprende de lo publicado
+
+**Fecha**: 2026-08-29 | **Estado**: Aceptado
+
+### Contexto
+
+Con ADR-030 el sistema ya publicaba, pero seguía sin cerrar el círculo:
+`generate_plan()` proponía ideas desde pilares, audiencias y eventos del
+calendario — **nunca desde qué había funcionado**. Eso no es un sistema que
+aprende: es un generador que repite. Un `grep` de `analytics`, `views` o
+`retention` en todo el repo daba cero.
+
+Lo que lo desbloqueó fue el propio ADR-030: `ReelIdea.upload_request_id` es
+exactamente la clave que pide `GET /api/uploadposts/post-analytics/{request_id}`.
+El proveedor ya ofrecía analytics; faltaba tener la llave y llamarla.
+
+### Decisión
+
+**1. `core/distribution/analytics.py` — métricas normalizadas.**
+
+Cada plataforma expone campos distintos con nombres distintos: YouTube da
+`views`, Instagram `reach`/`views`/`impressions`, Facebook `reactions` en vez de
+`likes`, Bluesky ni siquiera tiene vistas. `PostMetrics` normaliza a un núcleo
+comparable (views/likes/comments/shares/saves) tomando el primer campo presente
+de una lista de candidatos, y conserva el crudo en `raw`.
+
+`reach` gana a `impressions` a propósito: cuenta personas, no exposiciones.
+Mezclar el reach de una red con las impressions de otra infla la segunda.
+
+**2. `core/editorial/performance.py` — el retorno.**
+
+Lee los planes en disco, filtra las ideas con `published_at` +
+`upload_request_id`, pide sus métricas y destila un bloque compacto para el
+system prompt del planner.
+
+Dos decisiones sostienen todo lo demás:
+
+- **Se ordena por `engagement_rate`, no por vistas absolutas.** Las vistas
+  hablan del tamaño de la cuenta en cada red más que de la pieza; rankear por
+  ellas solo enseñaría que TikTok es más grande que LinkedIn.
+- **"Sin datos" nunca se convierte en "cero".** Una pieza recién publicada, o
+  una cuya lectura falló del lado del proveedor, se **excluye** del resumen. Si
+  entrara como cero, el planner aprendería a evitar el pilar más *reciente* en
+  vez del que rinde mal. Por eso `parse_post_analytics` omite las plataformas
+  con `success: false` en vez de contarlas, y `PostMetrics.measured` distingue
+  el vacío del cero medido.
+
+`MIN_SAMPLES_PER_PILLAR = 2`: con una sola pieza el "promedio" del pilar es esa
+pieza, y el planner sobreajusta a un dato.
+
+**3. Inyección en el prompt.** El bloque va **después** de los hechos
+verificados y **antes** de las reglas: es contexto para decidir, no una regla
+que obedecer. Cierra con una instrucción explícita de tratarlo como *señal, no
+molde* — repetir el tema ganador satura; lo transferible es el ÁNGULO y el tipo
+de hook, aplicados a temas nuevos. Por eso el resumen incluye el `hook` de cada
+pieza y no solo su título.
+
+**4. Best-effort de punta a punta.** Sin servicio de distribución, sin nada
+publicado o con analytics caído, el prompt queda **idéntico** al de antes de
+existir esta fase. Medir nunca bloquea planificar. `--no-performance` lo apaga.
+
+**5. `contenido plan-report`** muestra el rendimiento pieza por pieza más el
+bloque exacto que `plan` verá — el bucle es inspeccionable, no una caja negra
+que cambia los prompts sin que se note.
+
+### Consecuencias
+
+- El retorno es tan bueno como la ventana: `--lookback 4` no ve estacionalidad.
+  Subirlo mete piezas viejas cuyo contexto ya no aplica.
+- Se mide lo que el proveedor expone. Retención y watch-time —las señales que de
+  verdad mueven el alcance en formato corto— solo llegan donde la plataforma las
+  publica (YouTube da `average_view_duration_seconds`; TikTok no).
+- `cost_per_1k_views` cruza el cost tracking con el alcance real, pero solo para
+  ideas producidas *después* de ADR-030: las anteriores no tienen `cost_usd`.
+- Riesgo real de **sobreajuste**: si el planner persigue el engagement, converge
+  a un solo pilar. La regla de rotación y el aviso de "señal, no molde" están
+  puestos contra eso, pero es una mitigación por prompt, no una garantía.
+
+### Archivos
+
+**Nuevos**: `core/distribution/analytics.py`, `core/editorial/performance.py`,
+`tests/test_performance_loop.py`.
+**Modificados**: `core/distribution/base.py` (`get_post_analytics` con default
+no-abstracto), `core/distribution/upload_post.py` (implementación),
+`core/editorial/plan.py` (`use_performance`, `lookback_weeks`,
+`performance_block` en el system prompt), `apps/cli/main.py` (`plan-report`,
+flags `--performance/--lookback` en `plan`), `core/{distribution,editorial}/__init__.py`.

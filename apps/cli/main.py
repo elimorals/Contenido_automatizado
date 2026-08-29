@@ -440,8 +440,22 @@ def plan(
     provider: Annotated[
         str, typer.Option(help="LLM provider (override del default)")
     ] = "",
+    performance: Annotated[
+        bool,
+        typer.Option(
+            "--performance/--no-performance",
+            help="Alimentar el prompt con el rendimiento de lo ya publicado",
+        ),
+    ] = True,
+    lookback: Annotated[
+        int, typer.Option(min=1, max=26, help="Semanas de rendimiento a mirar")
+    ] = 4,
 ) -> None:
     """Genera un plan editorial semanal con N ideas y lo guarda en out/plans/.
+
+    Por default lee cómo rindió lo publicado en las últimas semanas y lo mete al
+    prompt (ADR-031) — `contenido plan-report` muestra exactamente ese bloque.
+    `--no-performance` planifica a ciegas, como antes de existir el bucle.
 
     Después: edita out/plans/plan-YYYY-Www.json y marca `approved: true` en
     las ideas que quieras producir, luego corre `contenido produce-week`.
@@ -456,7 +470,11 @@ def plan(
         registry = load_editorial()
         provider_name = provider or None
         the_plan, out_path, _cost = await generate_plan(
-            n_ideas=ideas, registry=registry, provider_name=provider_name,
+            n_ideas=ideas,
+            registry=registry,
+            provider_name=provider_name,
+            use_performance=performance,
+            lookback_weeks=lookback,
         )
         vr = validate_plan(the_plan, registry)
         typer.secho(
@@ -487,6 +505,55 @@ def plan(
     except Exception as e:
         typer.secho(f"\n✗ plan falló: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=1) from e
+
+
+@app.command("plan-report")
+def plan_report(
+    weeks: Annotated[int, typer.Option(help="Cuántas semanas anteriores leer")] = 4,
+) -> None:
+    """Rendimiento real de lo ya publicado — el retorno que alimenta al planner.
+
+    Lee los planes de las últimas N semanas, pide las métricas de cada pieza
+    publicada y muestra el mismo resumen que `plan` inyecta en su prompt.
+    """
+    try:
+        from core.editorial.performance import (
+            collect_performance,
+            recent_weeks,
+            summarize_for_planner,
+        )
+    except Exception as e:  # noqa: BLE001
+        typer.secho(f"✗ Editorial no disponible: {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from e
+
+    target = recent_weeks(weeks)
+    typer.secho(f"\n📊 Rendimiento — semanas {target[-1]} … {target[0]}", fg=typer.colors.CYAN, bold=True)
+
+    perfs = asyncio.run(collect_performance(target))
+    if not perfs:
+        typer.secho(
+            "   Nada publicado en ese rango (o sin servicio de distribución "
+            "configurado).",
+            fg=typer.colors.YELLOW,
+        )
+        return
+
+    measured = [p for p in perfs if p.measured]
+    typer.echo(f"   {len(perfs)} publicadas · {len(measured)} con métricas\n")
+    for p in sorted(perfs, key=lambda x: x.engagement_rate, reverse=True):
+        if not p.measured:
+            typer.secho(f"  ○ [{p.pillar}] {p.title[:60]} — sin datos aún", fg=typer.colors.BLUE)
+            continue
+        cost = f" · ${p.cost_per_1k_views}/1k vistas" if p.cost_per_1k_views else ""
+        typer.echo(
+            f"  ✓ [{p.pillar}] {p.title[:60]}\n"
+            f"      {p.views:,} vistas · {p.engagement_rate:.2%} engagement{cost}"
+        )
+
+    block = summarize_for_planner(perfs)
+    if block:
+        typer.secho("\n--- lo que `plan` verá en su prompt ---", fg=typer.colors.CYAN)
+        typer.echo(block)
 
 
 @app.command("plan-show")
