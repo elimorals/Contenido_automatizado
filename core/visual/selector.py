@@ -39,6 +39,7 @@ from core.visual.generation import generate_beat_videos
 from core.visual.generation.ken_burns import _placeholder_frame, render_ken_burns
 from core.visual.provider_scoring import DecisionLog, decide_provider
 from core.visual.stock import fetch_and_cache, get_all_providers
+from core.visual.stock.keywords import build_stock_query
 from shared.config import load_config
 from shared.schemas import (
     Beat,
@@ -261,7 +262,21 @@ async def _try_stock(
         logger.warning(f"[selector] aspect inválido '{aspect}', fallback a 9:16")
         video_aspect = VideoAspect.PORTRAIT
 
-    query = visual.visual_anchor.strip() or beat.text.strip()
+    # `visual_anchor` es un campo de PROCEDENCIA (evidencia verbatim, ADR-034),
+    # no un keyword: usarlo tal cual mandaba citas académicas enteras a los
+    # buscadores de stock, que devolvían cero siempre. Se derivan términos
+    # cortos del image_prompt, que sí describe una escena.
+    query = build_stock_query(
+        image_prompt=visual.image_prompt,
+        visual_anchor=visual.visual_anchor,
+        fallback=beat.text,
+    )
+    if not query:
+        logger.info(
+            f"[selector] beat {beat.idx}: sin términos buscables; salto stock"
+        )
+        return None
+    logger.debug(f"[selector] beat {beat.idx}: stock query={query!r}")
     min_dur = max(beat.target_duration_s, 3.0)
 
     for provider in providers:
