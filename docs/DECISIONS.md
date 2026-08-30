@@ -1877,3 +1877,101 @@ suena con el contacto "Ximena escuela" y Maximiliano alcanza a leerlo*.
 `core/long_form/prompts.py` (`EPISODE_PLANNER_SYSTEM`),
 `core/long_form/director.py` (routing NARRATIVE), `apps/cli/main.py`
 (`series list|show|plan|produce`).
+
+---
+
+## ADR-039: Harness desatendido — de una premisa a una serie producida
+
+**Fecha**: 2026-08-29 | **Estado**: Aceptado
+
+### Contexto
+
+ADR-038 dejó el pipeline capaz de planificar y producir episodios, pero la
+`SeriesBible` había que **escribirla a mano**. Eso convertía la promesa
+—"cualquiera escribe lo que quiere y se genera"— en algo bastante más
+estrecho: *cualquiera que sepa el schema de Pydantic y los nombres exactos de
+las voces de Edge*. No es lo mismo.
+
+La primera biblia, escrita a mano, llevaba `es-MX-CarlotaNeural`. **Esa voz no
+existe** — Edge tiene exactamente dos voces mexicanas. Habría reventado el TTS
+en producción, y es la mejor prueba de que ese paso no debía ser manual.
+
+### Decisión
+
+**1. `create_bible()` — la premisa es la única entrada.**
+
+Un `BibleArchitect` escribe personajes (con apariencia lo bastante concreta para
+generar un retrato), locaciones, reglas del mundo y tono. El prompt insiste en
+lo que un LLM tiende a omitir: apariencia **física**, no moral —"elegante" no se
+dibuja—, y reglas **verificables**: alguien tiene que poder decir si un episodio
+las rompió.
+
+**2. Las voces NO las decide el LLM.**
+
+`core/long_form/voices.py` reparte desde el catálogo real de Edge. El orden es
+geográfico y no es neutro: `es-ES` va **al final**, después de todos los
+latinoamericanos, porque el acento peninsular rompe la ilusión de un melodrama
+chilango de inmediato mientras que un colombiano o un argentino pasa como
+"alguien de fuera". Sin repetir mientras haya voces libres — dos personajes con
+la misma voz en la misma escena es lo que hace que un melodrama suene a
+audiolibro.
+
+**3. `run_series()` — el harness.**
+
+`premisa → biblia → [plan → produce] × N`, desatendido. Idempotente por diseño:
+si el slug ya tiene biblia la **reusa**, porque regenerarla reinventaría los
+personajes y rompería la consistencia de rostro que ADR-038 existe para
+proteger. Añadir episodios a una serie viva es el caso normal.
+
+`--plan-only` escribe los guiones sin gastar en generación visual: el gate
+barato para revisar antes de pagar. Y un episodio que falla no aborta el lote.
+
+**4. CLI:** `series new` (biblia desde premisa) y `series auto` (todo).
+
+### Un bug que solo aparece en producción
+
+`cast_voices` llamaba a `asyncio.run()` para consultar el catálogo. Pero
+`create_bible` es async, así que la llamada ocurría **dentro de un event loop
+corriendo** → `RuntimeError` → el `except` lo tragaba → fallback de UNA voz por
+género. Resultado: los cinco personajes de la primera serie autogenerada
+compartían dos voces, justo lo que el módulo existe para evitar.
+
+Se arregla despachando a un thread con su propio loop cuando detecta que ya hay
+uno. Es la tercera vez en esta sesión que un `except` demasiado ancho convierte
+un fallo ruidoso en un comportamiento degradado silencioso.
+
+### Verificado extremo a extremo
+
+Premisa cruda, sin tocar nada a mano:
+
+> *"Una enfermera de turno nocturno en un hospital de Monterrey descubre que el
+> paciente en coma de la habitación 302 es el hombre que mató a su hermano hace
+> diez años…"*
+
+Produjo `editorial/series/habitacion-302/`: cinco personajes con apellidos
+regiomontanos creíbles (Treviño, Villarreal, Elizondo Garza), ocho reglas de
+continuidad —incluida "las cámaras del tercer piso tienen un punto ciego frente
+a la puerta de servicio"— y dos episodios encadenados.
+
+La continuidad se sostuvo sola: **E1 corta con Rebeca abriendo la puerta de
+servicio; E2 empieza con Rebeca entrando por esa puerta.** Eso lo produjo
+`story_so_far()` sin intervención.
+
+### Consecuencias
+
+- El catálogo de voces limita el reparto: **dos** voces por país. Una serie con
+  seis personajes del mismo género ya recicla, y se avisa por log.
+- El género se le pide al LLM solo para el casting; no viaja a
+  `CharacterProfile`, donde sería un dato sin uso.
+- La biblia se genera con `temperature=0.9`: se escribe una vez y conviene que
+  arriesgue. Los episodios usan 0.85; los selectores, 0.0.
+- El harness no tiene tope de gasto. `--plan-only` es la mitigación, no una
+  garantía: `--episodes 20 --produce` gasta sin preguntar.
+
+### Archivos
+
+**Nuevos**: `core/long_form/architect.py`, `core/long_form/voices.py`,
+`tests/test_series_harness.py`, `editorial/series/habitacion-302/`.
+**Modificados**: `core/long_form/prompts.py` (`BIBLE_ARCHITECT_SYSTEM`),
+`apps/cli/main.py` (`series new`, `series auto`),
+`editorial/series/vargas/bible.json` (voz inexistente corregida).

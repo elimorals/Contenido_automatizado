@@ -28,7 +28,7 @@
       "persona": "Dueña de la fonda y madre postiza de Renata. Sabe lo de la hija. Dice las verdades que nadie quiere oír.",
       "portrait_path": "editorial/series/vargas/portraits/doña-chelo.jpg",
       "portrait_alt_views": [],
-      "voice": "es-MX-CarlotaNeural-Female"
+      "voice": "es-CO-SalomeNeural-Female"
     },
     {
       "name": "Ximena",
@@ -36,7 +36,7 @@
       "persona": "Hija de Renata. Curiosa y observadora. Nadie de la familia Vargas sabe que existe.",
       "portrait_path": "editorial/series/vargas/portraits/ximena.jpg",
       "portrait_alt_views": [],
-      "voice": "es-MX-DaliaNeural-Female"
+      "voice": "es-AR-ElenaNeural-Female"
     }
   ],
   "assets": [

@@ -1,0 +1,775 @@
+{
+  "slug": "habitacion-302",
+  "title": "La habitación 302",
+  "logline": "Una enfermera nocturna decide descubrir por qué el asesino de su hermano está vivo y bajo su cuidado, pero él despierta con una versión del crimen capaz de destruir a su familia.",
+  "genre": "melodrama de suspense",
+  "tone": "Melodrama mexicano contemporáneo, con español norteño de Monterrey: directo, seco y con frases cortas, mezclando el habla profesional del hospital con modismos regiomontanos sin caricaturizarlos. La emoción se contiene hasta que explota en confrontaciones íntimas, amenazas veladas y silencios incómodos. El ritmo es urgente, nocturno y claustrofóbico; cada episodio termina con una revelación, una decisión peligrosa o una imagen que cambie el significado de lo anterior.",
+  "setting": "Monterrey, Nuevo León, en la actualidad. La historia transcurre principalmente durante turnos nocturnos en un hospital privado de alta especialidad, con vistas lejanas al Cerro de la Silla, y en los espacios de la colonia popular donde creció Lucía. El contraste entre los pisos impecables del hospital y las calles estrechas, casas de block y talleres mecánicos de su antiguo barrio separa a quienes tienen poder de quienes cargan con las consecuencias.",
+  "characters": [
+    {
+      "name": "Lucía Fernanda Treviño",
+      "appearance": "Mujer de 31 años, piel morena clara, rostro ovalado, ojos cafés muy oscuros y cabello negro lacio recogido en una cola baja. Usa filipina azul marino, pantalón quirúrgico, tenis blancos y un reloj digital; tiene una cicatriz fina en la ceja izquierda.",
+      "persona": "Quiere demostrar quién mató a su hermano y proteger a su madre de otra pérdida, aunque trabaja dentro del mismo sistema que encubrió el caso. Habla con precisión y pocas palabras frente a los médicos, pero cuando se siente acorralada cambia al tono frontal y áspero de su colonia.",
+      "portrait_alt_views": [],
+      "voice": "es-MX-DaliaNeural-Female"
+    },
+    {
+      "name": "Mateo Salgado Villarreal",
+      "appearance": "Hombre de 39 años, piel clara bronceada, mandíbula ancha, cabello castaño oscuro muy corto y barba de varios días. Permanece conectado a un respirador en la cama 302, con una marca de quemadura pequeña detrás de la oreja derecha y un tatuaje parcialmente visible en el antebrazo.",
+      "persona": "Quiere recuperar su nombre, su memoria reciente y el control sobre la red de negocios que dejó antes del coma, pero sabe que despertar lo convierte en un objetivo. Habla despacio, con voz baja y educada, y evita responder de forma directa cuando una pregunta toca la noche del asesinato.",
+      "portrait_alt_views": [],
+      "voice": "es-MX-JorgeNeural-Male"
+    },
+    {
+      "name": "Julián Treviño Salas",
+      "appearance": "Hombre de 26 años visto en fotografías y recuerdos, piel morena, cabello negro rizado hasta las orejas y bigote ralo. En las imágenes lleva camiseta de taller, mezclilla gastada, botas de trabajo y una pulsera roja de hilo en la muñeca derecha.",
+      "persona": "Quería sacar a su madre y a su hermana de la colonia trabajando como mecánico, pero aceptó transportar un paquete para la persona equivocada. No puede hablar en el presente, y su carácter aparece en recuerdos, mensajes de voz y objetos que contradicen la versión oficial de su muerte.",
+      "portrait_alt_views": [],
+      "voice": "es-MX-JorgeNeural-Male"
+    },
+    {
+      "name": "Rebeca Elizondo Garza",
+      "appearance": "Mujer de 48 años, piel blanca, cabello rubio oscuro cortado a la altura de la mandíbula y gafas rectangulares negras. Viste batas blancas impecables sobre blusas lisas, zapatos bajos y un broche plateado con forma de cruz en el cuello.",
+      "persona": "Como directora de enfermería, quiere evitar un escándalo que ponga en riesgo la licencia y los contratos del hospital. Habla con calma administrativa, usando diminutivos y protocolos para ocultar amenazas o decisiones que ya tomó.",
+      "portrait_alt_views": [],
+      "voice": "es-MX-DaliaNeural-Female"
+    },
+    {
+      "name": "Óscar Cárdenas Montalvo",
+      "appearance": "Hombre de 43 años, piel morena, cuerpo ancho, cabeza rapada y bigote negro recortado. Usa uniforme gris de seguridad, botas negras y una chamarra con el logotipo del hospital; tiene dos nudillos deformados en la mano derecha.",
+      "persona": "Quiere conservar su empleo y pagar una deuda que contrajo por su hijo, por eso acepta vigilar zonas del hospital que no aparecen en las cámaras. Habla con humor seco y tono protector, pero se queda completamente serio cuando alguien menciona al paciente de la 302.",
+      "portrait_alt_views": [],
+      "voice": "es-MX-JorgeNeural-Male"
+    }
+  ],
+  "assets": [
+    {
+      "name": "Hospital San Jerónimo",
+      "kind": "environment",
+      "description": "Hospital privado de Monterrey con fachada de vidrio azul, pasillos blancos iluminados por fluorescentes y ventanales que reflejan las luces de la ciudad. El tercer piso tiene habitaciones numeradas, estación de enfermería abierta y la habitación 302 al fondo, junto a una puerta de servicio."
+    },
+    {
+      "name": "Colonia La Alianza",
+      "kind": "environment",
+      "description": "Barrio popular del poniente de Monterrey con casas de block sin pintar, rejas oxidadas, cables cruzados sobre la calle y talleres mecánicos abiertos hasta tarde. La casa de los Treviño conserva una mesa de fórmica, fotografías familiares y una ventana cubierta con cortina de flores."
+    },
+    {
+      "name": "Habitación 302",
+      "kind": "environment",
+      "description": "Cuarto individual estrecho con paredes color marfil, cama eléctrica, monitor cardíaco, respirador, persianas grises y una ventana desde la que se alcanzan a ver luces rojas de tráfico. Una placa de plástico junto a la puerta identifica al paciente como Rafael Cárdenas."
+    },
+    {
+      "name": "Pulsera roja de Julián",
+      "kind": "prop",
+      "description": "Pulsera trenzada de hilo rojo, descolorida y apretada en tres nudos, guardada por Lucía dentro de una bolsa transparente junto con la fotografía de su hermano."
+    },
+    {
+      "name": "Libreta de turno de Lucía",
+      "kind": "prop",
+      "description": "Cuaderno pequeño de tapas negras con esquinas dobladas, manchas de café y páginas llenas de horarios, dosis y anotaciones que no pertenecen al protocolo médico. Lucía la lleva en el bolsillo interior de su filipina."
+    }
+  ],
+  "rules": [
+    "Al inicio, todos los registros del paciente de la habitación 302 lo identifican como Rafael Cárdenas; únicamente Lucía sabe que su nombre real es Mateo Salgado Villarreal.",
+    "Lucía es la única persona que reconoce a Mateo como el hombre que mató a Julián hace diez años; nadie de su familia, del hospital ni de la policía conoce esa conexión.",
+    "La muerte de Julián fue declarada un asalto sin detenido y nunca se recuperó el arma ni apareció un testigo que identificara al responsable.",
+    "Mateo despierta durante el turno nocturno en que comienza la serie; después de despertar no vuelve a ser tratado como paciente en coma.",
+    "La habitación 302 mantiene el mismo número, distribución y acceso restringido mientras Mateo permanezca internado.",
+    "Lucía trabaja turnos nocturnos de 22:00 a 06:00 y no puede abandonar el hospital durante su jornada sin registrar quién cubre sus pacientes.",
+    "Las cámaras del tercer piso tienen un punto ciego frente a la puerta de servicio de la habitación 302; el hospital sabe que existe, pero no lo comunica oficialmente.",
+    "Nunca hay narrador en off: la información del pasado aparece únicamente mediante conversaciones, objetos, mensajes, documentos o recuerdos visuales de los personajes."
+  ],
+  "episodes": [
+    {
+      "number": 1,
+      "title": "El paciente de la 302",
+      "hook": "El hombre conectado al respirador abre los ojos de golpe, arranca el sensor de su dedo y le susurra a Lucía: «Yo no maté a Julián».",
+      "summary": "Durante su turno nocturno, Lucía descubre que el paciente registrado como Rafael Cárdenas es Mateo Salgado Villarreal, el hombre que ella vio matar a su hermano diez años atrás. Mateo asegura que conoce la verdad sobre Julián, pero antes de explicarla menciona a alguien dentro del hospital.",
+      "cliffhanger": "Mateo alcanza a decir que Rebeca sabe quién mató a Julián; la puerta de servicio se abre y Rebeca pregunta qué nombre acaba de escuchar.",
+      "characters_present": [
+        "Lucía Fernanda Treviño",
+        "Mateo Salgado Villarreal",
+        "Rebeca Elizondo Garza"
+      ],
+      "target_seconds": 90.0,
+      "scenes": [
+        {
+          "idx": 0,
+          "title": "Los ojos abiertos",
+          "setting": "Habitación 302, hospital privado de alta especialidad en Monterrey. 22:17 horas. Luz fría, persianas entreabiertas y el Cerro de la Silla apenas visible entre edificios.",
+          "summary": "El paciente despierta violentamente mientras Lucía revisa sus signos vitales.",
+          "characters_in_scene": [
+            "Lucía Fernanda Treviño",
+            "Mateo Salgado Villarreal"
+          ],
+          "shots": [
+            {
+              "idx": 0,
+              "scene_idx": 0,
+              "visual_description": "Primerísimo primer plano del ojo de Mateo abriéndose de golpe bajo la luz azulada del monitor.",
+              "first_frame_desc": "Ojo cerrado de Mateo, piel sudada y cables desenfocados.",
+              "last_frame_desc": "El ojo queda completamente abierto, alerta y aterrorizado.",
+              "motion_desc": "El párpado tiembla; el monitor acelera sus pitidos.",
+              "shot_type": "extreme_close_up",
+              "camera_angle": "eye_level",
+              "camera_movement": "zoom",
+              "target_duration_s": 3.0,
+              "characters_present": [
+                "Mateo Salgado Villarreal"
+              ],
+              "assets_present": [
+                "respirador",
+                "monitor cardíaco",
+                "cables médicos"
+              ],
+              "reference_frame_paths": []
+            },
+            {
+              "idx": 1,
+              "scene_idx": 0,
+              "visual_description": "Mateo levanta la mano con dificultad, se arranca el sensor del dedo y busca desesperado el rostro de Lucía.",
+              "first_frame_desc": "Mano de Mateo inmóvil junto a la sábana.",
+              "last_frame_desc": "El sensor cae al piso mientras Mateo fija la mirada en Lucía.",
+              "motion_desc": "Tira del cable; Lucía se gira bruscamente desde el monitor.",
+              "shot_type": "medium",
+              "camera_angle": "eye_level",
+              "camera_movement": "dolly_in",
+              "speaker": "Mateo Salgado Villarreal",
+              "dialogue": "Yo no maté a Julián.",
+              "target_duration_s": 5.0,
+              "characters_present": [
+                "Mateo Salgado Villarreal",
+                "Lucía Fernanda Treviño"
+              ],
+              "assets_present": [
+                "sensor de oxígeno",
+                "monitor cardíaco",
+                "respirador"
+              ],
+              "reference_frame_paths": []
+            },
+            {
+              "idx": 2,
+              "scene_idx": 0,
+              "visual_description": "Lucía queda congelada junto a la cama; su mano aprieta el expediente digital donde aparece el nombre Rafael Cárdenas.",
+              "first_frame_desc": "Lucía de perfil, pantalla del expediente iluminándole el rostro.",
+              "last_frame_desc": "Sus ojos se clavan en la pequeña cicatriz de quemadura detrás de la oreja derecha de Mateo.",
+              "motion_desc": "Baja lentamente la tableta y contiene el impulso de llamar al código azul.",
+              "shot_type": "close_up",
+              "camera_angle": "eye_level",
+              "camera_movement": "static",
+              "speaker": "Lucía Fernanda Treviño",
+              "dialogue": "¿Cómo sabes ese nombre?",
+              "target_duration_s": 4.0,
+              "characters_present": [
+                "Lucía Fernanda Treviño",
+                "Mateo Salgado Villarreal"
+              ],
+              "assets_present": [
+                "tableta hospitalaria",
+                "expediente digital"
+              ],
+              "reference_frame_paths": []
+            }
+          ],
+          "environment": "Pitidos acelerados, respirador forzado y aire acondicionado constante.",
+          "props": [
+            "tableta hospitalaria",
+            "respirador",
+            "monitor cardíaco",
+            "sensor de oxígeno"
+          ],
+          "continuation_from_prev": ""
+        },
+        {
+          "idx": 1,
+          "title": "Rafael Cárdenas",
+          "setting": "Habitación 302, minutos después. La puerta permanece cerrada y el acceso restringido. Afuera, el pasillo está vacío.",
+          "summary": "Lucía confirma que el paciente es Mateo y lo confronta con el recuerdo del asesinato de Julián.",
+          "characters_in_scene": [
+            "Lucía Fernanda Treviño",
+            "Mateo Salgado Villarreal"
+          ],
+          "shots": [
+            {
+              "idx": 0,
+              "scene_idx": 1,
+              "visual_description": "Lucía acerca la tableta al rostro de Mateo y le muestra la fotografía de identificación registrada bajo el nombre Rafael Cárdenas.",
+              "first_frame_desc": "Pantalla con el nombre RAFAEL CÁRDENAS y una fotografía antigua de Mateo.",
+              "last_frame_desc": "Mateo mira la pantalla y aparta la vista con dificultad.",
+              "motion_desc": "Lucía cambia la pantalla y revela los datos biométricos coincidentes.",
+              "shot_type": "over_shoulder",
+              "camera_angle": "eye_level",
+              "camera_movement": "static",
+              "speaker": "Lucía Fernanda Treviño",
+              "dialogue": "Aquí dice Rafael Cárdenas. Pero tú eres Mateo Salgado Villarreal.",
+              "target_duration_s": 6.0,
+              "characters_present": [
+                "Lucía Fernanda Treviño",
+                "Mateo Salgado Villarreal"
+              ],
+              "assets_present": [
+                "tableta hospitalaria",
+                "expediente digital"
+              ],
+              "reference_frame_paths": []
+            },
+            {
+              "idx": 1,
+              "scene_idx": 1,
+              "visual_description": "Primer plano de Mateo: respiración corta, barba de varios días y la marca de quemadura visible detrás de la oreja.",
+              "first_frame_desc": "Mateo con los ojos cerrados, mandíbula tensa.",
+              "last_frame_desc": "Abre los ojos y mira directamente a Lucía.",
+              "motion_desc": "Traga saliva; intenta incorporarse, pero el respirador lo obliga a detenerse.",
+              "shot_type": "close_up",
+              "camera_angle": "low",
+              "camera_movement": "dolly_in",
+              "speaker": "Mateo Salgado Villarreal",
+              "dialogue": "Bájale a la voz. Si saben que desperté, me rematan.",
+              "target_duration_s": 5.0,
+              "characters_present": [
+                "Mateo Salgado Villarreal",
+                "Lucía Fernanda Treviño"
+              ],
+              "assets_present": [
+                "respirador",
+                "barandilla de cama"
+              ],
+              "reference_frame_paths": []
+            },
+            {
+              "idx": 2,
+              "scene_idx": 1,
+              "visual_description": "Lucía se inclina sobre la cama, furiosa, con el expediente apretado contra el pecho.",
+              "first_frame_desc": "Lucía de pie al borde de la cama, rígida y contenida.",
+              "last_frame_desc": "Su rostro queda a centímetros del de Mateo.",
+              "motion_desc": "Se acerca de golpe y baja la voz para no ser escuchada en el pasillo.",
+              "shot_type": "over_shoulder",
+              "camera_angle": "eye_level",
+              "camera_movement": "track",
+              "speaker": "Lucía Fernanda Treviño",
+              "dialogue": "Yo te vi, cabrón. En el taller. Tú le disparaste a mi hermano.",
+              "target_duration_s": 7.0,
+              "characters_present": [
+                "Lucía Fernanda Treviño",
+                "Mateo Salgado Villarreal"
+              ],
+              "assets_present": [
+                "expediente digital",
+                "cama hospitalaria"
+              ],
+              "reference_frame_paths": []
+            },
+            {
+              "idx": 3,
+              "scene_idx": 1,
+              "visual_description": "Mateo observa la pulsera roja de hilo que cuelga del llavero de Lucía, idéntica a la que llevaba Julián en las fotografías familiares.",
+              "first_frame_desc": "Llavero de Lucía con una pulsera roja de hilo enganchada.",
+              "last_frame_desc": "Mateo levanta la mirada, sorprendido por el objeto.",
+              "motion_desc": "Su mano tiembla sobre la sábana, buscando señalar la pulsera.",
+              "shot_type": "close_up",
+              "camera_angle": "high",
+              "camera_movement": "tilt",
+              "speaker": "Mateo Salgado Villarreal",
+              "dialogue": "No fue un disparo. A Julián lo entregaron.",
+              "target_duration_s": 6.0,
+              "characters_present": [
+                "Mateo Salgado Villarreal",
+                "Lucía Fernanda Treviño"
+              ],
+              "assets_present": [
+                "llavero",
+                "pulsera roja de hilo",
+                "sábana hospitalaria"
+              ],
+              "reference_frame_paths": []
+            }
+          ],
+          "environment": "El monitor vuelve a estabilizarse, pero se escuchan pasos lejanos y el zumbido de la cerradura electrónica.",
+          "props": [
+            "tableta hospitalaria",
+            "llavero",
+            "pulsera roja de hilo",
+            "cama hospitalaria"
+          ],
+          "continuation_from_prev": "Mateo despertó, se arrancó el sensor y Lucía descubrió que el paciente registrado como Rafael Cárdenas es Mateo."
+        },
+        {
+          "idx": 2,
+          "title": "El nombre prohibido",
+          "setting": "Habitación 302 y acceso de servicio contiguo. 22:24 horas. La luz del pasillo se filtra por debajo de la puerta.",
+          "summary": "Mateo intenta revelar quién encubrió el asesinato, mientras Lucía decide mantenerlo con vida y ocultar que despertó.",
+          "characters_in_scene": [
+            "Lucía Fernanda Treviño",
+            "Mateo Salgado Villarreal",
+            "Rebeca Elizondo Garza"
+          ],
+          "shots": [
+            {
+              "idx": 0,
+              "scene_idx": 2,
+              "visual_description": "Lucía mira hacia la puerta y silencia la alarma del monitor con una mano mientras tapa parcialmente la cámara interior con una carpeta.",
+              "first_frame_desc": "Luz roja de la cámara reflejada en la carpeta de Lucía.",
+              "last_frame_desc": "La cámara queda bloqueada y Lucía vuelve junto a Mateo.",
+              "motion_desc": "Cruza el cuarto rápido, apaga la alarma y oculta el lente.",
+              "shot_type": "medium",
+              "camera_angle": "eye_level",
+              "camera_movement": "track",
+              "speaker": "Lucía Fernanda Treviño",
+              "dialogue": "Vas a respirar despacio. Nadie se entera de que despertaste.",
+              "target_duration_s": 6.0,
+              "characters_present": [
+                "Lucía Fernanda Treviño",
+                "Mateo Salgado Villarreal"
+              ],
+              "assets_present": [
+                "cámara interior",
+                "carpeta clínica",
+                "monitor cardíaco"
+              ],
+              "reference_frame_paths": []
+            },
+            {
+              "idx": 1,
+              "scene_idx": 2,
+              "visual_description": "Mateo agarra débilmente la muñeca de Lucía y deja ver parte del tatuaje en su antebrazo bajo la bata.",
+              "first_frame_desc": "Mano de Mateo cerrándose sobre la muñeca de Lucía.",
+              "last_frame_desc": "Lucía mira la mano de Mateo y luego su rostro.",
+              "motion_desc": "Mateo tira de ella hacia la cama; Lucía intenta soltarse sin hacer ruido.",
+              "shot_type": "close_up",
+              "camera_angle": "eye_level",
+              "camera_movement": "dolly_in",
+              "speaker": "Mateo Salgado Villarreal",
+              "dialogue": "El que pagó por Julián sigue aquí. En este hospital.",
+              "target_duration_s": 6.0,
+              "characters_present": [
+                "Mateo Salgado Villarreal",
+                "Lucía Fernanda Treviño"
+              ],
+              "assets_present": [
+                "tatuaje de Mateo",
+                "bata hospitalaria",
+                "cama hospitalaria"
+              ],
+              "reference_frame_paths": []
+            },
+            {
+              "idx": 2,
+              "scene_idx": 2,
+              "visual_description": "Lucía aprieta la mandíbula y acerca el rostro a Mateo, mientras la cerradura electrónica de la puerta emite un pitido.",
+              "first_frame_desc": "Los dos rostros enfrentados, separados por pocos centímetros.",
+              "last_frame_desc": "La luz verde de la cerradura se enciende detrás de ellos.",
+              "motion_desc": "Lucía susurra; Mateo gira los ojos hacia la puerta.",
+              "shot_type": "two_shot",
+              "camera_angle": "eye_level",
+              "camera_movement": "static",
+              "speaker": "Lucía Fernanda Treviño",
+              "dialogue": "Dime quién. Ahorita.",
+              "target_duration_s": 3.0,
+              "characters_present": [
+                "Lucía Fernanda Treviño",
+                "Mateo Salgado Villarreal"
+              ],
+              "assets_present": [
+                "cerradura electrónica",
+                "puerta de servicio"
+              ],
+              "reference_frame_paths": []
+            },
+            {
+              "idx": 3,
+              "scene_idx": 2,
+              "visual_description": "Mateo mira la puerta abrirse apenas y vuelve la cara hacia Lucía, aterrorizado.",
+              "first_frame_desc": "La puerta de servicio empieza a abrirse en la oscuridad.",
+              "last_frame_desc": "Mateo queda con la boca abierta, a punto de decir el nombre.",
+              "motion_desc": "Se incorpora unos centímetros contra el respirador mientras Lucía se vuelve hacia la puerta.",
+              "shot_type": "over_shoulder",
+              "camera_angle": "low",
+              "camera_movement": "dolly_in",
+              "speaker": "Mateo Salgado Villarreal",
+              "dialogue": "Rebeca... ella sabe quién mató a Julián.",
+              "target_duration_s": 7.0,
+              "characters_present": [
+                "Mateo Salgado Villarreal",
+                "Lucía Fernanda Treviño",
+                "Rebeca Elizondo Garza"
+              ],
+              "assets_present": [
+                "puerta de servicio",
+                "respirador",
+                "cerradura electrónica"
+              ],
+              "reference_frame_paths": []
+            },
+            {
+              "idx": 4,
+              "scene_idx": 2,
+              "visual_description": "Rebeca aparece en el umbral con su bata impecable y el broche de cruz, mirando primero a Mateo despierto y luego a Lucía.",
+              "first_frame_desc": "Silueta de Rebeca en la puerta entreabierta.",
+              "last_frame_desc": "Su rostro queda perfectamente iluminado; sus ojos se fijan en Lucía.",
+              "motion_desc": "Empuja la puerta hasta abrirla por completo y entra un paso.",
+              "shot_type": "medium",
+              "camera_angle": "low",
+              "camera_movement": "dolly_in",
+              "speaker": "Rebeca Elizondo Garza",
+              "dialogue": "¿Qué nombre acaba de decir, enfermera Treviño?",
+              "target_duration_s": 6.0,
+              "characters_present": [
+                "Rebeca Elizondo Garza",
+                "Lucía Fernanda Treviño",
+                "Mateo Salgado Villarreal"
+              ],
+              "assets_present": [
+                "broche plateado de cruz",
+                "puerta de servicio",
+                "bata blanca"
+              ],
+              "reference_frame_paths": []
+            }
+          ],
+          "environment": "La puerta electrónica pita una sola vez; el pasillo queda en silencio absoluto.",
+          "props": [
+            "carpeta clínica",
+            "cámara interior",
+            "monitor cardíaco",
+            "puerta de servicio",
+            "broche plateado de cruz"
+          ],
+          "continuation_from_prev": "Mateo afirma que Julián fue entregado y que quien pagó por él todavía trabaja en el hospital."
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "title": "El nombre que no existe",
+      "hook": "Rebeca entra por la puerta de servicio y encuentra a Mateo despierto, sin respirador, mientras Lucía le aprieta la sábana contra la boca para hacerlo callar.",
+      "summary": "Rebeca intenta imponer el protocolo y sacar a Lucía de la habitación, pero Mateo la acusa de haber alterado el expediente de Julián. Cuando Rebeca amenaza con destruir la carrera de Lucía, Mateo revela que la noche del crimen alguien de su propia familia lo esperaba.",
+      "cliffhanger": "Mateo mira a Lucía y dice: \"Julián no fue a verme por accidente. Tu mamá lo citó esa noche.\"",
+      "characters_present": [
+        "Lucía Fernanda Treviño",
+        "Mateo Salgado Villarreal",
+        "Rebeca Elizondo Garza"
+      ],
+      "target_seconds": 90.0,
+      "scenes": [
+        {
+          "idx": 0,
+          "title": "La puerta de servicio",
+          "setting": "Habitación 302, tercer piso del hospital privado. Turno nocturno, poco después de medianoche. Luz blanca, monitores encendidos y la puerta de servicio abierta.",
+          "summary": "Rebeca sorprende a Lucía junto a Mateo y exige saber qué nombre escuchó. Lucía intenta cubrir la identidad de Mateo, pero él confirma que ya despertó y acusa a Rebeca de conocer el encubrimiento.",
+          "characters_in_scene": [
+            "Lucía Fernanda Treviño",
+            "Mateo Salgado Villarreal",
+            "Rebeca Elizondo Garza"
+          ],
+          "shots": [
+            {
+              "idx": 0,
+              "scene_idx": 0,
+              "visual_description": "La puerta de servicio se abre de golpe. Rebeca aparece en el marco; Lucía está inclinada sobre Mateo, con la mano apretando la sábana contra su pecho.",
+              "first_frame_desc": "Primer plano de la chapa girando y la puerta de servicio abriéndose.",
+              "last_frame_desc": "Rebeca queda completamente visible, mirando a los dos desde la entrada.",
+              "motion_desc": "La cámara hace un dolly in rápido hacia Rebeca.",
+              "shot_type": "close_up",
+              "camera_angle": "low",
+              "camera_movement": "dolly_in",
+              "speaker": "Rebeca Elizondo Garza",
+              "dialogue": "¿Qué nombre acabas de decir, Lucía?",
+              "target_duration_s": 6.0,
+              "characters_present": [
+                "Lucía Fernanda Treviño",
+                "Mateo Salgado Villarreal",
+                "Rebeca Elizondo Garza"
+              ],
+              "assets_present": [
+                "puerta de servicio",
+                "cama hospitalaria",
+                "monitor cardíaco"
+              ],
+              "reference_frame_paths": []
+            },
+            {
+              "idx": 1,
+              "scene_idx": 0,
+              "visual_description": "Lucía retira lentamente la mano de la sábana y se coloca entre Rebeca y Mateo. Mateo respira por sí mismo, pálido, pero con los ojos abiertos.",
+              "first_frame_desc": "Lucía de espaldas a Mateo, bloqueando la vista de Rebeca.",
+              "last_frame_desc": "Mateo queda visible sobre el hombro de Lucía, mirando fijamente a Rebeca.",
+              "motion_desc": "La cámara se desplaza en semicírculo alrededor de Lucía.",
+              "shot_type": "over_shoulder",
+              "camera_angle": "eye_level",
+              "camera_movement": "track",
+              "speaker": "Lucía Fernanda Treviño",
+              "dialogue": "No dije ningún nombre. El paciente se agitó y ya.",
+              "target_duration_s": 7.0,
+              "characters_present": [
+                "Lucía Fernanda Treviño",
+                "Mateo Salgado Villarreal",
+                "Rebeca Elizondo Garza"
+              ],
+              "assets_present": [
+                "cama hospitalaria",
+                "sábana blanca",
+                "monitor cardíaco"
+              ],
+              "reference_frame_paths": []
+            },
+            {
+              "idx": 2,
+              "scene_idx": 0,
+              "visual_description": "Mateo se incorpora con esfuerzo. La marca de quemadura detrás de su oreja queda expuesta; su mano busca el borde de la cama.",
+              "first_frame_desc": "Primer plano de los dedos de Mateo aferrándose al barandal.",
+              "last_frame_desc": "Mateo mira a Rebeca con el rostro tenso.",
+              "motion_desc": "La cámara sube con el movimiento de Mateo hasta un primer plano de su cara.",
+              "shot_type": "medium",
+              "camera_angle": "eye_level",
+              "camera_movement": "tilt",
+              "speaker": "Mateo Salgado Villarreal",
+              "dialogue": "Dijo Rebeca. La que sabe quién mató a Julián.",
+              "target_duration_s": 8.0,
+              "characters_present": [
+                "Lucía Fernanda Treviño",
+                "Mateo Salgado Villarreal",
+                "Rebeca Elizondo Garza"
+              ],
+              "assets_present": [
+                "cama hospitalaria",
+                "barandal metálico",
+                "monitor cardíaco"
+              ],
+              "reference_frame_paths": []
+            },
+            {
+              "idx": 3,
+              "scene_idx": 0,
+              "visual_description": "Rebeca cierra la puerta de servicio con llave y se acerca sin perder la calma. Lucía mira de reojo el botón de llamada del monitor.",
+              "first_frame_desc": "Rebeca gira la llave en la cerradura.",
+              "last_frame_desc": "Rebeca queda a pocos pasos de Lucía, con el broche plateado de cruz iluminado.",
+              "motion_desc": "Seguimiento lateral mientras Rebeca cruza la habitación.",
+              "shot_type": "medium",
+              "camera_angle": "eye_level",
+              "camera_movement": "track",
+              "speaker": "Rebeca Elizondo Garza",
+              "dialogue": "Bájale, mijita. Este paciente se llama Rafael Cárdenas y está bajo protocolo de aislamiento.",
+              "target_duration_s": 10.0,
+              "characters_present": [
+                "Lucía Fernanda Treviño",
+                "Mateo Salgado Villarreal",
+                "Rebeca Elizondo Garza"
+              ],
+              "assets_present": [
+                "llave de la puerta",
+                "broche plateado de cruz",
+                "botón de llamada"
+              ],
+              "reference_frame_paths": []
+            },
+            {
+              "idx": 4,
+              "scene_idx": 0,
+              "visual_description": "Lucía toma el expediente digital de la estación junto a la cama y lo gira hacia Rebeca. En la pantalla aparece el nombre Rafael Cárdenas.",
+              "first_frame_desc": "Pantalla del expediente con el nombre Rafael Cárdenas.",
+              "last_frame_desc": "El pulgar de Lucía señala la fecha de ingreso alterada.",
+              "motion_desc": "La cámara hace zoom sobre las fechas y luego vuelve al rostro de Lucía.",
+              "shot_type": "close_up",
+              "camera_angle": "high",
+              "camera_movement": "zoom",
+              "speaker": "Lucía Fernanda Treviño",
+              "dialogue": "El expediente dice una cosa. Su cara dice otra. Y usted entró por una puerta que no registra cámaras.",
+              "target_duration_s": 11.0,
+              "characters_present": [
+                "Lucía Fernanda Treviño",
+                "Mateo Salgado Villarreal",
+                "Rebeca Elizondo Garza"
+              ],
+              "assets_present": [
+                "tableta hospitalaria",
+                "expediente digital",
+                "monitor de seguridad"
+              ],
+              "reference_frame_paths": []
+            }
+          ],
+          "environment": "Zumbido constante del aire acondicionado, pitidos bajos del monitor y lluvia lejana contra los ventanales.",
+          "props": [
+            "cama hospitalaria",
+            "respirador desconectado",
+            "tableta hospitalaria",
+            "puerta de servicio",
+            "monitor cardíaco",
+            "botón de llamada"
+          ],
+          "continuation_from_prev": "Hereda la puerta de servicio recién abierta y la tensión de que Rebeca preguntó qué nombre escuchó. Mateo sigue despierto y ya no está conectado al respirador."
+        },
+        {
+          "idx": 1,
+          "title": "La versión oficial",
+          "setting": "Habitación 302, mismo turno nocturno. La puerta de servicio permanece cerrada con llave; el pasillo exterior está vacío y el Cerro de la Silla apenas se distingue entre los ventanales.",
+          "summary": "Rebeca amenaza a Lucía con reportarla por violar el protocolo. Mateo insiste en que el hospital borró pruebas del asesinato de Julián y suelta una revelación que vincula a la familia Treviño.",
+          "characters_in_scene": [
+            "Lucía Fernanda Treviño",
+            "Mateo Salgado Villarreal",
+            "Rebeca Elizondo Garza"
+          ],
+          "shots": [
+            {
+              "idx": 5,
+              "scene_idx": 1,
+              "visual_description": "Rebeca le arrebata la tableta a Lucía y la deja boca abajo sobre la mesa. Su voz sigue baja, pero su mirada se endurece.",
+              "first_frame_desc": "La mano de Rebeca cayendo sobre la tableta.",
+              "last_frame_desc": "Lucía queda frente a Rebeca, con la mandíbula apretada.",
+              "motion_desc": "Corte seco al golpe de la tableta y acercamiento lento a los rostros.",
+              "shot_type": "close_up",
+              "camera_angle": "eye_level",
+              "camera_movement": "dolly_in",
+              "speaker": "Rebeca Elizondo Garza",
+              "dialogue": "Te vas a retirar de esta habitación. Si no, mañana firmas tu baja. Sin referencias, claro.",
+              "target_duration_s": 9.0,
+              "characters_present": [
+                "Lucía Fernanda Treviño",
+                "Mateo Salgado Villarreal",
+                "Rebeca Elizondo Garza"
+              ],
+              "assets_present": [
+                "tableta hospitalaria",
+                "expediente digital"
+              ],
+              "reference_frame_paths": []
+            },
+            {
+              "idx": 6,
+              "scene_idx": 1,
+              "visual_description": "Lucía no se mueve. Su cicatriz de la ceja queda marcada bajo la luz fría mientras Mateo observa a Rebeca desde la cama.",
+              "first_frame_desc": "Primer plano de la cicatriz de Lucía y sus ojos fijos.",
+              "last_frame_desc": "Lucía se inclina hacia Rebeca, invadiendo su espacio.",
+              "motion_desc": "Dolly in muy lento, sin cortar el silencio entre ambas.",
+              "shot_type": "close_up",
+              "camera_angle": "eye_level",
+              "camera_movement": "dolly_in",
+              "speaker": "Lucía Fernanda Treviño",
+              "dialogue": "No me corra con diminutivos. Diez años llevo esperando que alguien diga la verdad.",
+              "target_duration_s": 8.0,
+              "characters_present": [
+                "Lucía Fernanda Treviño",
+                "Mateo Salgado Villarreal",
+                "Rebeca Elizondo Garza"
+              ],
+              "assets_present": [
+                "reloj digital",
+                "filipina azul marino"
+              ],
+              "reference_frame_paths": []
+            },
+            {
+              "idx": 7,
+              "scene_idx": 1,
+              "visual_description": "Mateo levanta la mano y señala con dificultad la tableta. El monitor cardíaco acelera ligeramente.",
+              "first_frame_desc": "La mano de Mateo levantándose desde la sábana.",
+              "last_frame_desc": "Su dedo queda apuntando a Rebeca.",
+              "motion_desc": "Paneo desde la mano de Mateo hasta el rostro de Rebeca.",
+              "shot_type": "medium",
+              "camera_angle": "low",
+              "camera_movement": "pan_right",
+              "speaker": "Mateo Salgado Villarreal",
+              "dialogue": "No fue un asalto. Ella quitó el reporte de la cámara esa noche.",
+              "target_duration_s": 8.0,
+              "characters_present": [
+                "Lucía Fernanda Treviño",
+                "Mateo Salgado Villarreal",
+                "Rebeca Elizondo Garza"
+              ],
+              "assets_present": [
+                "monitor cardíaco",
+                "tableta hospitalaria"
+              ],
+              "reference_frame_paths": []
+            },
+            {
+              "idx": 8,
+              "scene_idx": 1,
+              "visual_description": "Rebeca se queda inmóvil. Por primera vez pierde la calma; sus dedos aprietan el broche de cruz hasta clavarse en la tela.",
+              "first_frame_desc": "Dedos de Rebeca apretando el broche plateado.",
+              "last_frame_desc": "Rebeca mira a Mateo con miedo contenido.",
+              "motion_desc": "Zoom lento desde el broche hasta sus ojos.",
+              "shot_type": "extreme_close_up",
+              "camera_angle": "eye_level",
+              "camera_movement": "zoom",
+              "speaker": "Rebeca Elizondo Garza",
+              "dialogue": "Tú no estabas ahí. No sabes lo que viste.",
+              "target_duration_s": 7.0,
+              "characters_present": [
+                "Lucía Fernanda Treviño",
+                "Mateo Salgado Villarreal",
+                "Rebeca Elizondo Garza"
+              ],
+              "assets_present": [
+                "broche plateado de cruz",
+                "bata blanca"
+              ],
+              "reference_frame_paths": []
+            },
+            {
+              "idx": 9,
+              "scene_idx": 1,
+              "visual_description": "Lucía se vuelve hacia Mateo, confundida y furiosa. Él evita sus ojos, como si midiera el daño de lo que va a decir.",
+              "first_frame_desc": "Lucía girando bruscamente hacia Mateo.",
+              "last_frame_desc": "Mateo levanta la mirada y queda frente a ella.",
+              "motion_desc": "Paneo rápido de Rebeca a Mateo, terminando en un primer plano compartido.",
+              "shot_type": "over_shoulder",
+              "camera_angle": "eye_level",
+              "camera_movement": "pan_left",
+              "speaker": "Lucía Fernanda Treviño",
+              "dialogue": "¿Qué más sabes de mi hermano?",
+              "target_duration_s": 5.0,
+              "characters_present": [
+                "Lucía Fernanda Treviño",
+                "Mateo Salgado Villarreal",
+                "Rebeca Elizondo Garza"
+              ],
+              "assets_present": [
+                "cama hospitalaria",
+                "monitor cardíaco"
+              ],
+              "reference_frame_paths": []
+            },
+            {
+              "idx": 10,
+              "scene_idx": 1,
+              "visual_description": "Mateo se acerca a Lucía desde la cama. Rebeca intenta interrumpirlo, pero él habla antes, con voz baja y firme.",
+              "first_frame_desc": "Mateo inclinado hacia Lucía, Rebeca desenfocada detrás.",
+              "last_frame_desc": "Lucía queda congelada al escuchar la última palabra de Mateo.",
+              "motion_desc": "Dolly in sostenido hasta un primer plano de Mateo y Lucía.",
+              "shot_type": "close_up",
+              "camera_angle": "eye_level",
+              "camera_movement": "dolly_in",
+              "speaker": "Mateo Salgado Villarreal",
+              "dialogue": "Julián no fue a verme por accidente. Tu mamá lo citó esa noche.",
+              "target_duration_s": 11.0,
+              "characters_present": [
+                "Lucía Fernanda Treviño",
+                "Mateo Salgado Villarreal",
+                "Rebeca Elizondo Garza"
+              ],
+              "assets_present": [
+                "cama hospitalaria",
+                "monitor cardíaco",
+                "broche plateado de cruz"
+              ],
+              "reference_frame_paths": []
+            }
+          ],
+          "environment": "El monitor acelera al final. Afuera, un elevador suena y vuelve el silencio. La luz del Cerro de la Silla desaparece tras una nube.",
+          "props": [
+            "tableta hospitalaria",
+            "expediente digital",
+            "monitor cardíaco",
+            "broche plateado de cruz",
+            "cama hospitalaria"
+          ],
+          "continuation_from_prev": "Rebeca permanece dentro de la habitación 302, la puerta de servicio está cerrada y Lucía todavía intenta impedir que Mateo revele su identidad."
+        }
+      ]
+    }
+  ],
+  "target_episode_seconds": 90.0,
+  "aspect_ratio": "9:16"
+}

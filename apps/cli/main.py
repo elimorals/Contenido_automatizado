@@ -1456,5 +1456,100 @@ def series_produce(
     typer.secho(f"\n✓ {out.video_path}", fg=typer.colors.GREEN, bold=True)
 
 
+
+@series_app.command("new")
+def series_new(
+    premise: Annotated[str, typer.Argument(help="La premisa, en una o dos frases")],
+    slug: Annotated[str, typer.Option(help="Slug (default: del título)")] = "",
+    seconds: Annotated[float, typer.Option(help="Duración por episodio")] = 90.0,
+) -> None:
+    """Crea la biblia de una serie desde una premisa en lenguaje natural.
+
+    El LLM escribe personajes, locaciones y reglas; las voces se asignan desde
+    el catálogo real de TTS.
+    """
+    from core.long_form.architect import create_bible
+    from core.long_form.series import bible_path, save_bible
+
+    typer.secho("\n📖 Escribiendo la biblia…", fg=typer.colors.GREEN, bold=True)
+    try:
+        bible = asyncio.run(create_bible(premise, slug=slug, episode_seconds=seconds))
+    except Exception as e:  # noqa: BLE001
+        typer.secho(f"✗ {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from e
+
+    if bible_path(bible.slug).exists():
+        typer.secho(
+            f"✗ '{bible.slug}' ya existe. Usa --slug para otro nombre.",
+            fg=typer.colors.RED, err=True,
+        )
+        raise typer.Exit(code=1)
+
+    path = save_bible(bible)
+    typer.secho(f"\n✓ {bible.title}", fg=typer.colors.GREEN, bold=True)
+    typer.echo(f"  {bible.logline}")
+    typer.echo(f"\n  Personajes ({len(bible.characters)}):")
+    for c in bible.characters:
+        typer.echo(f"    {c.name:24} {c.voice}")
+    typer.echo(f"  Locaciones: {', '.join(a.name for a in bible.assets) or '—'}")
+    typer.echo(f"  Reglas    : {len(bible.rules)}")
+    typer.echo(f"\n  → {path}")
+    typer.echo(f"  Siguiente: `contenido series plan {bible.slug}`")
+
+
+@series_app.command("auto")
+def series_auto(
+    premise: Annotated[str, typer.Argument(help="La premisa (o '' si la serie ya existe)")] = "",
+    slug: Annotated[str, typer.Option(help="Slug; si ya existe, añade episodios")] = "",
+    episodes: Annotated[int, typer.Option(min=1, max=20, help="Cuántos episodios")] = 1,
+    seconds: Annotated[float, typer.Option(help="Duración por episodio")] = 90.0,
+    direction: Annotated[str, typer.Option(help="Indicación del showrunner")] = "",
+    produce: Annotated[
+        bool,
+        typer.Option("--produce/--plan-only", help="Producir o solo planificar"),
+    ] = True,
+) -> None:
+    """Pipeline completo: premisa → biblia → episodios planificados y producidos.
+
+    Es el harness desatendido. Si el slug ya tiene biblia, la reusa y añade
+    episodios — los personajes y sus retratos son el activo de la serie.
+
+    `--plan-only` escribe los guiones sin gastar en generación visual: el gate
+    barato para revisar antes de pagar.
+    """
+    from core.long_form.architect import run_series
+
+    def progress(phase: str, detail: str) -> None:
+        color = {
+            "biblia": typer.colors.CYAN,
+            "plan": typer.colors.BLUE,
+            "produce": typer.colors.GREEN,
+            "error": typer.colors.RED,
+        }.get(phase, typer.colors.WHITE)
+        typer.secho(f"  [{phase}] {detail}", fg=color)
+
+    mode = "produciendo" if produce else "solo planificando"
+    typer.secho(
+        f"\n🎬 Serie automática — {episodes} episodio(s), {mode}",
+        fg=typer.colors.GREEN, bold=True,
+    )
+    try:
+        bible = asyncio.run(run_series(
+            premise, slug=slug, episodes=episodes, episode_seconds=seconds,
+            produce=produce, direction=direction, on_progress=progress,
+        ))
+    except Exception as e:  # noqa: BLE001
+        typer.secho(f"\n✗ {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from e
+
+    done = [e for e in bible.episodes if e.video_path]
+    typer.secho(f"\n✓ {bible.title}", fg=typer.colors.GREEN, bold=True)
+    typer.echo(f"  {len(bible.episodes)} episodios · {len(done)} producidos")
+    for e in bible.episodes[-episodes:]:
+        mark = "✓" if e.video_path else "○"
+        typer.echo(f"  {mark} E{e.number:03d} {e.title}")
+        if e.video_path:
+            typer.echo(f"      {e.video_path}")
+
 if __name__ == "__main__":
     app()
