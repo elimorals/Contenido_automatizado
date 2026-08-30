@@ -28,7 +28,7 @@ from core.long_form.prompts import (
     REF_IMAGE_SELECTOR_MULTIMODAL_SYSTEM,
     REF_IMAGE_SELECTOR_TEXT_SYSTEM,
 )
-from core.long_form.types import LongFormError
+from core.long_form.types import LongFormError, resolve_provider
 from shared.config import load_config
 from shared.schemas import ConsistencyAnchor
 
@@ -87,7 +87,7 @@ class ReferenceImageSelector:
 
     def __init__(self, *, provider: str | None = None) -> None:
         cfg = load_config().long_form
-        self.provider = provider or cfg.vlm_model_provider
+        self.provider = provider or resolve_provider(cfg.vlm_model_provider)
         self.model = cfg.vlm_model_name
         self.max_anchors = cfg.max_reference_anchors
 
@@ -224,7 +224,7 @@ class BestImageSelector:
 
     def __init__(self, *, provider: str | None = None) -> None:
         cfg = load_config().long_form
-        self.provider = provider or cfg.vlm_model_provider
+        self.provider = provider or resolve_provider(cfg.vlm_model_provider)
         self.model = cfg.vlm_model_name
         self.accept_threshold = cfg.shot_accept_threshold
 

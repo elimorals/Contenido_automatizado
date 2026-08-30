@@ -21,6 +21,7 @@ from core.long_form.prompts import (
     NARRATIVE_SCRIPT_SYSTEM,
     TALKING_HEAD_SCRIPT_SYSTEM,
 )
+from core.long_form.types import resolve_provider
 from shared.config import load_config
 from shared.schemas import LongFormIntent, NarrativeArc
 
@@ -37,7 +38,7 @@ async def detect_intent(
 ) -> LongFormIntent:
     """Llama al intent router LLM y devuelve el enum."""
     cfg = load_config().long_form
-    p = provider or cfg.chat_model_provider
+    p = provider or resolve_provider(cfg.chat_model_provider)
     try:
         result = await complete_structured(
             prompt=INTENT_ROUTER_HUMAN.format(basic_idea=basic_idea),
@@ -78,7 +79,7 @@ class ScriptPlanner:
 
     def __init__(self, *, provider: str | None = None) -> None:
         cfg = load_config().long_form
-        self.provider = provider or cfg.chat_model_provider
+        self.provider = provider or resolve_provider(cfg.chat_model_provider)
 
     async def plan(
         self,

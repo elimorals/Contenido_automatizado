@@ -161,9 +161,10 @@ class LongFormConfig(BaseModel):
     top_k_retrieval: int = 5
 
     # LLM defaults para agentes long-form
-    chat_model_provider: str = "openrouter"  # usa core.llm_router
+    # Vacío = hereda `llm.default_provider_premium`. Ver `resolve_provider`.
+    chat_model_provider: str = ""
     chat_model_name: str = ""  # vacío = default del provider
-    vlm_model_provider: str = "openrouter"  # para BestImageSelector + ReferenceImageSelector
+    vlm_model_provider: str = ""  # idem, para los selectores VLM
     vlm_model_name: str = "google/gemini-2.5-flash"
 
     # Consistency: N candidates en paralelo para best-of-N

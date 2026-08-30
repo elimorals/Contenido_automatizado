@@ -20,6 +20,7 @@ from core.long_form.prompts import (
     STORYBOARD_ARTIST_SYSTEM,
     VISUAL_DECOMPOSE_SYSTEM,
 )
+from core.long_form.types import resolve_provider
 from shared.config import load_config
 from shared.schemas import (
     CharacterProfile,
@@ -78,7 +79,7 @@ class SceneExtractor:
 
     def __init__(self, *, provider: str | None = None) -> None:
         cfg = load_config().long_form
-        self.provider = provider or cfg.chat_model_provider
+        self.provider = provider or resolve_provider(cfg.chat_model_provider)
 
     async def extract(
         self,
@@ -119,7 +120,7 @@ class StoryboardArtist:
 
     def __init__(self, *, provider: str | None = None) -> None:
         cfg = load_config().long_form
-        self.provider = provider or cfg.chat_model_provider
+        self.provider = provider or resolve_provider(cfg.chat_model_provider)
 
     async def draw_scene(
         self,

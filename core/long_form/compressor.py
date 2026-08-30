@@ -23,6 +23,7 @@ from core.long_form.prompts import (
     COMPRESS_NOVEL_CHUNK_SYSTEM,
 )
 from core.long_form.rag import chunk_text
+from core.long_form.types import resolve_provider
 from shared.config import load_config
 
 
@@ -60,7 +61,7 @@ class NovelCompressor:
         cfg = load_config().long_form
         self.chunk_size = chunk_size or cfg.chunk_size_chars
         self.chunk_overlap = chunk_overlap or cfg.chunk_overlap_chars
-        self.provider = provider or cfg.chat_model_provider
+        self.provider = provider or resolve_provider(cfg.chat_model_provider)
         self.max_concurrent = max_concurrent
 
     def split(self, novel_text: str) -> list[str]:
