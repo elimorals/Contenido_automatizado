@@ -133,7 +133,17 @@ async def ensure_portraits(
 
 
 def _slug(name: str) -> str:
-    return "".join(c if c.isalnum() else "-" for c in name.lower()).strip("-")
+    """Nombre de archivo del retrato. Reusa el slug del arquitecto.
+
+    Tenía su propia versión que NO quitaba acentos, así que producía
+    `lucía-fernanda-treviño.jpg` — un nombre que sobrevive en macOS pero da
+    problemas al versionarlo y al moverlo entre sistemas. Las series ya
+    generadas no se ven afectadas: `ensure_portraits` consulta primero el
+    `portrait_path` guardado en la biblia, que apunta al archivo real.
+    """
+    from core.long_form.architect import slugify
+
+    return slugify(name)
 
 
 # =============================================================================
