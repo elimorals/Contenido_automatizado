@@ -1314,5 +1314,147 @@ def book_produce(
     asyncio.run(_run())
 
 
+# =============================================================================
+# Series subcommands — `contenido series ...` (ADR-038)
+# =============================================================================
+
+series_app = typer.Typer(
+    name="series",
+    help="Microdramas: biblia de serie, episodios, producción",
+    no_args_is_help=True,
+)
+app.add_typer(series_app, name="series")
+
+
+@series_app.command("list")
+def series_list() -> None:
+    """Lista las series con biblia en editorial/series/."""
+    from core.long_form.series import load_bible, list_series
+
+    slugs = list_series()
+    if not slugs:
+        typer.secho("No hay series. Crea una con `series new`.", fg=typer.colors.YELLOW)
+        return
+    for slug in slugs:
+        b = load_bible(slug)
+        done = sum(1 for e in b.episodes if e.video_path)
+        typer.echo(
+            f"  {slug:24} {b.title[:36]:38} "
+            f"{len(b.episodes)} eps ({done} producidos) · {len(b.characters)} personajes"
+        )
+
+
+@series_app.command("show")
+def series_show(slug: Annotated[str, typer.Argument(help="Slug de la serie")]) -> None:
+    """Muestra la biblia: personajes, reglas y episodios."""
+    from core.long_form.series import load_bible
+
+    b = load_bible(slug)
+    typer.secho(f"\n{b.title}", fg=typer.colors.CYAN, bold=True)
+    typer.echo(f"  {b.logline}")
+    typer.echo(f"  género: {b.genre} · {int(b.target_episode_seconds)}s/ep · {b.aspect_ratio.value}")
+
+    typer.secho("\nPersonajes", fg=typer.colors.CYAN)
+    for c in b.characters:
+        mark = "✓" if c.portrait_path and Path(c.portrait_path).exists() else "○"
+        typer.echo(f"  {mark} {c.name:22} {c.appearance[:46]}")
+        typer.echo(f"      voz: {c.voice or '(default)'}")
+
+    if b.rules:
+        typer.secho("\nReglas del mundo", fg=typer.colors.CYAN)
+        for r in b.rules:
+            typer.echo(f"  - {r}")
+
+    typer.secho(f"\nEpisodios ({len(b.episodes)})", fg=typer.colors.CYAN)
+    for e in b.episodes:
+        mark = "✓" if e.video_path else "○"
+        typer.echo(f"  {mark} E{e.number:03d} {e.title[:44]}")
+        typer.echo(f"      corta con: {e.cliffhanger[:60]}")
+
+
+@series_app.command("plan")
+def series_plan(
+    slug: Annotated[str, typer.Argument(help="Slug de la serie")],
+    episode: Annotated[int, typer.Option(help="Número (default: el siguiente)")] = 0,
+    direction: Annotated[str, typer.Option(help="Indicación del showrunner")] = "",
+) -> None:
+    """Planifica el siguiente episodio y lo guarda en la biblia."""
+    from core.long_form.series import EpisodePlanner, load_bible, save_bible
+
+    b = load_bible(slug)
+    n = episode or b.next_episode_number()
+    typer.secho(f"\n📺 Planificando E{n} de {b.title}", fg=typer.colors.GREEN, bold=True)
+
+    ep = asyncio.run(EpisodePlanner().plan(b, number=n, direction=direction))
+    b.episodes = [e for e in b.episodes if e.number != ep.number] + [ep]
+    b.episodes.sort(key=lambda e: e.number)
+    path = save_bible(b)
+
+    typer.secho(f"\n✓ E{ep.number}: {ep.title}", fg=typer.colors.GREEN, bold=True)
+    typer.echo(f"  gancho     : {ep.hook}")
+    typer.echo(f"  resumen    : {ep.summary}")
+    typer.echo(f"  cliffhanger: {ep.cliffhanger}")
+    typer.echo(f"  personajes : {', '.join(ep.characters_present) or '—'}")
+    typer.echo(f"\n  → {path}")
+    typer.echo(f"  Siguiente: `contenido series produce {slug} {ep.number}`")
+
+
+@series_app.command("produce")
+def series_produce(
+    slug: Annotated[str, typer.Argument(help="Slug de la serie")],
+    episode: Annotated[int, typer.Argument(help="Número de episodio")],
+    voice: Annotated[str, typer.Option(help="Voz por defecto")] = "es-MX-DaliaNeural-Female",
+) -> None:
+    """Produce un episodio: retratos → TTS por personaje → shots → stitch."""
+    from core.long_form.narrative_director import produce_episode
+    from core.long_form.scenes import SceneExtractor, StoryboardArtist
+    from core.long_form.series import load_bible, save_bible
+    from shared.schemas import NarrativeArc
+
+    b = load_bible(slug)
+    ep = next((e for e in b.episodes if e.number == episode), None)
+    if ep is None:
+        typer.secho(
+            f"✗ E{episode} no planificado. Corre `series plan {slug}` primero.",
+            fg=typer.colors.RED, err=True,
+        )
+        raise typer.Exit(code=1)
+
+    async def _run():
+        if not ep.scenes:
+            typer.echo("  desglosando el episodio en escenas y shots…")
+            arc = NarrativeArc(
+                title=ep.title,
+                logline=ep.summary[:400],
+                act1_setup=ep.hook,
+                act2_confrontation=ep.summary,
+                act3_resolution=ep.cliffhanger,
+                themes=[b.genre],
+                target_minutes=max(0.6, ep.target_seconds / 60),
+            )
+            scenes = await SceneExtractor().extract(
+                arc, b.characters, target_scenes=2, max_scenes=3,
+            )
+            artist = StoryboardArtist()
+            for sc in scenes:
+                sc.shots = await artist.draw_scene(
+                    sc, b.characters, min_shots=3, max_shots=6,
+                )
+            ep.scenes = scenes
+            save_bible(b)
+        return await produce_episode(b, ep, default_voice=voice)
+
+    typer.secho(f"\n🎬 Produciendo E{episode} de {b.title}", fg=typer.colors.GREEN, bold=True)
+    try:
+        out = asyncio.run(_run())
+    except Exception as e:  # noqa: BLE001
+        typer.secho(f"\n✗ {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from e
+
+    b.episodes = [x if x.number != out.number else out for x in b.episodes]
+    save_bible(b)
+    typer.secho(f"\n✓ {out.video_path}", fg=typer.colors.GREEN, bold=True)
+
+
 if __name__ == "__main__":
     app()

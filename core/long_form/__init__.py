@@ -28,6 +28,13 @@ from core.long_form.consistency import (
 )
 from core.long_form.director import Director, plan_long_form, produce_long_form
 from core.long_form.montage_director import produce_montage
+from core.long_form.narrative_director import ensure_portraits, produce_episode
+from core.long_form.series import (
+    EpisodePlanner,
+    list_series,
+    load_bible,
+    save_bible,
+)
 from core.long_form.rag import RAGStore, chunk_text
 from core.long_form.script_planner import (
     LongFormIntent,
@@ -59,5 +66,11 @@ __all__ = [
     "detect_intent",
     "plan_long_form",
     "produce_long_form",
+    "EpisodePlanner",
+    "ensure_portraits",
+    "list_series",
+    "load_bible",
+    "produce_episode",
+    "save_bible",
     "produce_montage",
 ]

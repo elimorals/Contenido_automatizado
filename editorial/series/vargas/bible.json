@@ -1,0 +1,360 @@
+{
+  "slug": "vargas",
+  "title": "La Herencia de los Vargas",
+  "logline": "Una mesera de Iztapalapa hereda una constructora de Polanco con la condición de casarse en 30 días con el heredero de la familia que destruyó a su padre.",
+  "genre": "melodrama mexicano contemporáneo",
+  "tone": "Melodrama de contrastes de clase. Emoción directa, sin ironía. Los personajes dicen lo que sienten y se acusan de frente. Español de la Ciudad de México, coloquial y creíble — nunca doblaje neutro. Cada episodio corta en el peor momento.",
+  "setting": "Ciudad de México, presente. Dos mundos que se tocan: las fondas y vecindades de Iztapalapa, y las oficinas de cristal y restaurantes de Polanco.",
+  "characters": [
+    {
+      "name": "Renata Vargas",
+      "appearance": "Mujer mexicana de 28 años, morena clara, cabello oscuro recogido en una coleta, delantal de fonda sobre blusa sencilla, ojeras de turnos largos, mirada que no baja",
+      "persona": "Orgullosa y directa. Trabaja desde los 16. Esconde a su hija de todos. No pide perdón por venir de donde viene.",
+      "portrait_alt_views": [],
+      "voice": "es-MX-DaliaNeural-Female"
+    },
+    {
+      "name": "Maximiliano Ferrer",
+      "appearance": "Hombre mexicano de 34 años, tez clara, barba recortada, traje azul marino a la medida sin corbata, reloj discreto, postura contenida",
+      "persona": "Heredero que carga la culpa de su padre. Lleva años pagando en secreto el hospital de la madre de Renata. Incapaz de decir lo que siente.",
+      "portrait_alt_views": [],
+      "voice": "es-MX-JorgeNeural-Male"
+    },
+    {
+      "name": "Doña Chelo",
+      "appearance": "Mujer mexicana de 62 años, baja y robusta, cabello canoso recogido, mandil floreado, manos de cocinera",
+      "persona": "Dueña de la fonda y madre postiza de Renata. Sabe lo de la hija. Dice las verdades que nadie quiere oír.",
+      "portrait_alt_views": [],
+      "voice": "es-MX-CarlotaNeural-Female"
+    },
+    {
+      "name": "Ximena",
+      "appearance": "Niña mexicana de 7 años, cabello oscuro con dos trenzas, uniforme escolar azul, mochila más grande que ella",
+      "persona": "Hija de Renata. Curiosa y observadora. Nadie de la familia Vargas sabe que existe.",
+      "portrait_alt_views": [],
+      "voice": "es-MX-DaliaNeural-Female"
+    }
+  ],
+  "assets": [
+    {
+      "name": "Fonda La Guadalupana",
+      "kind": "environment",
+      "description": "Fonda humilde de Iztapalapa: seis mesas de plástico con manteles de hule floreado, cortina metálica a medio subir, ventilador de techo, imagen de la Virgen sobre la caja, luz de tubo fluorescente"
+    },
+    {
+      "name": "Oficina Ferrer",
+      "kind": "environment",
+      "description": "Piso 30 en Polanco: muro de cristal de suelo a techo con la ciudad detrás, escritorio de madera oscura vacío, sillas de cuero negro, luz fría de la tarde"
+    },
+    {
+      "name": "Testamento",
+      "kind": "prop",
+      "description": "Carpeta de piel color vino con sello notarial dorado, papeles amarillentos mecanografiados, listón rojo"
+    }
+  ],
+  "rules": [
+    "Nadie de la familia Ferrer sabe que Renata tiene una hija — es la bomba de la primera temporada.",
+    "Renata no sabe que Maximiliano pagó el hospital de su madre. Se revela en el episodio 12 o después.",
+    "El plazo del testamento son 30 días y se cuenta en pantalla: cada episodio muestra cuántos quedan.",
+    "Doña Chelo sabe lo de Ximena desde el principio y lo calla.",
+    "Los mundos no se mezclan sin costo: cada vez que Renata pisa Polanco, algo le cuesta.",
+    "Nunca hay narrador en off. Todo se cuenta con escena y diálogo."
+  ],
+  "episodes": [
+    {
+      "number": 1,
+      "title": "Treinta días para casarte",
+      "hook": "Renata le avienta un contrato a Maximiliano en el pecho: \"¿Casarme contigo? ¡Tu familia destruyó a mi papá!\" Él ni siquiera se inmuta: \"Si no firmas en treinta días, pierdes la constructora.\"",
+      "summary": "Renata descubre que su padre le heredó una constructora en Polanco, pero el testamento la obliga a casarse con Maximiliano Ferrer, el heredero de la familia que ella culpa por la ruina de su padre. Cuando está a punto de rechazarlo, una llamada de Ximena amenaza con revelar el secreto que Renata ha protegido durante siete años.",
+      "cliffhanger": "El teléfono de Renata suena con el contacto \"Ximena escuela\". Maximiliano alcanza a leerlo y pregunta: \"¿Quién es Ximena?\"",
+      "characters_present": [
+        "Renata Vargas",
+        "Maximiliano Ferrer"
+      ],
+      "target_seconds": 90.0,
+      "scenes": [
+        {
+          "idx": 0,
+          "title": "La condición del testamento",
+          "setting": "Oficina de cristal de Ferrer Construcciones, Polanco, mediodía. El lujo frío contrasta con el delantal de fonda de Renata.",
+          "summary": "Renata confronta a Maximiliano después de leer la condición del testamento de su padre.",
+          "characters_in_scene": [
+            "Renata Vargas",
+            "Maximiliano Ferrer"
+          ],
+          "shots": [
+            {
+              "idx": 0,
+              "scene_idx": 0,
+              "visual_description": "Un contrato con el sello de Ferrer Construcciones cae sobre un escritorio de cristal. Una mano de Renata lo golpea con furia y varias hojas se deslizan hasta el borde.",
+              "first_frame_desc": "El contrato ocupa todo el cuadro; se lee claramente: \"30 días\" y \"matrimonio con Maximiliano Ferrer\".",
+              "last_frame_desc": "Las hojas quedan desordenadas frente a Maximiliano.",
+              "motion_desc": "Renata lanza el contrato hacia él con violencia.",
+              "shot_type": "extreme_close_up",
+              "camera_angle": "low",
+              "camera_movement": "static",
+              "speaker": "Renata Vargas",
+              "dialogue": "¿Casarme contigo? ¡Tu familia destruyó a mi papá!",
+              "target_duration_s": 7.0,
+              "characters_present": [
+                "Renata Vargas",
+                "Maximiliano Ferrer"
+              ],
+              "assets_present": [
+                "Contrato de herencia",
+                "Escritorio de cristal"
+              ],
+              "reference_frame_paths": []
+            },
+            {
+              "idx": 1,
+              "scene_idx": 0,
+              "visual_description": "Maximiliano levanta lentamente la mirada desde el contrato. Renata está de pie frente a él, con el delantal de fonda, los puños cerrados y la respiración agitada.",
+              "first_frame_desc": "Maximiliano sentado detrás del escritorio; Renata de pie, desafiante.",
+              "last_frame_desc": "Maximiliano sostiene la hoja donde aparece el plazo de treinta días.",
+              "motion_desc": "Él toma el documento y lo levanta entre los dos.",
+              "shot_type": "over_shoulder",
+              "camera_angle": "eye_level",
+              "camera_movement": "dolly_in",
+              "speaker": "Maximiliano Ferrer",
+              "dialogue": "No es una propuesta. Es la última condición del testamento.",
+              "target_duration_s": 7.0,
+              "characters_present": [
+                "Renata Vargas",
+                "Maximiliano Ferrer"
+              ],
+              "assets_present": [
+                "Contrato de herencia"
+              ],
+              "reference_frame_paths": []
+            },
+            {
+              "idx": 2,
+              "scene_idx": 0,
+              "visual_description": "Renata arrebata la hoja y la acerca a sus ojos. El texto legal menciona que ella recibe el control de Vargas Construcciones únicamente si contrae matrimonio con Maximiliano.",
+              "first_frame_desc": "Los dedos de Renata aprietan la hoja hasta arrugarla.",
+              "last_frame_desc": "Su rostro refleja incredulidad y rabia.",
+              "motion_desc": "Sus ojos recorren las líneas; levanta la mirada de golpe.",
+              "shot_type": "close_up",
+              "camera_angle": "eye_level",
+              "camera_movement": "zoom",
+              "speaker": "Renata Vargas",
+              "dialogue": "¿Mi papá era dueño de una constructora? ¿Y tú sabías todo esto?",
+              "target_duration_s": 8.0,
+              "characters_present": [
+                "Renata Vargas",
+                "Maximiliano Ferrer"
+              ],
+              "assets_present": [
+                "Contrato de herencia"
+              ],
+              "reference_frame_paths": []
+            },
+            {
+              "idx": 3,
+              "scene_idx": 0,
+              "visual_description": "Maximiliano se pone de pie. Su traje impecable queda frente al uniforme sencillo de Renata. Entre ambos, sobre el escritorio, se ve el número 30 marcado en rojo.",
+              "first_frame_desc": "Maximiliano se levanta lentamente detrás del escritorio.",
+              "last_frame_desc": "Queda frente a Renata, separados apenas por el escritorio.",
+              "motion_desc": "Maximiliano rodea el escritorio y se acerca sin tocarla.",
+              "shot_type": "medium",
+              "camera_angle": "low",
+              "camera_movement": "track",
+              "speaker": "Maximiliano Ferrer",
+              "dialogue": "Lo sabía desde que murió tu papá. Y también sé que no tienes dinero para mantener esa empresa.",
+              "target_duration_s": 9.0,
+              "characters_present": [
+                "Renata Vargas",
+                "Maximiliano Ferrer"
+              ],
+              "assets_present": [
+                "Contrato de herencia",
+                "Escritorio de cristal"
+              ],
+              "reference_frame_paths": []
+            },
+            {
+              "idx": 4,
+              "scene_idx": 0,
+              "visual_description": "Renata le da una bofetada a Maximiliano. El golpe resuena en la oficina vacía. Él gira el rostro, pero no levanta la mano ni responde.",
+              "first_frame_desc": "Renata levanta la mano, con los ojos llenos de furia.",
+              "last_frame_desc": "Maximiliano queda con el rostro girado por el golpe.",
+              "motion_desc": "La bofetada cruza el cuadro de derecha a izquierda.",
+              "shot_type": "medium",
+              "camera_angle": "eye_level",
+              "camera_movement": "static",
+              "speaker": "Renata Vargas",
+              "dialogue": "¡No vuelvas a hablarme como si me estuvieras haciendo un favor!",
+              "target_duration_s": 7.0,
+              "characters_present": [
+                "Renata Vargas",
+                "Maximiliano Ferrer"
+              ],
+              "assets_present": [],
+              "reference_frame_paths": []
+            }
+          ],
+          "environment": "Aire acondicionado constante, tráfico lejano de Polanco y silencio corporativo.",
+          "props": [
+            "Contrato de herencia",
+            "Escritorio de cristal",
+            "Pluma de lujo"
+          ],
+          "continuation_from_prev": ""
+        },
+        {
+          "idx": 1,
+          "title": "La llamada que no debía sonar",
+          "setting": "La misma oficina de Ferrer Construcciones, unos minutos después. La tensión queda suspendida entre el contrato y los dos.",
+          "summary": "Maximiliano intenta convencer a Renata de aceptar el matrimonio mientras ella lucha por ocultar que necesita el dinero y que tiene una hija.",
+          "characters_in_scene": [
+            "Renata Vargas",
+            "Maximiliano Ferrer"
+          ],
+          "shots": [
+            {
+              "idx": 5,
+              "scene_idx": 1,
+              "visual_description": "Renata recoge su bolsa del suelo y se dirige a la puerta. Maximiliano permanece junto al escritorio, con la marca roja de la bofetada en la mejilla.",
+              "first_frame_desc": "Renata mete el contrato arrugado dentro de su bolsa.",
+              "last_frame_desc": "Su mano alcanza la manija de la puerta.",
+              "motion_desc": "Renata camina rápido sin mirar atrás.",
+              "shot_type": "wide",
+              "camera_angle": "eye_level",
+              "camera_movement": "track",
+              "speaker": "Maximiliano Ferrer",
+              "dialogue": "Si sales por esa puerta, en treinta días los bancos se quedan con todo.",
+              "target_duration_s": 8.0,
+              "characters_present": [
+                "Renata Vargas",
+                "Maximiliano Ferrer"
+              ],
+              "assets_present": [
+                "Bolsa de Renata",
+                "Contrato de herencia",
+                "Puerta de oficina"
+              ],
+              "reference_frame_paths": []
+            },
+            {
+              "idx": 6,
+              "scene_idx": 1,
+              "visual_description": "Renata se detiene frente a la puerta sin voltearse. Aprieta la correa de su bolsa contra el pecho.",
+              "first_frame_desc": "Su espalda ocupa el centro del cuadro; Maximiliano queda desenfocado al fondo.",
+              "last_frame_desc": "Renata gira apenas el rostro, con los ojos húmedos pero firmes.",
+              "motion_desc": "Ella se queda inmóvil y vuelve la cara lentamente.",
+              "shot_type": "over_shoulder",
+              "camera_angle": "eye_level",
+              "camera_movement": "dolly_in",
+              "speaker": "Renata Vargas",
+              "dialogue": "Prefiero perderlo todo antes que convertirme en la esposa de un Ferrer.",
+              "target_duration_s": 8.0,
+              "characters_present": [
+                "Renata Vargas",
+                "Maximiliano Ferrer"
+              ],
+              "assets_present": [],
+              "reference_frame_paths": []
+            },
+            {
+              "idx": 7,
+              "scene_idx": 1,
+              "visual_description": "Maximiliano se acerca un paso, contenido, pero por primera vez su voz se quiebra.",
+              "first_frame_desc": "Su rostro golpeado aparece en primer plano.",
+              "last_frame_desc": "Mira a Renata con culpa y desesperación.",
+              "motion_desc": "Da un paso hacia ella y baja la voz.",
+              "shot_type": "close_up",
+              "camera_angle": "eye_level",
+              "camera_movement": "dolly_in",
+              "speaker": "Maximiliano Ferrer",
+              "dialogue": "No sabes lo que estás diciendo. Tu papá dejó una deuda que puede hundirte… y a mí también.",
+              "target_duration_s": 10.0,
+              "characters_present": [
+                "Renata Vargas",
+                "Maximiliano Ferrer"
+              ],
+              "assets_present": [],
+              "reference_frame_paths": []
+            },
+            {
+              "idx": 8,
+              "scene_idx": 1,
+              "visual_description": "El celular de Renata vibra dentro de su bolsa. Ella lo saca rápidamente. En la pantalla aparece el contacto: \"Ximena escuela\".",
+              "first_frame_desc": "La pantalla del celular se ilumina dentro de la mano de Renata.",
+              "last_frame_desc": "El nombre \"Ximena escuela\" queda visible mientras Maximiliano lo alcanza a leer.",
+              "motion_desc": "Renata mira la pantalla y trata de taparla con la mano.",
+              "shot_type": "extreme_close_up",
+              "camera_angle": "high",
+              "camera_movement": "zoom",
+              "target_duration_s": 7.0,
+              "characters_present": [
+                "Renata Vargas",
+                "Maximiliano Ferrer"
+              ],
+              "assets_present": [
+                "Celular de Renata",
+                "Bolsa de Renata"
+              ],
+              "reference_frame_paths": []
+            },
+            {
+              "idx": 9,
+              "scene_idx": 1,
+              "visual_description": "Renata contesta y se aleja un paso. Del otro lado se escucha la voz infantil de Ximena. Maximiliano observa a Renata, confundido, mientras ella palidece.",
+              "first_frame_desc": "Renata pega el celular a su oído y mira de reojo a Maximiliano.",
+              "last_frame_desc": "Maximiliano fija los ojos en la pantalla del teléfono.",
+              "motion_desc": "Renata intenta cubrir el micrófono con la mano, demasiado tarde.",
+              "shot_type": "medium",
+              "camera_angle": "eye_level",
+              "camera_movement": "static",
+              "speaker": "Ximena",
+              "dialogue": "Mamá, ¿ya vienes por mí? La maestra dice que hoy me tengo que ir contigo.",
+              "target_duration_s": 10.0,
+              "characters_present": [
+                "Renata Vargas",
+                "Maximiliano Ferrer"
+              ],
+              "assets_present": [
+                "Celular de Renata"
+              ],
+              "reference_frame_paths": []
+            },
+            {
+              "idx": 10,
+              "scene_idx": 1,
+              "visual_description": "Renata queda congelada con el teléfono en la mano. Maximiliano da un paso hacia ella y mira la pantalla donde sigue visible el nombre de Ximena.",
+              "first_frame_desc": "El rostro de Renata, completamente descubierto por el miedo.",
+              "last_frame_desc": "Maximiliano queda frente a ella, señalando apenas el celular.",
+              "motion_desc": "Él se acerca mientras Renata retrocede hasta chocar con la puerta.",
+              "shot_type": "close_up",
+              "camera_angle": "low",
+              "camera_movement": "dolly_in",
+              "speaker": "Maximiliano Ferrer",
+              "dialogue": "¿Quién es Ximena?",
+              "target_duration_s": 9.0,
+              "characters_present": [
+                "Renata Vargas",
+                "Maximiliano Ferrer"
+              ],
+              "assets_present": [
+                "Celular de Renata",
+                "Puerta de oficina"
+              ],
+              "reference_frame_paths": []
+            }
+          ],
+          "environment": "El aire acondicionado se vuelve más perceptible durante el silencio final; el timbre de la llamada sigue sonando de fondo.",
+          "props": [
+            "Celular de Renata",
+            "Contrato de herencia",
+            "Bolsa de Renata",
+            "Puerta de oficina"
+          ],
+          "continuation_from_prev": "Renata conserva el contrato arrugado dentro de su bolsa y Maximiliano tiene la marca de la bofetada en la mejilla."
+        }
+      ]
+    }
+  ],
+  "target_episode_seconds": 90.0,
+  "aspect_ratio": "9:16"
+}

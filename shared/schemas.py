@@ -1091,6 +1091,14 @@ class CharacterProfile(BaseModel):
         default_factory=list,
         description="Paths a vistas alternativas (perfil, espalda, full body)",
     )
+    voice: str = Field(
+        "",
+        description=(
+            "Voz TTS en formato canónico ('es-MX-DaliaNeural-Female'). Vacío = "
+            "voz por defecto del job. En un melodrama con varios personajes en "
+            "escena es lo que evita que todos suenen igual (ADR-038)."
+        ),
+    )
 
 
 class AssetProfile(BaseModel):
@@ -1113,8 +1121,11 @@ class AssetProfile(BaseModel):
 class Shot(BaseModel):
     """Una toma — equivalente a un Beat pero a nivel long-form."""
 
-    idx: int = Field(..., ge=0)
-    scene_idx: int = Field(..., ge=0)
+    # idx y scene_idx los asigna el StoryboardArtist DESPUÉS de parsear: son
+    # posición, no contenido, y el LLM no tiene por qué inventarlos. Exigirlos
+    # hacía fallar la validación de un storyboard por lo demás correcto.
+    idx: int = Field(0, ge=0)
+    scene_idx: int = Field(0, ge=0)
     visual_description: str = Field(..., min_length=10)
 
     # Decomposition (ViMax-inspired): first/last frame + motion
@@ -1234,6 +1245,99 @@ class ConsistencyAnchor(BaseModel):
         "cam0", description="ID del 'camera position' — shots desde mismo cam comparten estilo"
     )
     created_at_unix: float = 0.0
+
+
+class EpisodeBeat(str, Enum):
+    """Función de una escena dentro de UN episodio de microdrama.
+
+    Un episodio de 90s no tiene tres actos: tiene un gancho que retiene en los
+    primeros segundos, una escalada y un corte que obliga a tocar "siguiente".
+    """
+
+    COLD_OPEN = "cold_open"      # 0-8s: el gancho. Sin él no hay episodio.
+    ESCALATION = "escalation"    # el conflicto sube
+    TURN = "turn"                # el giro que cambia lo que el público creía
+    CLIFFHANGER = "cliffhanger"  # el corte. Nunca resuelve.
+
+
+class Episode(BaseModel):
+    """Un episodio de microdrama: 60-120s, autocontenido pero sin cerrar.
+
+    Es la unidad de consumo del formato vertical. A diferencia de `NarrativeArc`
+    —que es de película— aquí lo que manda es el gancho inicial y el corte final.
+    """
+
+    number: int = Field(..., ge=1, description="Número de episodio dentro de la serie")
+    title: str = Field(..., min_length=3, max_length=120)
+    hook: str = Field(
+        ...,
+        min_length=10,
+        description="Qué pasa en los primeros 8 segundos. Es el episodio entero si falla.",
+    )
+    summary: str = Field(..., min_length=10, description="Qué ocurre, en una o dos frases")
+    cliffhanger: str = Field(
+        ...,
+        min_length=10,
+        description="Con qué corta. Debe abrir una pregunta, nunca cerrarla.",
+    )
+    characters_present: list[str] = Field(default_factory=list)
+    target_seconds: float = Field(90.0, gt=20, le=300)
+
+    # Se llenan al producir
+    scenes: list[Scene] = Field(default_factory=list)
+    job_id: str | None = None
+    video_path: str | None = None
+
+
+class SeriesBible(BaseModel):
+    """La biblia de la serie: lo que NO cambia entre episodios.
+
+    Es el equivalente narrativo de `editorial/brand-voice.md` — se versiona en
+    git y es la fuente de verdad. Un microdrama vive o muere por la consistencia
+    a lo largo de 60-100 episodios, y esa consistencia no puede vivir en el
+    prompt de cada episodio: tiene que estar escrita en un sitio y leerse igual
+    la semana 1 que la semana 20.
+    """
+
+    slug: str = Field(..., pattern=r"^[a-z0-9][a-z0-9-]{0,79}$")
+    title: str = Field(..., min_length=3, max_length=200)
+    logline: str = Field(..., max_length=400)
+    genre: str = Field("melodrama", max_length=60)
+    tone: str = Field("", description="Registro y ritmo. Alimenta el prompt de guion.")
+    setting: str = Field("", description="Dónde y cuándo transcurre la serie")
+
+    # Consistencia — el activo real de la serie.
+    characters: list[CharacterProfile] = Field(default_factory=list, max_length=30)
+    assets: list[AssetProfile] = Field(default_factory=list, max_length=80)
+
+    # Reglas del mundo: lo que NO puede pasar. Un microdrama se rompe cuando un
+    # personaje contradice algo de tres episodios atrás.
+    rules: list[str] = Field(default_factory=list, max_length=30)
+
+    # Continuidad acumulada: qué sabe ya el público al llegar al episodio N.
+    episodes: list[Episode] = Field(default_factory=list)
+
+    target_episode_seconds: float = Field(90.0, gt=20, le=300)
+    aspect_ratio: VideoAspect = VideoAspect.PORTRAIT
+
+    def character(self, name: str) -> CharacterProfile | None:
+        return next((c for c in self.characters if c.name == name), None)
+
+    def next_episode_number(self) -> int:
+        return max((e.number for e in self.episodes), default=0) + 1
+
+    def story_so_far(self, before: int, max_episodes: int = 6) -> str:
+        """Resumen de lo ya emitido, para que el episodio N no se contradiga.
+
+        Se limita a los últimos `max_episodes`: el prompt completo de 60
+        episodios no cabe, y lo que importa para la continuidad inmediata es lo
+        reciente.
+        """
+        prev = sorted((e for e in self.episodes if e.number < before), key=lambda e: e.number)
+        return "\n".join(
+            f"E{e.number} — {e.title}: {e.summary} (corta con: {e.cliffhanger})"
+            for e in prev[-max_episodes:]
+        )
 
 
 class LongFormJob(BaseModel):

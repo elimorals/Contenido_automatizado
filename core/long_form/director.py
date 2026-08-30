@@ -274,7 +274,19 @@ async def produce_long_form(
 
         return await produce_montage(job, script)
 
-    # === STUB legacy (narrative/motion) ===
+    # NARRATIVE se produce por episodio, no por job suelto (ADR-038): la
+    # unidad de un microdrama es el episodio dentro de una serie, y necesita la
+    # biblia para saber quién es quién. Ver `narrative_director.produce_episode`.
+    if job.intent == LongFormIntent.NARRATIVE:
+        job.status = "pending"
+        job.error_message = (
+            "intent=narrative se produce con `contenido series produce <slug> "
+            "<n>` — necesita una SeriesBible para la consistencia de personajes "
+            "(ADR-038)."
+        )
+        return job
+
+    # === STUB legacy (motion) ===
     job.status = "shooting"
     working_dir = Path(cfg.working_dir) / job.job_id
 
