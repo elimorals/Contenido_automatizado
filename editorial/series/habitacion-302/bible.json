@@ -10,6 +10,7 @@
       "name": "Lucía Fernanda Treviño",
       "appearance": "Mujer de 31 años, piel morena clara, rostro ovalado, ojos cafés muy oscuros y cabello negro lacio recogido en una cola baja. Usa filipina azul marino, pantalón quirúrgico, tenis blancos y un reloj digital; tiene una cicatriz fina en la ceja izquierda.",
       "persona": "Quiere demostrar quién mató a su hermano y proteger a su madre de otra pérdida, aunque trabaja dentro del mismo sistema que encubrió el caso. Habla con precisión y pocas palabras frente a los médicos, pero cuando se siente acorralada cambia al tono frontal y áspero de su colonia.",
+      "portrait_path": "editorial/series/habitacion-302/portraits/lucía-fernanda-treviño.jpg",
       "portrait_alt_views": [],
       "voice": "es-MX-DaliaNeural-Female"
     },
@@ -17,6 +18,7 @@
       "name": "Mateo Salgado Villarreal",
       "appearance": "Hombre de 39 años, piel clara bronceada, mandíbula ancha, cabello castaño oscuro muy corto y barba de varios días. Permanece conectado a un respirador en la cama 302, con una marca de quemadura pequeña detrás de la oreja derecha y un tatuaje parcialmente visible en el antebrazo.",
       "persona": "Quiere recuperar su nombre, su memoria reciente y el control sobre la red de negocios que dejó antes del coma, pero sabe que despertar lo convierte en un objetivo. Habla despacio, con voz baja y educada, y evita responder de forma directa cuando una pregunta toca la noche del asesinato.",
+      "portrait_path": "editorial/series/habitacion-302/portraits/mateo-salgado-villarreal.jpg",
       "portrait_alt_views": [],
       "voice": "es-MX-JorgeNeural-Male"
     },
@@ -24,6 +26,7 @@
       "name": "Julián Treviño Salas",
       "appearance": "Hombre de 26 años visto en fotografías y recuerdos, piel morena, cabello negro rizado hasta las orejas y bigote ralo. En las imágenes lleva camiseta de taller, mezclilla gastada, botas de trabajo y una pulsera roja de hilo en la muñeca derecha.",
       "persona": "Quería sacar a su madre y a su hermana de la colonia trabajando como mecánico, pero aceptó transportar un paquete para la persona equivocada. No puede hablar en el presente, y su carácter aparece en recuerdos, mensajes de voz y objetos que contradicen la versión oficial de su muerte.",
+      "portrait_path": "editorial/series/habitacion-302/portraits/julián-treviño-salas.jpg",
       "portrait_alt_views": [],
       "voice": "es-MX-JorgeNeural-Male"
     },
@@ -31,6 +34,7 @@
       "name": "Rebeca Elizondo Garza",
       "appearance": "Mujer de 48 años, piel blanca, cabello rubio oscuro cortado a la altura de la mandíbula y gafas rectangulares negras. Viste batas blancas impecables sobre blusas lisas, zapatos bajos y un broche plateado con forma de cruz en el cuello.",
       "persona": "Como directora de enfermería, quiere evitar un escándalo que ponga en riesgo la licencia y los contratos del hospital. Habla con calma administrativa, usando diminutivos y protocolos para ocultar amenazas o decisiones que ya tomó.",
+      "portrait_path": "editorial/series/habitacion-302/portraits/rebeca-elizondo-garza.jpg",
       "portrait_alt_views": [],
       "voice": "es-MX-DaliaNeural-Female"
     },
@@ -38,6 +42,7 @@
       "name": "Óscar Cárdenas Montalvo",
       "appearance": "Hombre de 43 años, piel morena, cuerpo ancho, cabeza rapada y bigote negro recortado. Usa uniforme gris de seguridad, botas negras y una chamarra con el logotipo del hospital; tiene dos nudillos deformados en la mano derecha.",
       "persona": "Quiere conservar su empleo y pagar una deuda que contrajo por su hijo, por eso acepta vigilar zonas del hospital que no aparecen en las cámaras. Habla con humor seco y tono protector, pero se queda completamente serio cuando alguien menciona al paciente de la 302.",
+      "portrait_path": "editorial/series/habitacion-302/portraits/óscar-cárdenas-montalvo.jpg",
       "portrait_alt_views": [],
       "voice": "es-MX-JorgeNeural-Male"
     }
@@ -136,7 +141,7 @@
               "camera_movement": "dolly_in",
               "speaker": "Mateo Salgado Villarreal",
               "dialogue": "Yo no maté a Julián.",
-              "target_duration_s": 5.0,
+              "target_duration_s": 2.184,
               "characters_present": [
                 "Mateo Salgado Villarreal",
                 "Lucía Fernanda Treviño"
@@ -160,7 +165,7 @@
               "camera_movement": "static",
               "speaker": "Lucía Fernanda Treviño",
               "dialogue": "¿Cómo sabes ese nombre?",
-              "target_duration_s": 4.0,
+              "target_duration_s": 2.376,
               "characters_present": [
                 "Lucía Fernanda Treviño",
                 "Mateo Salgado Villarreal"
@@ -203,7 +208,7 @@
               "camera_movement": "static",
               "speaker": "Lucía Fernanda Treviño",
               "dialogue": "Aquí dice Rafael Cárdenas. Pero tú eres Mateo Salgado Villarreal.",
-              "target_duration_s": 6.0,
+              "target_duration_s": 6.096,
               "characters_present": [
                 "Lucía Fernanda Treviño",
                 "Mateo Salgado Villarreal"
@@ -226,7 +231,7 @@
               "camera_movement": "dolly_in",
               "speaker": "Mateo Salgado Villarreal",
               "dialogue": "Bájale a la voz. Si saben que desperté, me rematan.",
-              "target_duration_s": 5.0,
+              "target_duration_s": 5.279999999999999,
               "characters_present": [
                 "Mateo Salgado Villarreal",
                 "Lucía Fernanda Treviño"
@@ -249,7 +254,7 @@
               "camera_movement": "track",
               "speaker": "Lucía Fernanda Treviño",
               "dialogue": "Yo te vi, cabrón. En el taller. Tú le disparaste a mi hermano.",
-              "target_duration_s": 7.0,
+              "target_duration_s": 6.744,
               "characters_present": [
                 "Lucía Fernanda Treviño",
                 "Mateo Salgado Villarreal"
@@ -272,7 +277,7 @@
               "camera_movement": "tilt",
               "speaker": "Mateo Salgado Villarreal",
               "dialogue": "No fue un disparo. A Julián lo entregaron.",
-              "target_duration_s": 6.0,
+              "target_duration_s": 4.295999999999999,
               "characters_present": [
                 "Mateo Salgado Villarreal",
                 "Lucía Fernanda Treviño"
@@ -317,7 +322,7 @@
               "camera_movement": "track",
               "speaker": "Lucía Fernanda Treviño",
               "dialogue": "Vas a respirar despacio. Nadie se entera de que despertaste.",
-              "target_duration_s": 6.0,
+              "target_duration_s": 5.448,
               "characters_present": [
                 "Lucía Fernanda Treviño",
                 "Mateo Salgado Villarreal"
@@ -341,7 +346,7 @@
               "camera_movement": "dolly_in",
               "speaker": "Mateo Salgado Villarreal",
               "dialogue": "El que pagó por Julián sigue aquí. En este hospital.",
-              "target_duration_s": 6.0,
+              "target_duration_s": 4.872,
               "characters_present": [
                 "Mateo Salgado Villarreal",
                 "Lucía Fernanda Treviño"
@@ -365,7 +370,7 @@
               "camera_movement": "static",
               "speaker": "Lucía Fernanda Treviño",
               "dialogue": "Dime quién. Ahorita.",
-              "target_duration_s": 3.0,
+              "target_duration_s": 3.552,
               "characters_present": [
                 "Lucía Fernanda Treviño",
                 "Mateo Salgado Villarreal"
@@ -388,7 +393,7 @@
               "camera_movement": "dolly_in",
               "speaker": "Mateo Salgado Villarreal",
               "dialogue": "Rebeca... ella sabe quién mató a Julián.",
-              "target_duration_s": 7.0,
+              "target_duration_s": 4.464,
               "characters_present": [
                 "Mateo Salgado Villarreal",
                 "Lucía Fernanda Treviño",
@@ -413,7 +418,7 @@
               "camera_movement": "dolly_in",
               "speaker": "Rebeca Elizondo Garza",
               "dialogue": "¿Qué nombre acaba de decir, enfermera Treviño?",
-              "target_duration_s": 6.0,
+              "target_duration_s": 3.72,
               "characters_present": [
                 "Rebeca Elizondo Garza",
                 "Lucía Fernanda Treviño",
@@ -437,7 +442,9 @@
           ],
           "continuation_from_prev": "Mateo afirma que Julián fue entregado y que quien pagó por él todavía trabaja en el hospital."
         }
-      ]
+      ],
+      "job_id": "habitacion-302-ep001",
+      "video_path": "output/series/habitacion-302/E001-el-paciente-de-la-302.mp4"
     },
     {
       "number": 2,

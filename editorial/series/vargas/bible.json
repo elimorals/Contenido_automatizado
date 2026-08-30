@@ -358,7 +358,7 @@
         }
       ],
       "job_id": "vargas-ep001",
-      "video_path": "storage/long_form/series/vargas/ep001/vargas-ep001.mp4"
+      "video_path": "output/series/vargas/E001-treinta-dias-para-casarte.mp4"
     }
   ],
   "target_episode_seconds": 90.0,

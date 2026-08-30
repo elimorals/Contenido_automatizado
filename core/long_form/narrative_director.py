@@ -306,7 +306,8 @@ async def produce_episode(
     )
 
     # === Retratos (una vez por serie, no por episodio) ===
-    from core.long_form.series import portraits_dir as series_portraits, save_bible
+    from core.long_form.series import portraits_dir as series_portraits
+    from core.long_form.series import save_bible
 
     portraits = await ensure_portraits(bible, series_portraits(bible.slug))
     if portraits:
@@ -393,21 +394,56 @@ async def produce_episode(
     narration = base / "narration.wav"
     concat_wavs([Path(tts_data[str(i)]["wav"]) for i in range(total)], narration)
 
-    final = await stitch_video(
+    stitched = await stitch_video(
         ordered, narration, None, base,
         aspect or bible.aspect_ratio,
         out_name=f"{bible.slug}-ep{episode.number:03d}.mp4",
         config=cfg,
     )
 
+    # El entregable va a `output/`, no a `storage/`. `storage/` es para
+    # artefactos REGENERABLES —cachés, chunks, RAG—; un episodio cuesta minutos
+    # de cómputo y dinero real, y es lo único que el operador va a querer abrir.
+    # Enterrarlo entre los intermedios lo hacía invisible.
+    final = deliver_episode(stitched, bible, episode)
+
     episode.video_path = str(final)
     episode.job_id = job_key
     store.clear(job_key)
     logger.info(
-        f"[narrative] {bible.slug} E{episode.number} ✓ {final.name} "
+        f"[narrative] {bible.slug} E{episode.number} ✓ {final} "
         f"({time.monotonic() - t0:.0f}s)"
     )
     return episode
+
+
+def episode_output_dir(slug: str) -> Path:
+    """`output/series/<slug>/` — donde el operador busca sus vídeos."""
+    d = Path("output") / "series" / slug
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def deliver_episode(stitched: Path, bible: SeriesBible, episode: Episode) -> Path:
+    """Copia el episodio terminado a `output/` con un nombre legible.
+
+    Se **copia** en vez de moverse: el original sigue en el directorio de
+    trabajo junto a sus shots y su audio, que es donde hay que mirar cuando algo
+    salió mal. Si el operador borra `output/`, el episodio se recupera sin
+    volver a generarlo.
+
+    El nombre lleva número y título — `E001-el-paciente-de-la-302.mp4` — porque
+    `vargas-ep001.mp4` no dice qué pasa dentro, y una serie son decenas.
+    """
+    import shutil
+
+    from core.long_form.architect import slugify
+
+    dest = episode_output_dir(bible.slug) / (
+        f"E{episode.number:03d}-{slugify(episode.title)}.mp4"
+    )
+    shutil.copy2(stitched, dest)
+    return dest
 
 
 def anchors_from(artifacts: list[BeatArtifact], episode: Episode) -> list[ConsistencyAnchor]:

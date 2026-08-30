@@ -296,3 +296,67 @@ class TestHarnessIdempotence:
 
         # Los dos se planificaron aunque la producción falló en ambos.
         assert len(out.episodes) == 2
+
+
+class TestEpisodeDelivery:
+    """El entregable va a `output/`, no enterrado en `storage/` (ADR-039).
+
+    `storage/` es para artefactos REGENERABLES —cachés, chunks, RAG—. Un
+    episodio cuesta minutos de cómputo y dinero real, y es lo único que el
+    operador va a querer abrir; dejarlo entre los intermedios lo hacía
+    invisible.
+    """
+
+    def _fixture(self, tmp_path):
+        from shared.schemas import Episode, SeriesBible
+
+        bible = SeriesBible(slug="mi-serie", title="Mi Serie", logline="x" * 25)
+        ep = Episode(
+            number=7, title="El nombre que no existe", hook="pasa algo ya",
+            summary="resumen suficiente", cliffhanger="corta aquí mismo",
+        )
+        src = tmp_path / "mi-serie-ep007.mp4"
+        src.write_bytes(b"mp4-bytes")
+        return bible, ep, src
+
+    def test_lands_in_output_with_readable_name(self, tmp_path, monkeypatch) -> None:
+        from core.long_form import narrative_director as nd
+
+        monkeypatch.chdir(tmp_path)
+        bible, ep, src = self._fixture(tmp_path)
+        dest = nd.deliver_episode(src, bible, ep)
+
+        assert dest.parts[:2] == ("output", "series")
+        assert dest.name == "E007-el-nombre-que-no-existe.mp4"
+        assert dest.read_bytes() == b"mp4-bytes"
+
+    def test_original_is_kept(self, tmp_path, monkeypatch) -> None:
+        """Se copia, no se mueve: el original vive junto a sus shots y audio,
+        que es donde hay que mirar cuando algo salió mal."""
+        from core.long_form import narrative_director as nd
+
+        monkeypatch.chdir(tmp_path)
+        bible, ep, src = self._fixture(tmp_path)
+        nd.deliver_episode(src, bible, ep)
+        assert src.exists()
+
+    def test_number_pads_for_sorting(self, tmp_path, monkeypatch) -> None:
+        """Una serie son decenas de episodios: E007 ordena, E7 no."""
+        from core.long_form import narrative_director as nd
+        from shared.schemas import Episode
+
+        monkeypatch.chdir(tmp_path)
+        bible, _, src = self._fixture(tmp_path)
+        ep = Episode(number=3, title="Uno cualquiera", hook="pasa algo ya",
+                     summary="resumen suficiente", cliffhanger="corta aquí mismo")
+        assert nd.deliver_episode(src, bible, ep).name.startswith("E003-")
+
+    def test_accented_title_is_filesystem_safe(self, tmp_path, monkeypatch) -> None:
+        from core.long_form import narrative_director as nd
+        from shared.schemas import Episode
+
+        monkeypatch.chdir(tmp_path)
+        bible, _, src = self._fixture(tmp_path)
+        ep = Episode(number=1, title="La habitación 302", hook="pasa algo ya",
+                     summary="resumen suficiente", cliffhanger="corta aquí mismo")
+        assert nd.deliver_episode(src, bible, ep).name == "E001-la-habitacion-302.mp4"

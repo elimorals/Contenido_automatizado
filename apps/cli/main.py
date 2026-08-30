@@ -1454,6 +1454,7 @@ def series_produce(
     b.episodes = [x if x.number != out.number else out for x in b.episodes]
     save_bible(b)
     typer.secho(f"\n✓ {out.video_path}", fg=typer.colors.GREEN, bold=True)
+    typer.echo(f"  open {out.video_path}")
 
 
 
