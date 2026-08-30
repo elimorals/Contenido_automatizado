@@ -167,7 +167,7 @@ make docker-up
 🔑 **API keys**: [`docs/API_KEYS.md`](./docs/API_KEYS.md) — qué keys, dónde, costos (incluye Higgsfield)
 ⚙️ **Configuración**: [`docs/CONFIGURATION.md`](./docs/CONFIGURATION.md) — TOML + env (incluye Higgsfield + ComfyUI + long_form)
 🛠️ **Errores**: [`docs/TROUBLESHOOTING.md`](./docs/TROUBLESHOOTING.md) — errores comunes y fixes
-🎬 **Decisiones**: [`docs/DECISIONS.md`](./docs/DECISIONS.md) — ADRs 1-37 (incluye ADR-010..016 Higgsfield/Editorial/ComfyUI/Long-form/LiveAvatar, ADR-025..027 cosecha OpenMontage, ADR-028 quality gates, ADR-029 produce real de MONTAGE , ADR-030 publicación E2E , ADR-031 bucle de retroalimentación y ADR-032..035 ruta nativa OpenAI: imagen, Sora i2v, keywords de stock y ken-burns 900x más rápido)
+🎬 **Decisiones**: [`docs/DECISIONS.md`](./docs/DECISIONS.md) — ADRs 1-38 (incluye ADR-010..016 Higgsfield/Editorial/ComfyUI/Long-form/LiveAvatar, ADR-025..027 cosecha OpenMontage, ADR-028 quality gates, ADR-029 produce real de MONTAGE , ADR-030 publicación E2E , ADR-031 bucle de retroalimentación y ADR-032..035 ruta nativa OpenAI: imagen, Sora i2v, keywords de stock y ken-burns 900x más rápido)
 💻 **Ejemplos**: [`examples/`](./examples/) — curl, Python, batch listos para copiar
 🆚 **A/B harnesses**:
   - [`scripts/higgsfield_ab_test.py`](./scripts/higgsfield_ab_test.py) — Veo vs Higgsfield DoP
@@ -252,7 +252,7 @@ Este proyecto integra, refactoriza y extiende código de:
 - [HKUDS/ViMax](https://github.com/HKUDS/ViMax) — MIT License (algoritmos y prompts canónicos para long-form video; arXiv 2606.07649)
 - [calesthio/OpenMontage](https://github.com/calesthio/OpenMontage) — **AGPLv3**. ⚠️ NO se incorpora código: solo se **reimplementaron conceptos** bajo Apache-2.0 (rerank visual CLIP, fuentes de corpus libre, scoring de proveedor). Cada módulo cita "idea inspirada, NO copiada" en su docstring y ADR. Ningún archivo de OpenMontage se copió ni se enlaza en tiempo de compilación/ejecución, por lo que la licencia Apache-2.0 de `contenido` se mantiene.
 
-Ver [`docs/DECISIONS.md`](./docs/DECISIONS.md) para detalles sobre qué se conservó de cada proyecto y por qué (ADRs 1-37).
+Ver [`docs/DECISIONS.md`](./docs/DECISIONS.md) para detalles sobre qué se conservó de cada proyecto y por qué (ADRs 1-38).
 
 ## Licencia
 

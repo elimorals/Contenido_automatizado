@@ -10,6 +10,7 @@
       "name": "Renata Vargas",
       "appearance": "Mujer mexicana de 28 años, morena clara, cabello oscuro recogido en una coleta, delantal de fonda sobre blusa sencilla, ojeras de turnos largos, mirada que no baja",
       "persona": "Orgullosa y directa. Trabaja desde los 16. Esconde a su hija de todos. No pide perdón por venir de donde viene.",
+      "portrait_path": "editorial/series/vargas/portraits/renata-vargas.jpg",
       "portrait_alt_views": [],
       "voice": "es-MX-DaliaNeural-Female"
     },
@@ -17,6 +18,7 @@
       "name": "Maximiliano Ferrer",
       "appearance": "Hombre mexicano de 34 años, tez clara, barba recortada, traje azul marino a la medida sin corbata, reloj discreto, postura contenida",
       "persona": "Heredero que carga la culpa de su padre. Lleva años pagando en secreto el hospital de la madre de Renata. Incapaz de decir lo que siente.",
+      "portrait_path": "editorial/series/vargas/portraits/maximiliano-ferrer.jpg",
       "portrait_alt_views": [],
       "voice": "es-MX-JorgeNeural-Male"
     },
@@ -24,6 +26,7 @@
       "name": "Doña Chelo",
       "appearance": "Mujer mexicana de 62 años, baja y robusta, cabello canoso recogido, mandil floreado, manos de cocinera",
       "persona": "Dueña de la fonda y madre postiza de Renata. Sabe lo de la hija. Dice las verdades que nadie quiere oír.",
+      "portrait_path": "editorial/series/vargas/portraits/doña-chelo.jpg",
       "portrait_alt_views": [],
       "voice": "es-MX-CarlotaNeural-Female"
     },
@@ -31,6 +34,7 @@
       "name": "Ximena",
       "appearance": "Niña mexicana de 7 años, cabello oscuro con dos trenzas, uniforme escolar azul, mochila más grande que ella",
       "persona": "Hija de Renata. Curiosa y observadora. Nadie de la familia Vargas sabe que existe.",
+      "portrait_path": "editorial/series/vargas/portraits/ximena.jpg",
       "portrait_alt_views": [],
       "voice": "es-MX-DaliaNeural-Female"
     }
@@ -95,7 +99,7 @@
               "camera_movement": "static",
               "speaker": "Renata Vargas",
               "dialogue": "¿Casarme contigo? ¡Tu familia destruyó a mi papá!",
-              "target_duration_s": 7.0,
+              "target_duration_s": 4.632,
               "characters_present": [
                 "Renata Vargas",
                 "Maximiliano Ferrer"
@@ -118,7 +122,7 @@
               "camera_movement": "dolly_in",
               "speaker": "Maximiliano Ferrer",
               "dialogue": "No es una propuesta. Es la última condición del testamento.",
-              "target_duration_s": 7.0,
+              "target_duration_s": 5.232,
               "characters_present": [
                 "Renata Vargas",
                 "Maximiliano Ferrer"
@@ -140,7 +144,7 @@
               "camera_movement": "zoom",
               "speaker": "Renata Vargas",
               "dialogue": "¿Mi papá era dueño de una constructora? ¿Y tú sabías todo esto?",
-              "target_duration_s": 8.0,
+              "target_duration_s": 5.784000000000001,
               "characters_present": [
                 "Renata Vargas",
                 "Maximiliano Ferrer"
@@ -162,7 +166,7 @@
               "camera_movement": "track",
               "speaker": "Maximiliano Ferrer",
               "dialogue": "Lo sabía desde que murió tu papá. Y también sé que no tienes dinero para mantener esa empresa.",
-              "target_duration_s": 9.0,
+              "target_duration_s": 6.84,
               "characters_present": [
                 "Renata Vargas",
                 "Maximiliano Ferrer"
@@ -185,7 +189,7 @@
               "camera_movement": "static",
               "speaker": "Renata Vargas",
               "dialogue": "¡No vuelvas a hablarme como si me estuvieras haciendo un favor!",
-              "target_duration_s": 7.0,
+              "target_duration_s": 3.912,
               "characters_present": [
                 "Renata Vargas",
                 "Maximiliano Ferrer"
@@ -224,7 +228,7 @@
               "camera_movement": "track",
               "speaker": "Maximiliano Ferrer",
               "dialogue": "Si sales por esa puerta, en treinta días los bancos se quedan con todo.",
-              "target_duration_s": 8.0,
+              "target_duration_s": 5.064,
               "characters_present": [
                 "Renata Vargas",
                 "Maximiliano Ferrer"
@@ -248,7 +252,7 @@
               "camera_movement": "dolly_in",
               "speaker": "Renata Vargas",
               "dialogue": "Prefiero perderlo todo antes que convertirme en la esposa de un Ferrer.",
-              "target_duration_s": 8.0,
+              "target_duration_s": 4.632,
               "characters_present": [
                 "Renata Vargas",
                 "Maximiliano Ferrer"
@@ -268,7 +272,7 @@
               "camera_movement": "dolly_in",
               "speaker": "Maximiliano Ferrer",
               "dialogue": "No sabes lo que estás diciendo. Tu papá dejó una deuda que puede hundirte… y a mí también.",
-              "target_duration_s": 10.0,
+              "target_duration_s": 6.888,
               "characters_present": [
                 "Renata Vargas",
                 "Maximiliano Ferrer"
@@ -309,7 +313,7 @@
               "camera_movement": "static",
               "speaker": "Ximena",
               "dialogue": "Mamá, ¿ya vienes por mí? La maestra dice que hoy me tengo que ir contigo.",
-              "target_duration_s": 10.0,
+              "target_duration_s": 6.168,
               "characters_present": [
                 "Renata Vargas",
                 "Maximiliano Ferrer"
@@ -331,7 +335,7 @@
               "camera_movement": "dolly_in",
               "speaker": "Maximiliano Ferrer",
               "dialogue": "¿Quién es Ximena?",
-              "target_duration_s": 9.0,
+              "target_duration_s": 1.8,
               "characters_present": [
                 "Renata Vargas",
                 "Maximiliano Ferrer"
@@ -352,7 +356,9 @@
           ],
           "continuation_from_prev": "Renata conserva el contrato arrugado dentro de su bolsa y Maximiliano tiene la marca de la bofetada en la mejilla."
         }
-      ]
+      ],
+      "job_id": "vargas-ep001",
+      "video_path": "storage/long_form/series/vargas/ep001/vargas-ep001.mp4"
     }
   ],
   "target_episode_seconds": 90.0,

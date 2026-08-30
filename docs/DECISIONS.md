@@ -1786,3 +1786,94 @@ Clip real generado desde un frame del pipeline: **12 s, 720×1280, H.264+AAC,
 **Modificados**: `core/visual/generation/orchestrator.py` (tier 2b.3),
 `core/visual/generation/__init__.py`, `shared/schemas.py`
 (`VideoSource.HIGGSFIELD_MCP`), `shared/config.py` (`higgsfield_mcp_*`).
+
+---
+
+## ADR-038: Microdramas — biblia de serie, episodios y voz por personaje
+
+**Fecha**: 2026-08-29 | **Estado**: Aceptado
+
+### Contexto
+
+El objetivo del proyecto no es el reel de 25 s: es la **micronovela mexicana**,
+el formato vertical que ReelShort y DramaBox convirtieron en un negocio de
+~$50M/mes con actores reales. Probando ese camino aparecieron cuatro brechas —
+ninguna de plomería de vídeo:
+
+| Necesita | Estado antes |
+|---|---|
+| Series de 60-100 episodios | `LongFormJob` modelaba **un video suelto** |
+| Personajes idénticos en el ep. 47 y el 3 | `portrait_path` existía, sin persistencia entre jobs |
+| Voces distintas por personaje | `Shot.speaker` existía; el TTS usaba **una sola voz** |
+| Cliffhanger por episodio | `NarrativeArc` es de tres actos, no episódico |
+
+### Decisión
+
+**1. `SeriesBible` — lo que NO cambia entre episodios.**
+
+Vive en `editorial/series/<slug>/bible.json`: **junto a la capa editorial y
+versionada en git**, no en `storage/`. Es material editorial como
+`brand-voice.md` o `facts.json`, no un artefacto regenerable — un humano la
+edita a mano. Contiene personajes, locaciones (`AssetProfile` de ADR-029),
+reglas del mundo y la continuidad acumulada. `story_so_far()` alimenta el prompt
+del episodio N con lo ya emitido, limitado a los últimos 6: el prompt completo
+de 60 episodios no cabe y lo que importa para la continuidad es lo reciente.
+
+**2. Retratos como ancla, generados una vez por serie.**
+
+`ensure_portraits` es idempotente: un personaje con `portrait_path` existente no
+se regenera. Es lo que hace que el episodio 47 use la misma cara que el 3 — la
+diferencia entre una serie y diez videos con el mismo nombre.
+
+El prompt pide **expresión neutra y fondo simple** a propósito: ese frame viaja
+como referencia a decenas de shots, así que cualquier cosa dramática que lleve
+(una emoción, una luz concreta) contamina todos.
+
+**3. Voz por personaje.** `CharacterProfile.voice` resuelve desde `Shot.speaker`
+a un motor TTS distinto por hablante. Un melodrama donde la protagonista y el
+antagonista suenan igual no se sostiene treinta segundos.
+
+**4. `Episode` no es `NarrativeArc`.** Tres actos es estructura de película:
+plantea, desarrolla, **cierra**. Un microdrama es lo contrario — cada unidad
+abre más de lo que cierra. `EpisodeBeat` nombra las funciones reales
+(`cold_open`, `escalation`, `turn`, `cliffhanger`) y el prompt lo dice explícito:
+*un episodio que resuelve su conflicto es un episodio que no tiene siguiente*.
+
+**5. `produce_episode`** ensambla retratos → TTS por personaje → shots → stitch,
+reanudable por checkpoint (ADR-024). Deliberadamente **un episodio, no una
+serie**: hasta saber si la consistencia de rostro aguanta diez shots seguidos,
+producir cien es especular caro.
+
+### Verificado extremo a extremo
+
+Serie real en `editorial/series/vargas` — *La Herencia de los Vargas*,
+Iztapalapa vs Polanco. Cuatro personajes con voz propia, retratos generados con
+`gpt-image-1`, episodio planificado y **producido: 58 s, 1080×1920, 11 shots**.
+
+El cliffhanger que escribió el planner es del formato: *el teléfono de Renata
+suena con el contacto "Ximena escuela" y Maximiliano alcanza a leerlo*.
+
+### Consecuencias
+
+- **El retrato fijo no garantiza consistencia perfecta**: sigue siendo una
+  referencia para el generador, no un actor. Medir cuánto aguanta es el
+  siguiente experimento, y es la pregunta que decide si el formato es viable.
+- Los shots caen a ken-burns cuando Sora devuelve 504 — pasó en esta corrida. El
+  episodio se entrega igual, pero con menos movimiento del planificado.
+- `Shot.idx`/`scene_idx` pasan a tener default 0: son **posición**, no
+  contenido, y el `StoryboardArtist` los asigna tras parsear. Exigirlos al LLM
+  tiraba storyboards enteros por un número que el modelo no tiene por qué
+  inventar.
+- Falta el encadenado fino de anchors entre shots (`ReferenceImageSelector`):
+  aquí la consistencia la sostiene el retrato. `anchors_from` deja la puerta
+  abierta.
+
+### Archivos
+
+**Nuevos**: `core/long_form/series.py`, `core/long_form/narrative_director.py`,
+`editorial/series/vargas/`.
+**Modificados**: `shared/schemas.py` (`SeriesBible`, `Episode`, `EpisodeBeat`,
+`CharacterProfile.voice`, defaults de `Shot.idx/scene_idx`),
+`core/long_form/prompts.py` (`EPISODE_PLANNER_SYSTEM`),
+`core/long_form/director.py` (routing NARRATIVE), `apps/cli/main.py`
+(`series list|show|plan|produce`).

@@ -35,7 +35,7 @@ const docs = [
   ["cost_model", "Tabla de costos por modo (express/premium/brand-owned/long-form)"],
   ["troubleshooting", "Errores comunes y sus fixes"],
   ["api_reference", "Endpoints REST documentados (incluye POST /reference para input-by-reference)"],
-  ["decisions", "ADRs 1-37 — por qué cada decisión arquitectónica"],
+  ["decisions", "ADRs 1-38 — por qué cada decisión arquitectónica"],
   ["migration_from_mpt", "Mapeo desde MoneyPrinterTurbo"],
   ["contributing", "Guía de contribución"],
 ];
