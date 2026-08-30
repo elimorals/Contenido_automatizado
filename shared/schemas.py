@@ -44,6 +44,7 @@ class VideoSource(str, Enum):
     OPENAI_IMAGE = "openai_image"  # gpt-image-* nativo (ADR-032)
     VEO = "veo"
     SORA = "sora"  # OpenAI Sora 2 i2v nativo (ADR-033)
+    HIGGSFIELD_MCP = "higgsfield_mcp"  # vía MCP OAuth, no Platform API (ADR-037)
     HIGGSFIELD_DOP = "higgsfield_dop"
     HIGGSFIELD_SOUL = "higgsfield_soul"
     HIGGSFIELD_EFFECT = "higgsfield_effect"

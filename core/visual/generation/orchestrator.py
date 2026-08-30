@@ -35,6 +35,7 @@ from core.visual.generation.comfy import ComfyUIGenerator
 from core.visual.generation.gemini_image import GeminiImageGenerator
 from core.visual.generation.higgsfield import HiggsfieldDopGenerator
 from core.visual.generation.higgsfield_effects import HiggsfieldEffectsGenerator
+from core.visual.generation.higgsfield_mcp import HiggsfieldMCPGenerator
 from core.visual.generation.higgsfield_soul import HiggsfieldSoulGenerator
 from core.visual.generation.ken_burns import (
     KenBurnsGenerator,
@@ -178,6 +179,7 @@ async def _generate_one(
     effects_gen: HiggsfieldEffectsGenerator | None,
     live_avatar_gen: LiveAvatarGenerator | None = None,
     fal_gen: VisualGenerator | None = None,
+    hf_mcp_gen: HiggsfieldMCPGenerator | None = None,
 ) -> BeatArtifact:
     """Pipeline por beat: 3-tier fallback (con ComfyUI como nuevo top de tier 1)."""
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -243,6 +245,24 @@ async def _generate_one(
             logger.warning(
                 f"[visual.orchestrator] beat {beat.idx} Veo falló ({e}); "
                 "fallback ken-burns."
+            )
+
+    # 2b.3 Higgsfield vía MCP (ADR-037) — puente de desarrollo: usa los
+    # créditos de la cuenta web cuando la Platform API no tiene saldo. Va antes
+    # que Sora porque, si está encendido, es una elección explícita del operador.
+    if motion_artifact is None and hf_mcp_gen is not None and frame_is_real:
+        try:
+            motion_artifact = await hf_mcp_gen.generate(
+                beat=beat,
+                visual=visual,
+                content_mode=content_mode,
+                out_dir=out_dir,
+                first_frame_path=frame_path,
+            )
+        except Exception as e:  # noqa: BLE001
+            logger.warning(
+                f"[visual.orchestrator] beat {beat.idx} Higgsfield MCP falló "
+                f"({e}); intentando Sora."
             )
 
     # 2b.4 Sora 2 i2v (ADR-033) — nativo de OpenAI, misma key que el DAG.
@@ -333,6 +353,7 @@ async def generate_beat_videos(
     openai_image_gen: OpenAIImageGenerator | None = None,
     veo_gen: VeoGenerator | None = None,
     sora_gen: SoraGenerator | None = None,
+    hf_mcp_gen: HiggsfieldMCPGenerator | None = None,
     hf_dop_gen: HiggsfieldDopGenerator | None = None,
     soul_gen: HiggsfieldSoulGenerator | None = None,
     effects_gen: HiggsfieldEffectsGenerator | None = None,
@@ -394,6 +415,9 @@ async def generate_beat_videos(
     img = image_gen or GeminiImageGenerator()
     # Solo se instancia si hay key de OpenAI: sin ella el tier sobra y
     # dejarlo en None hace explícito en los logs que no había con qué.
+    hf_mcp = hf_mcp_gen
+    if hf_mcp is None and cfg.visual.higgsfield_mcp_enabled:
+        hf_mcp = HiggsfieldMCPGenerator()
     sora = sora_gen
     if sora is None and cfg.visual.sora_enabled and cfg.get_llm_provider("openai").api_key:
         sora = SoraGenerator()
@@ -477,6 +501,7 @@ async def generate_beat_videos(
                 hf_dop_gen=primary_dop,
                 veo_gen=primary_veo,
                 sora_gen=sora,
+                hf_mcp_gen=hf_mcp,
                 ken_burns_gen=ken_burns,
                 effects_gen=effects,
                 live_avatar_gen=live_avatar,

@@ -11,9 +11,6 @@ Cuando upstream cambia, este archivo se regenera con `scripts/sync_higgsfield_pr
 """
 from __future__ import annotations
 
-from typing import Literal
-
-
 # =============================================================================
 # CATÁLOGO DE MODELOS — IDs reales del CLI (`higgsfield model list --json`)
 # =============================================================================

@@ -86,7 +86,7 @@ async def _run_cli(
     )
     try:
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout_s)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         proc.kill()
         await proc.wait()
         raise
@@ -140,7 +140,7 @@ async def generate_video_via_cli(
 
     try:
         code, stdout, stderr = await _run_cli(args, timeout_s=cfg.cli_timeout_s)
-    except asyncio.TimeoutError as e:
+    except TimeoutError as e:
         raise CLIFallbackError(
             f"CLI timeout tras {cfg.cli_timeout_s}s — modelo: {chosen_model}"
         ) from e
@@ -218,5 +218,5 @@ async def is_cli_available(cfg: HiggsfieldConfig | None = None) -> bool:
             [binary, "account", "status"], timeout_s=10.0,
         )
         return code == 0
-    except (asyncio.TimeoutError, FileNotFoundError):
+    except (TimeoutError, FileNotFoundError):
         return False

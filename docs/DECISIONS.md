@@ -1698,3 +1698,91 @@ no devolver nada.
 **Modificados**: `core/visual/generation/ken_burns.py` (`trim_clip`),
 `core/visual/selector.py` (`_try_stock` recorta antes de devolver),
 `tests/test_visual_selector.py`, `tests/test_stock_keywords.py`.
+
+---
+
+## ADR-037: Higgsfield vía su MCP — puente de desarrollo, no ruta de producción
+
+**Fecha**: 2026-08-29 | **Estado**: Aceptado
+
+### Contexto
+
+Higgsfield tiene **dos productos con facturación separada**, y el pipeline solo
+sabía usar el que no tiene saldo:
+
+| | Platform API | MCP |
+|---|---|---|
+| Host | `platform.higgsfield.ai` | `mcp.higgsfield.ai` |
+| Auth | `Key KEY_ID:KEY_SECRET` | OAuth de la cuenta web |
+| Saldo | **0 créditos** | los del plan (100) |
+| La usa | `higgsfield_client.py` | Claude Code |
+
+Con credenciales de servidor válidas —creadas en `cloud.higgsfield.ai` y
+verificadas: el 401 pasó a 422— la generación seguía muriendo en
+`{"detail": "Not enough credits"}`. Los créditos del plan web no alcanzan a la
+Platform API.
+
+### Decisión
+
+`core/visual/generation/higgsfield_mcp.py`: cliente MCP propio que deja al
+pipeline usar los créditos de la cuenta web. MCP es JSON-RPC sobre HTTP, así que
+no hace falta un SDK — `initialize` + `tools/call` es todo.
+
+El token se lee del **keychain de macOS** (`security find-generic-password -s
+"Claude Code-credentials"`), no de `~/.claude/.credentials.json` — ese archivo
+existe pero lleva desactualizado desde julio; el token real vive en el keychain
+bajo `mcpOAuth`, con la clave sufijada por un hash.
+
+**Es un puente de desarrollo y está marcado como tal.** El token lo emite y
+renueva Claude Code: un servidor sin esa sesión no puede usarlo. Off por
+default (`HIGGSFIELD_MCP_ENABLED`), en su propio tier (2b.3, antes de Sora), y
+el docstring lo dice en la primera pantalla. Para producción va la Platform API
+con créditos.
+
+### Cinco rarezas del MCP que hubo que absorber
+
+Está diseñado para un **asistente conversacional**, no para un pipeline. Cada
+una se descubrió fallando contra el servidor real:
+
+1. **Responde en prosa donde uno espera JSON.** `media_upload` devuelve un
+   comando `curl` de ejemplo con el UUID y la URL prefirmada embebidos; hay que
+   sacarlos con regex.
+2. **Pregunta a mitad de una generación.** Si el prompt se parece a un preset
+   del catálogo, en vez de generar contesta *"Ask the user whether to use that
+   preset"*. Un pipeline no responde preguntas: se declina automáticamente con
+   el `declined_preset_id` que el propio aviso incluye.
+3. **`job_status` no trae campo `status`** — dice `Job <uuid> — completed` en
+   texto. Asumir la clave hacía que un job **ya terminado** se sondeara hasta
+   agotar el timeout de 600 s con el vídeo listo esperando.
+4. **El SSE intercala keepalives.** Cortar por el primer `data: ` rompía el
+   parseo de las llamadas largas; hay que recorrer líneas y quedarse con el
+   último payload válido.
+5. **El rol del media importa.** Con `role: "image"` los modelos de vídeo lo
+   interpretan como t2v y rechazan la referencia (`mode 't2v' does not accept
+   reference media`); el rol i2v es `start_image`. Y el default `seedance_2_5`
+   es text-to-video: hay que pedir uno con `start_image` en su catálogo
+   (`cinematic_studio_video_v2`).
+
+### Verificado extremo a extremo
+
+Clip real generado desde un frame del pipeline: **12 s, 720×1280, H.264+AAC,
+8 MB** — un copépodo con bioluminiscencia, coherente con el tema del reel.
+
+### Consecuencias
+
+- **No sirve en CI ni en un servidor.** Es explícitamente para iterar en local
+  mientras la Platform API no tenga créditos.
+- El token caduca (~24 h) y lo renueva Claude Code; el cliente lo lee en cada
+  llamada, así que se aprovecha la renovación sin recargar nada.
+- Leer del keychain es frágil ante cambios internos de Claude Code. El error lo
+  dice de forma accionable ("Conéctalo con `/mcp`") en vez de fallar opaco.
+- `cinematic_studio_video_v2` ignora la duración pedida y devuelve 12 s por
+  default del modelo. Para clips de 4 s hay que recortar aguas abajo — ya existe
+  `trim_clip` (ADR-036).
+
+### Archivos
+
+**Nuevos**: `core/visual/generation/higgsfield_mcp.py`, `tests/test_higgsfield_mcp.py`.
+**Modificados**: `core/visual/generation/orchestrator.py` (tier 2b.3),
+`core/visual/generation/__init__.py`, `shared/schemas.py`
+(`VideoSource.HIGGSFIELD_MCP`), `shared/config.py` (`higgsfield_mcp_*`).

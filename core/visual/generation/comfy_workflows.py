@@ -25,9 +25,6 @@ from pydantic import BaseModel, Field
 from shared.config import load_config
 from shared.schemas import (
     BrandVisualConfig,
-    ComfyOutputType,
-    ComfyParameterMap,
-    ComfyWorkflowKind,
     ComfyWorkflowSpec,
 )
 

@@ -61,12 +61,10 @@ from shared.schemas import (
     BeatVisual,
     BrandVisualConfig,
     ComfyJob,
-    ComfyJobStatus,
     ComfyOutputType,
     ComfyWorkflowSpec,
     VideoSource,
 )
-
 
 # Heurísticas para detectar OOM en mensajes de error del server
 _OOM_PATTERNS = (
@@ -461,7 +459,7 @@ async def generate_comfy_frame(
         return artifact.first_frame_path
     except VisualGenerationError:
         return None
-    except asyncio.TimeoutError:
+    except TimeoutError:
         return None
 
 
@@ -473,5 +471,5 @@ async def is_comfyui_available() -> bool:
     try:
         async with ComfyClient(cfg) as cli:
             return await asyncio.wait_for(cli.is_alive(), timeout=2.0)
-    except (ComfyError, asyncio.TimeoutError):
+    except (TimeoutError, ComfyError):
         return False

@@ -21,9 +21,10 @@ import asyncio
 import json
 import time
 import uuid
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, AsyncIterator
+from typing import Any
 
 import httpx
 import websockets
@@ -31,7 +32,6 @@ from loguru import logger
 
 from shared.config import ComfyUIConfig, load_config
 from shared.schemas import ComfyJob, ComfyJobStatus
-
 
 # =============================================================================
 # Errores tipados
@@ -385,7 +385,7 @@ class ComfyClient:
                     )
                 try:
                     raw = await asyncio.wait_for(ws.recv(), timeout=min(remaining, 5.0))
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # No msg en 5s — sigamos esperando hasta deadline
                     continue
                 except websockets.ConnectionClosed:

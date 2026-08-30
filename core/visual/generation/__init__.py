@@ -32,6 +32,7 @@ from core.visual.generation.higgsfield_client import (
     JobResult,
 )
 from core.visual.generation.higgsfield_effects import HiggsfieldEffectsGenerator
+from core.visual.generation.higgsfield_mcp import HiggsfieldMCPGenerator
 from core.visual.generation.higgsfield_prompts import (
     HIGGSFIELD_IMAGE_MODELS,
     HIGGSFIELD_VIDEO_MODELS,
@@ -82,6 +83,7 @@ from core.visual.generation.veo import (
 
 __all__ = [
     "OpenAIImageGenerator",
+    "HiggsfieldMCPGenerator",
     "SoraGenerator",
     "CLIFallbackError",
     "CLINotInstalledError",

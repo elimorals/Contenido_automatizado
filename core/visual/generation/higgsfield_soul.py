@@ -18,7 +18,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from loguru import logger
-from PIL import Image
 
 from core.visual.generation.base import VisualGenerationError, VisualGenerator
 from core.visual.generation.gemini_image import _crop_to_9x16

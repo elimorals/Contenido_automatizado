@@ -35,7 +35,6 @@ from loguru import logger
 
 from shared.config import LiveAvatarConfig
 
-
 # =============================================================================
 # Errores
 # =============================================================================
@@ -252,7 +251,7 @@ class LocalCliBackend(LiveAvatarBackend):
             stdout, stderr = await asyncio.wait_for(
                 proc.communicate(), timeout=self.cfg.cli_timeout_s
             )
-        except asyncio.TimeoutError as e:
+        except TimeoutError as e:
             raise LiveAvatarTimeoutError(
                 f"local_cli excedió timeout {self.cfg.cli_timeout_s}s"
             ) from e

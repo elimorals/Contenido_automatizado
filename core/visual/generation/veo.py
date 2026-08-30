@@ -6,7 +6,6 @@ para que el caller aplique ken-burns fallback.
 """
 from __future__ import annotations
 
-import asyncio
 import base64
 import os
 from pathlib import Path
@@ -210,5 +209,5 @@ async def generate_veo_clip(
         return artifact.video_path
     except VisualGenerationError:
         return None
-    except (httpx.HTTPError, asyncio.TimeoutError):
+    except (TimeoutError, httpx.HTTPError):
         return None

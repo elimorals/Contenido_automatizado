@@ -25,7 +25,6 @@ from loguru import logger
 
 from shared.config import HiggsfieldConfig, load_config
 
-
 # =============================================================================
 # Errores (espejo del SDK oficial)
 # =============================================================================

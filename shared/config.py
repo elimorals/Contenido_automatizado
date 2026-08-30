@@ -354,6 +354,11 @@ class VisualConfig(BaseModel):
     veo_enabled: bool = False
     # Sora 2 i2v nativo de OpenAI (ADR-033). Off por default: cuesta y tarda.
     sora_enabled: bool = False                 # SORA_ENABLED
+    # Higgsfield vía MCP (ADR-037): puente de desarrollo, usa el token OAuth de
+    # Claude Code del keychain. NO sirve en un servidor sin esa sesión.
+    higgsfield_mcp_enabled: bool = False        # HIGGSFIELD_MCP_ENABLED
+    higgsfield_mcp_model: str = "cinematic_studio_video_v2"  # HIGGSFIELD_MCP_MODEL
+    higgsfield_mcp_max_wait_s: float = 600.0
     sora_model: str = "sora-2"                 # SORA_MODEL (sora-2 | sora-2-pro)
     sora_poll_interval_s: float = 6.0
     sora_max_poll_time_s: float = 600.0
@@ -572,6 +577,11 @@ def _apply_env_overrides(cfg: Config) -> Config:
     cfg.visual.sora_enabled = os.getenv(
         "SORA_ENABLED", str(cfg.visual.sora_enabled)
     ).lower() == "true"
+    cfg.visual.higgsfield_mcp_enabled = os.getenv(
+        "HIGGSFIELD_MCP_ENABLED", str(cfg.visual.higgsfield_mcp_enabled)
+    ).lower() == "true"
+    if os.getenv("HIGGSFIELD_MCP_MODEL"):
+        cfg.visual.higgsfield_mcp_model = os.getenv("HIGGSFIELD_MCP_MODEL", "")
     if os.getenv("SORA_MODEL"):
         cfg.visual.sora_model = os.getenv("SORA_MODEL", "")
     if os.getenv("OPENAI_IMAGE_MODEL"):

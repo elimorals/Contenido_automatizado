@@ -40,7 +40,6 @@ from shared.schemas import (
     VideoSource,
 )
 
-
 # Acumulador process-wide del costo USD (mismo patrón que llm_router/pricing).
 # Cleared al inicio de cada job por el orquestador.
 last_cost_usd: float = 0.0

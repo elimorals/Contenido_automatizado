@@ -19,7 +19,6 @@ Si el preset no resuelve a un motion_id, se pasa como string en el prompt
 """
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 
 from loguru import logger
@@ -49,7 +48,6 @@ from shared.schemas import (
     MotionHint,
     VideoSource,
 )
-
 
 # =============================================================================
 # Motion hint → Higgsfield preset (default mapping)
@@ -281,5 +279,5 @@ async def generate_higgsfield_clip(
         return artifact.video_path
     except VisualGenerationError:
         return None
-    except asyncio.TimeoutError:
+    except TimeoutError:
         return None
