@@ -8,16 +8,18 @@ from typing import Any
 
 import aiohttp
 from readability import Document
-
-from shared.schemas import Essence
+from yarl import URL
 
 from core.narrative.runtime import reel
+from shared.schemas import Essence
+from shared.urlsafe import check_public_url
 
 # Hard caps so a hostile URL can't blow up the pipeline.
 FETCH_TIMEOUT_S = 30.0
 MAX_BODY_CHARS = 50_000
+MAX_FETCH_BYTES = 5_000_000
 PROMPT_BODY_CHARS = 14_000
-USER_AGENT = "contenido/0.1 (+https://github.com/Agent-Field/agentfield)"
+USER_AGENT = "contenido/0.1 (article extractor)"
 
 
 _SYSTEM = """You are reading an article and extracting ITS ESSENCE for a short-form vertical video reel. ONE shot. The hook is the single most surprising or counter-intuitive thing in the piece — NOT the article's overall topic, NOT a tidy summary. The buzz-worthy claim that makes a thumb stop scrolling.
@@ -33,14 +35,24 @@ Stay faithful. Don't invent examples. Don't soften surprising claims. Pick the o
 
 
 async def _fetch(url: str) -> tuple[str, str]:
-    """Fetch URL, return (raw_html, final_url)."""
+    """Fetch URL, return (raw_html, final_url).
+
+    Cada salto de redirect se valida contra IPs privadas (SSRF) y el cuerpo se
+    corta en MAX_FETCH_BYTES en vez de leerse entero antes de truncar.
+    """
     timeout = aiohttp.ClientTimeout(total=FETCH_TIMEOUT_S)
     headers = {"User-Agent": USER_AGENT, "Accept": "text/html,application/xhtml+xml"}
     async with aiohttp.ClientSession(timeout=timeout, headers=headers) as session:
-        async with session.get(url, allow_redirects=True, max_redirects=5) as resp:
-            resp.raise_for_status()
-            text = await resp.text(errors="replace")
-            return text, str(resp.url)
+        for _ in range(6):
+            check_public_url(url)
+            async with session.get(url, allow_redirects=False) as resp:
+                if resp.status in (301, 302, 303, 307, 308) and "Location" in resp.headers:
+                    url = str(resp.url.join(URL(resp.headers["Location"])))
+                    continue
+                resp.raise_for_status()
+                raw = await resp.content.read(MAX_FETCH_BYTES)
+                return raw.decode(resp.charset or "utf-8", errors="replace"), str(resp.url)
+    raise RuntimeError(f"extract_essence: demasiados redirects desde {url}")
 
 
 def _clean(html: str) -> tuple[str, str]:

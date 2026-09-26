@@ -68,10 +68,17 @@ class YtDlpFetcher:
                 "yt-dlp no instalado. Instala el extra: pip install -e '.[reference]'"
             ) from e
 
+        from shared.urlsafe import check_public_url
+
+        check_public_url(url)
         out_tmpl = str(tmpdir / "ref.%(ext)s")
         opts = {
             "outtmpl": out_tmpl,
-            "format": "mp4/best",
+            # Referencias son reels/shorts: tope de tamaño y duración para que
+            # una URL de 3 h no llene el disco ni bloquee el worker.
+            "format": "mp4[filesize<200M]/best[filesize<200M]/mp4/best",
+            "max_filesize": 200 * 1024 * 1024,
+            "match_filter": yt_dlp.utils.match_filter_func("duration < 900"),
             "quiet": True,
             "no_warnings": True,
         }

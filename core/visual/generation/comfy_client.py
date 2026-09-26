@@ -389,7 +389,7 @@ class ComfyClient:
                     # No msg en 5s — sigamos esperando hasta deadline
                     continue
                 except websockets.ConnectionClosed:
-                    raise ComfyConnectionError("WS cerrado prematuramente")
+                    raise ComfyConnectionError("WS cerrado prematuramente") from None
 
                 # Frames binarios (preview images) → skip
                 if isinstance(raw, (bytes, bytearray)):

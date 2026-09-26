@@ -56,7 +56,18 @@ def _augment(prompt: str, content_mode: str = "general") -> str:
     return f"{base}. {_style_note(content_mode)}."
 
 
+def crop_to_canvas(src: Path, dest: Path) -> Path:
+    """Center-crop + resize al canvas del job actual (9:16, 16:9 o 1:1)."""
+    from core.visual.canvas import current_canvas
+
+    return _crop_to_size(src, dest, *current_canvas())
+
+
 def _crop_to_9x16(src: Path, dest: Path, target_w: int = 720) -> Path:
+    return _crop_to_size(src, dest, target_w, target_w * 16 // 9)
+
+
+def _crop_to_size(src: Path, dest: Path, target_w: int, target_h: int) -> Path:
     """Center-crop a 9:16 vertical para input de Veo i2v.
 
     Gemini devuelve ~cuadrado (1024×1024); Veo espera vertical 9:16.
@@ -66,10 +77,9 @@ def _crop_to_9x16(src: Path, dest: Path, target_w: int = 720) -> Path:
     provider upstream de OpenRouter expone el param, así que requests
     con él dan 404. Recortamos local.
     """
-    target_h = target_w * 16 // 9
     img = Image.open(src).convert("RGB")
     w, h = img.size
-    desired_ratio = 9 / 16
+    desired_ratio = target_w / target_h
     cur_ratio = w / h
     if cur_ratio > desired_ratio:
         new_w = int(h * desired_ratio)
@@ -198,7 +208,7 @@ class GeminiImageGenerator(VisualGenerator):
                 f"GeminiImage: bytes vacíos para beat {beat.idx}"
             )
         raw_path.write_bytes(img_bytes)
-        cropped = _crop_to_9x16(raw_path, final_path, target_w=self.canvas_w)
+        cropped = crop_to_canvas(raw_path, final_path)
         return BeatArtifact(
             idx=beat.idx,
             first_frame_path=cropped,
@@ -242,4 +252,4 @@ async def generate_first_frame(
             f"generate_first_frame: bytes vacíos para beat {idx}"
         )
     raw_path.write_bytes(img_bytes)
-    return _crop_to_9x16(raw_path, final_path, target_w=cfg.visual.canvas_w)
+    return crop_to_canvas(raw_path, final_path)

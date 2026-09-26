@@ -7,13 +7,13 @@
  * Pattern observado en FastHTML, Anthropic, nbdev: el llms.txt es el
  * "índice", el llms-full.txt es el "manual completo" para ingestión.
  *
- * Acceso: https://contenido.vercel.app/llms-full.txt
+ * Acceso: https://contenido-automatizado.vercel.app/llms-full.txt
  */
 
 import type { APIRoute } from "astro";
 import { getCollection } from "astro:content";
 
-const SITE = "https://contenido.vercel.app";
+const SITE = "https://contenido-automatizado.vercel.app";
 
 // Orden curado — mismo que el sidebar de docs
 const ORDER = [

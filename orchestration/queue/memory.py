@@ -46,7 +46,7 @@ class InMemoryTaskManager(TaskManager):
     async def dequeue(self, timeout: float = 5.0) -> tuple[str, VideoParams] | None:
         try:
             return await asyncio.wait_for(self._queue.get(), timeout=timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return None
 
     async def queue_size(self) -> int:

@@ -11,9 +11,7 @@ Cubre:
 from __future__ import annotations
 
 import datetime as dt
-import json
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -23,16 +21,13 @@ from core.editorial.loader import (
     load_editorial,
     reload_editorial,
 )
-from core.editorial.plan import iso_week, load_plan, plan_path, save_plan
+from core.editorial.plan import iso_week, load_plan, save_plan
 from core.editorial.validation import (
-    ValidationIssue,
-    ValidationResult,
     validate_idea,
     validate_plan,
 )
 from core.llm_router.pricing import (
     PRICING,
-    Price,
     calculate_cost,
     is_priced,
     price_of,
@@ -53,7 +48,6 @@ from shared.schemas import (
     VideoAspect,
     VideoDurationSpec,
 )
-
 
 # =============================================================================
 # FIXTURES
@@ -265,7 +259,7 @@ class TestValidatePlan:
     ) -> None:
         plan = EditorialPlan(
             week="2026-W24",
-            generated_at=dt.datetime.now(dt.timezone.utc).isoformat(),
+            generated_at=dt.datetime.now(dt.UTC).isoformat(),
             ideas=[
                 valid_idea,
                 valid_idea.model_copy(update={"id": "otra-idea", "pillar": "historia"}),
@@ -279,7 +273,7 @@ class TestValidatePlan:
     ) -> None:
         plan = EditorialPlan(
             week="2026-W24",
-            generated_at=dt.datetime.now(dt.timezone.utc).isoformat(),
+            generated_at=dt.datetime.now(dt.UTC).isoformat(),
             ideas=[
                 valid_idea,
                 valid_idea.model_copy(),  # mismo id duplicado
@@ -294,7 +288,7 @@ class TestValidatePlan:
         """3 ideas con el mismo pilar → warning de rotación."""
         plan = EditorialPlan(
             week="2026-W24",
-            generated_at=dt.datetime.now(dt.timezone.utc).isoformat(),
+            generated_at=dt.datetime.now(dt.UTC).isoformat(),
             ideas=[
                 valid_idea.model_copy(update={"id": f"id-{i}"})
                 for i in range(3)
@@ -322,7 +316,7 @@ class TestPlanPersistence:
         monkeypatch.chdir(tmp_path)
         plan = EditorialPlan(
             week="2026-W24",
-            generated_at=dt.datetime.now(dt.timezone.utc).isoformat(),
+            generated_at=dt.datetime.now(dt.UTC).isoformat(),
             ideas=[valid_idea],
         )
         out = save_plan(plan)
@@ -335,7 +329,7 @@ class TestPlanPersistence:
     def test_plan_by_pillar(self, valid_idea: ReelIdea) -> None:
         plan = EditorialPlan(
             week="2026-W24",
-            generated_at=dt.datetime.now(dt.timezone.utc).isoformat(),
+            generated_at=dt.datetime.now(dt.UTC).isoformat(),
             ideas=[
                 valid_idea.model_copy(update={"id": "i1"}),
                 valid_idea.model_copy(update={"id": "i2", "pillar": "historia"}),
@@ -349,7 +343,7 @@ class TestPlanPersistence:
     def test_plan_approved_ideas(self, valid_idea: ReelIdea) -> None:
         plan = EditorialPlan(
             week="2026-W24",
-            generated_at=dt.datetime.now(dt.timezone.utc).isoformat(),
+            generated_at=dt.datetime.now(dt.UTC).isoformat(),
             ideas=[
                 valid_idea.model_copy(update={"id": "i1", "approved": True}),
                 valid_idea.model_copy(update={"id": "i2", "approved": False}),

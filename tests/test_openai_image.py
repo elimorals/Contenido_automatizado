@@ -27,7 +27,6 @@ from core.visual.generation.openai_image import (
 )
 from shared.schemas import Beat, BeatRole, BeatVisual, MotionHint, VideoSource
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================

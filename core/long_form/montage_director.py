@@ -38,6 +38,7 @@ from pathlib import Path
 from loguru import logger
 
 from core.checkpoint import Checkpoint, CheckpointStore, get_checkpoint_store
+from core.cost import budgeted
 from core.long_form.types import LongFormPlanError
 from shared.config import load_config
 from shared.schemas import (
@@ -279,6 +280,7 @@ async def _render_shot(
 # =============================================================================
 
 
+@budgeted
 async def produce_montage(
     job: LongFormJob,
     script: LongFormScript,

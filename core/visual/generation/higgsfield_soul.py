@@ -20,7 +20,7 @@ from pathlib import Path
 from loguru import logger
 
 from core.visual.generation.base import VisualGenerationError, VisualGenerator
-from core.visual.generation.gemini_image import _crop_to_9x16
+from core.visual.generation.gemini_image import crop_to_canvas
 from core.visual.generation.higgsfield_client import (
     HiggsfieldAuthError,
     HiggsfieldClient,
@@ -121,10 +121,8 @@ class HiggsfieldSoulGenerator(VisualGenerator):
                 f"HiggsfieldSoul beat {beat.idx}: bytes vacíos"
             )
         raw_path.write_bytes(img_bytes)
-        # Si las dimensiones ya son 9:16 exactas, _crop_to_9x16 es no-op.
-        # Si no, recorta+resize a canvas_w del config global (default 720×1280).
-        canvas_w = load_config().visual.canvas_w
-        cropped = _crop_to_9x16(raw_path, final_path, target_w=canvas_w)
+        # Recorta+resize al canvas del job (aspect actual).
+        cropped = crop_to_canvas(raw_path, final_path)
 
         logger.info(
             f"[higgsfield-soul] beat {beat.idx} frame con SoulId={soul_id[:8]}…"

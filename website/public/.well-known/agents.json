@@ -3,12 +3,12 @@
   "name": "contenido",
   "displayName": "contenido — Video generation agent",
   "description": "Agente orquestador de generación de video con IA. Convierte URLs, topics o subjects en reels cinematográficos brand-owned (LoRA propia), o long-form 5–60min con storyboard tracking. Open source, self-hosted, multi-tenant.",
-  "url": "https://contenido.vercel.app",
+  "url": "https://contenido-automatizado.vercel.app",
   "version": "0.1.0",
-  "documentationUrl": "https://contenido.vercel.app/llms-full.txt",
+  "documentationUrl": "https://contenido-automatizado.vercel.app/llms-full.txt",
   "provider": {
     "organization": "Cipre Holding",
-    "url": "https://contenido.vercel.app",
+    "url": "https://contenido-automatizado.vercel.app",
     "contact": "elias@cipreholding.com"
   },
   "capabilities": {
@@ -27,7 +27,7 @@
     {
       "id": "video.generate_from_topic",
       "name": "Generar reel desde topic",
-      "description": "Recibe un topic en lenguaje natural y entrega un reel 9:16 con script, voz, visuales y subtítulos. Pipeline 18 reasoners en modo premium.",
+      "description": "Recibe un topic en lenguaje natural y entrega un reel 9:16 con script, voz, visuales y subtítulos. Pipeline multi-reasoner en modo premium.",
       "tags": ["video", "reel", "tiktok", "instagram", "shorts"],
       "examples": [
         "Genera un reel de 30s sobre el efecto placebo",
@@ -81,12 +81,12 @@
     }
   ],
   "links": {
-    "openapi":       "https://contenido.vercel.app/openapi.json",
-    "ai_plugin":     "https://contenido.vercel.app/.well-known/ai-plugin.json",
-    "llms_index":    "https://contenido.vercel.app/llms.txt",
-    "llms_corpus":   "https://contenido.vercel.app/llms-full.txt",
-    "rss":           "https://contenido.vercel.app/rss.xml",
+    "openapi":       "https://contenido-automatizado.vercel.app/openapi.json",
+    "ai_plugin":     "https://contenido-automatizado.vercel.app/.well-known/ai-plugin.json",
+    "llms_index":    "https://contenido-automatizado.vercel.app/llms.txt",
+    "llms_corpus":   "https://contenido-automatizado.vercel.app/llms-full.txt",
+    "rss":           "https://contenido-automatizado.vercel.app/rss.xml",
     "repo":          "https://github.com/elimorals/Contenido_automatizado",
-    "security":      "https://contenido.vercel.app/.well-known/security.txt"
+    "security":      "https://contenido-automatizado.vercel.app/.well-known/security.txt"
   }
 }

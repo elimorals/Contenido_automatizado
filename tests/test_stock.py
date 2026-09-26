@@ -26,7 +26,6 @@ from core.visual.stock.registry import (
 )
 from shared.schemas import VideoAspect, VideoSource
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

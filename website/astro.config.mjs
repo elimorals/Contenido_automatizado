@@ -5,7 +5,7 @@ import mdx from "@astrojs/mdx";
 import sitemap from "@astrojs/sitemap";
 
 export default defineConfig({
-  site: "https://contenido.vercel.app",
+  site: "https://contenido-automatizado.vercel.app",
   integrations: [mdx(), sitemap()],
   vite: {
     plugins: [tailwind()],

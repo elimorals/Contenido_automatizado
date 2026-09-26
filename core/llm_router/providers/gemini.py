@@ -30,9 +30,7 @@ class GeminiProvider(LLMProvider):
         **kwargs: Any,
     ) -> None:
         # Auto-migra modelos deprecados (Gemini cambió nombres en 2024).
-        if not model_name:
-            model_name = _DEFAULT_GEMINI_MODEL
-        elif model_name in _DEPRECATED_GEMINI_MODELS:
+        if not model_name or model_name in _DEPRECATED_GEMINI_MODELS:
             model_name = _DEFAULT_GEMINI_MODEL
 
         super().__init__(

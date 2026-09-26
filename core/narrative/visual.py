@@ -5,9 +5,8 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from shared.schemas import Beat, BeatVisual, Essence
-
 from core.narrative.runtime import reel
+from shared.schemas import Beat, BeatVisual, Essence
 
 
 def _role_block(role: str) -> str:

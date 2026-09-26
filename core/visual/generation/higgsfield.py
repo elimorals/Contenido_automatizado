@@ -23,7 +23,11 @@ from pathlib import Path
 
 from loguru import logger
 
-from core.visual.generation.base import VisualGenerationError, VisualGenerator
+from core.visual.generation.base import (
+    GenerationTimeout,
+    VisualGenerationError,
+    VisualGenerator,
+)
 from core.visual.generation.higgsfield_cli import (
     CLIFallbackError,
     CLINotInstalledError,
@@ -192,6 +196,11 @@ class HiggsfieldDopGenerator(VisualGenerator):
         except HiggsfieldError as e:
             rest_failed_reason = f"REST error: {e}"
             video_bytes = None
+
+        # Tras un timeout el job REST puede seguir corriendo y cobrarse: el CLI
+        # lanzaría un segundo job pagado para el mismo beat.
+        if rest_failed_reason and rest_failed_reason.startswith("REST timeout"):
+            raise GenerationTimeout(f"HiggsfieldDoP beat {beat.idx}: {rest_failed_reason}")
 
         # === CLI fallback (opt-in) ===
         if (not video_bytes) and rest_failed_reason and self.cfg.cli_fallback_enabled:

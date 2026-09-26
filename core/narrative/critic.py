@@ -9,10 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from shared.schemas import CriticOutput, EssenceCandidate
-
 from core.narrative.runtime import reel
-
+from shared.schemas import CriticOutput, EssenceCandidate
 
 # NOTE: el `CriticOutput` unificado en shared/schemas.py expone
 # `top_3_indices` (no `chosen_indices` como en reels-af original). El

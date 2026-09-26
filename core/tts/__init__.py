@@ -37,6 +37,7 @@ from core.tts.voice_names import (
     NO_VOICE_NAME,
     detect_engine_and_voice,
     is_no_voice,
+    resolve_voice_name,
 )
 
 __all__ = [
@@ -51,6 +52,7 @@ __all__ = [
     "get_engine",
     "is_no_voice",
     "measure_audio_duration",
+    "resolve_voice_name",
     "measure_audio_duration_async",
     "split_into_sentences",
     "strip_tts_tags",

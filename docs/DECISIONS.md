@@ -29,7 +29,7 @@ Helper `core/editor/ffmpeg_stitch.py` con builder pattern para que los filter_co
 
 ## ADR-002: AgentField como bus de reasoners
 
-**Fecha**: 2026-06-15 | **Estado**: Aceptado
+**Fecha**: 2026-06-15 | **Estado**: Reemplazado por ADR-040 (AgentField nunca llegó a ejecutarse)
 
 ### Contexto
 reels-af está construido sobre AgentField (DAG async de reasoners con validators Pydantic). Alternativas: LangGraph, Temporal, custom asyncio.
@@ -1037,6 +1037,25 @@ Idea inspirada (NO copiada) en `lib/scoring.py` de OpenMontage (AGPLv3). Propio 
 
 ---
 
+## ADR-028: Gates de calidad deterministas — slop filter y detector de meseta
+
+**Fecha**: 2026-08-29 | **Estado**: Aceptado
+
+> Reconstruido el 2026-09-26: el commit `3178e9f` implementó esto y otros ADRs lo
+> citan, pero el encabezado nunca se escribió.
+
+### Decisión
+
+- `core/quality/slop.py`: filtro de *mechanical slop* EN+ES por wordlists, $0,
+  antes del Judge (fase 4 del topic path). Descarta narraciones marcadas y
+  garantiza ≥1 superviviente. Opt-in: `quality.slop_gate_enabled`.
+- `core/quality/plateau.py`: detector de meseta para loops de revisión. **Sin
+  callers todavía** (auditoría 2026-09).
+
+Reimplementación clean-room de la idea de autonovel (sin licencia → solo la idea).
+
+---
+
 ## ADR-029: `produce` real para MONTAGE — checkpoint reanudable, veredicto por shot y assets anclados
 
 **Fecha**: 2026-08-29 | **Estado**: Aceptado
@@ -1975,3 +1994,132 @@ servicio; E2 empieza con Rebeca entrando por esa puerta.** Eso lo produjo
 **Modificados**: `core/long_form/prompts.py` (`BIBLE_ARCHITECT_SYSTEM`),
 `apps/cli/main.py` (`series new`, `series auto`),
 `editorial/series/vargas/bible.json` (voz inexistente corregida).
+
+---
+
+## ADR-040: Retirar AgentField — el runtime es `core.narrative.runtime` y el DAG vive en un solo sitio
+
+**Fecha**: 2026-09-26 | **Estado**: Aceptado (reemplaza ADR-002)
+
+### Contexto
+
+La auditoría del 2026-09-26 encontró que AgentField **nunca se ejecutó**: el SDK
+instalado (`agentfield` 0.1.91) no exporta `App`, el `import` fallaba en silencio
+y todo corría por el stub local. `AgentFieldAdapter` solo lo llamaban tests, y el
+control-plane del compose arrancaba sin consumidores (y API/worker esperaban su
+healthcheck). El DAG del topic path estaba copiado en `pipeline.py` y dos veces
+en `apps/api/main.py`; las copias de la API ya habían perdido el slop gate y el
+brief de referencia.
+
+### Decisión
+
+- Se borran `orchestration/agentfield/`, la dependencia `agentfield`, el servicio
+  `control-plane` y las claves `AGENTFIELD_*`. `core/narrative/runtime.py` queda
+  como el runtime explícito (`app.ai` → `core.llm_router`).
+- `core/narrative/dag.py::run_topic_dag` es la única copia del DAG
+  (hunters → critic → narrators → slop gate → judge). Pipeline, `/scripts` y
+  `/narratives` lo llaman.
+- Los índices que devuelve el LLM se validan ahí: `winner_idx` fuera de rango cae
+  a 0 con warning (antes `-1` elegía el último en silencio) y `top_3_indices` se
+  deduplica y rellena.
+
+### Archivos
+
+**Nuevos**: `core/narrative/dag.py`, `tests/narrative/test_dag.py`.
+**Borrados**: `orchestration/agentfield/`.
+
+---
+
+## ADR-041: Costo por job — tabla única, ledger con tope y circuit breaker
+
+**Fecha**: 2026-09-26 | **Estado**: Aceptado
+
+### Contexto
+
+Había 4 tablas de costo que no coincidían; Sora, OpenAI image y todo el LLM
+registraban $0; no existía tope de gasto; y cada beat podía caer por hasta 5
+proveedores pagados. Un timeout del cliente no cancela el job remoto, así que
+"timeout → siguiente proveedor" pagaba dos veces el mismo beat.
+
+### Decisión
+
+`core/cost.py`:
+
+- `estimate_usd(source, seconds)`: la única tabla de precios visuales.
+- `JobLedger` en un ContextVar: el pipeline (`run_pipeline`) y los productores de
+  long-form (`@budgeted`) abren uno; el LLM (`_stamp_cost`) y el orquestador
+  visual cargan ahí. `TaskInfo.cost_breakdown` sale del ledger.
+- Tope: `[budget].max_usd_per_job` (3.0) y `max_usd_per_episode` (25.0), o
+  `VideoParams.max_cost_usd`. Al llegar, no se lanza ninguna llamada pagada más.
+- Tras `GenerationTimeout`/`TimeoutError` el orquestador **no** prueba el
+  siguiente proveedor pagado; Higgsfield DoP no cae al CLI tras un timeout REST.
+- Circuit breaker de proceso: 401/402/403/"credits" apagan ese proveedor.
+
+### Consecuencias
+
+- Precios son estimaciones de 2026-09; verificarlos antes de afinar topes.
+- El tope es por corrida: al reanudar un episodio desde checkpoint, lo gastado
+  en la corrida anterior no cuenta.
+- Sigue sin cancelarse el job remoto; solo se evita pagar un segundo proveedor.
+
+---
+
+## ADR-042: Canvas por aspect y normalización de todo clip IA
+
+**Fecha**: 2026-09-26 | **Estado**: Aceptado
+
+### Contexto
+
+ADR-007 prometía 9:16, 16:9 y 1:1, pero toda la capa visual tenía 720×1280 fijo.
+Los clips IA (Sora 8/12 s, DoP 5 s, MCP 12 s) entraban al concat con su duración
+nativa; ADR-036 solo recortó stock. Y el stitch confiaba en `-shortest`: un reel
+salió con 398 s de video y 40 s de audio.
+
+### Decisión
+
+- `core/visual/canvas.py`: `use_aspect(aspect)` por beat (ContextVar) y
+  `current_canvas()`; ken-burns, recortes, OpenAI image (`size`), Sora (`size`) y
+  Higgsfield MCP (`aspect_ratio`) lo leen.
+- `generate_beat_videos` normaliza cada clip: recorte a `beat.target_duration_s`
+  (la parte real del audio, no el bucket de Veo), canvas del job, sin audio, y
+  `tpad` si la fuente es corta. Talking-head lo desactiva (el clip lip-sync ya
+  dura lo que su audio).
+- Stitch: `-t` = duración medida de la voz + `tpad` en video, timeout de ffmpeg.
+- BGM: fade en los últimos segundos (antes arrancaba en t=0 y la música moría a
+  los 3 s) y `amix normalize=0` (antes la voz bajaba 6 dB).
+
+### Archivos
+
+**Nuevos**: `core/visual/canvas.py`, `tests/test_canvas_normalize.py`; test de
+render real con ffmpeg en `tests/test_editor.py`.
+
+---
+
+## ADR-043: Referencias de personaje por quién está en cuadro
+
+**Fecha**: 2026-09-26 | **Estado**: Aceptado
+
+### Contexto
+
+En `produce_episode` solo viajaba el retrato del **hablante**, y el orquestador lo
+usaba como primer frame literal: si hablaba alguien fuera de cuadro su cara
+aparecía en el plano, los presentes que no hablaban iban sin referencia, y un
+shot que caía a ken-burns era el retrato de estudio con zoom. Los assets de la
+biblia nunca llegaban a los prompts de escena/storyboard y el match exacto por
+nombre no acertaba nunca.
+
+### Decisión
+
+- `BeatVisual.character_refs`: retratos de `shot.characters_present` (máx. 4).
+- Con refs, el first frame se genera con `POST /v1/images/edits` de gpt-image
+  (varias imágenes de entrada) antes que Gemini, que solo ve texto.
+- `SceneExtractor`/`StoryboardArtist` reciben `assets=` de la biblia con la
+  instrucción de usar sus nombres exactos; `_assets_in` busca el nombre del asset
+  en todo el texto del shot.
+
+### Pendiente
+
+- La llamada a `images/edits` está probada con mocks, no contra la API real.
+- Los selectores VLM (`ReferenceImageSelector`, `BestImageSelector` fuera de
+  montage) siguen sin callers: cablearlos cuesta una llamada VLM extra por shot.
+

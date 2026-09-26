@@ -22,9 +22,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from shared.schemas import EssenceCandidate
-
 from core.narrative.runtime import reel
+from shared.schemas import EssenceCandidate
 
 
 # ─────────────────────────────────────────────────────────────────────

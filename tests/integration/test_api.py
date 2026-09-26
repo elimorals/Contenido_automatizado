@@ -32,7 +32,6 @@ from shared.schemas import (
     WordTiming,
 )
 
-
 # =============================================================================
 # Helpers / fixtures
 # =============================================================================
@@ -270,31 +269,31 @@ async def test_post_scripts_topic_invokes_hunters_critic_judge(
     verdict = PairwiseVerdict(winner_idx=0, composite_score=8.5, why="best hook")
 
     with patch(
-        "apps.api.main.hunt_specific_figure",
+        "core.narrative.hunters.hunt_specific_figure",
         new_callable=AsyncMock,
         return_value=fake_candidates,
     ) as h1, patch(
-        "apps.api.main.hunt_reversal",
+        "core.narrative.hunters.hunt_reversal",
         new_callable=AsyncMock,
         return_value=fake_candidates,
     ) as h2, patch(
-        "apps.api.main.hunt_temporal",
+        "core.narrative.hunters.hunt_temporal",
         new_callable=AsyncMock,
         return_value=fake_candidates,
     ) as h3, patch(
-        "apps.api.main.hunt_cross_domain",
+        "core.narrative.hunters.hunt_cross_domain",
         new_callable=AsyncMock,
         return_value=fake_candidates,
     ) as h4, patch(
-        "apps.api.main.pick_top_essences",
+        "core.narrative.dag.pick_top_essences",
         new_callable=AsyncMock,
         return_value=critic_out,
     ) as critic, patch(
-        "apps.api.main.write_narrations",
+        "core.narrative.dag.write_narrations",
         new_callable=AsyncMock,
         return_value=[fake_conv, fake_conv, fake_conv],
     ) as narrators, patch(
-        "apps.api.main.pick_best_narration",
+        "core.narrative.dag.pick_best_narration",
         new_callable=AsyncMock,
         return_value=verdict,
     ) as judge:

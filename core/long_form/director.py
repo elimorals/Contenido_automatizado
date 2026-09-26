@@ -17,7 +17,6 @@ revisas/editas a mano (o con LLM), luego lanzas el shooting.
 """
 from __future__ import annotations
 
-import json
 import time
 import uuid
 from pathlib import Path
@@ -26,7 +25,7 @@ from loguru import logger
 
 from core.long_form.compressor import NovelCompressor
 from core.long_form.consistency import BestImageSelector, ReferenceImageSelector
-from core.long_form.rag import RAGStore, chunk_text
+from core.long_form.rag import RAGStore
 from core.long_form.scenes import SceneExtractor, StoryboardArtist
 from core.long_form.script_planner import ScriptPlanner, detect_intent
 from core.long_form.types import LongFormPlanError
@@ -39,7 +38,6 @@ from shared.schemas import (
     NarrativeArc,
     Scene,
 )
-
 
 # =============================================================================
 # Fase 1: PLAN
@@ -288,7 +286,6 @@ async def produce_long_form(
 
     # === STUB legacy (motion) ===
     job.status = "shooting"
-    working_dir = Path(cfg.working_dir) / job.job_id
 
     # Por ahora, instanciar selectors para validar dependencias OK
     ref_selector = ReferenceImageSelector()

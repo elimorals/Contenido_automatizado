@@ -17,12 +17,12 @@ from pydantic import BaseModel, Field
 
 from shared.schemas import (
     Audience,
+    BrandVisualConfig,
     DistributionPlatform,
     FactsDocument,
     LocalEvent,
     Pillar,
     PlatformSpec,
-    BrandVisualConfig,
     VideoAspect,
     VideoDurationSpec,
 )

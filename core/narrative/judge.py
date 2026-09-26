@@ -11,13 +11,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from core.narrative.runtime import reel
 from shared.schemas import (
     ConversationalScript,
     EssenceCandidate,
     PairwiseVerdict,
 )
-
-from core.narrative.runtime import reel
 
 _SYSTEM = """You're picking the BEST of several complete 25-second
 vertical-reel narrations. Pairwise comparison — pick the one most

@@ -1,14 +1,13 @@
 # =============================================================================
 # docker-compose.yml — contenido
-# Stack: Redis + AgentField control-plane + API + WebUI + Worker
+# Stack: Redis + API + WebUI + Worker
 # =============================================================================
 
 services:
   redis:
     image: redis:7-alpine
     container_name: contenido-redis
-    ports:
-      - "6379:6379"
+    # Sin `ports`: Redis no tiene contraseña, solo la red interna lo alcanza.
     volumes:
       - redis_data:/data
     healthcheck:
@@ -16,19 +15,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-  control-plane:
-    image: agentfield/control-plane:latest
-    container_name: contenido-control-plane
-    ports:
-      - "8080:8080"
-    environment:
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
   api:
     build:
@@ -42,7 +28,6 @@ services:
       - CONTENIDO_ENV=${CONTENIDO_ENV:-dev}
       - ENABLE_REDIS=true
       - REDIS_HOST=redis
-      - AGENTFIELD_SERVER=http://control-plane:8080
     env_file:
       - .env
     volumes:
@@ -51,8 +36,6 @@ services:
       - ./output:/app/output
     depends_on:
       redis:
-        condition: service_healthy
-      control-plane:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -87,7 +70,6 @@ services:
       - CONTENIDO_ENV=${CONTENIDO_ENV:-dev}
       - ENABLE_REDIS=true
       - REDIS_HOST=redis
-      - AGENTFIELD_SERVER=http://control-plane:8080
     env_file:
       - .env
     volumes:
@@ -96,8 +78,6 @@ services:
       - ./output:/app/output
     depends_on:
       redis:
-        condition: service_healthy
-      control-plane:
         condition: service_healthy
     deploy:
       replicas: 3              # = MAX_CONCURRENT_TASKS
