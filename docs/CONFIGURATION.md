@@ -56,17 +56,17 @@ redis_port = 6379
 redis_db = 0
 ```
 
-Cuando `enable_redis = false`, se usa `InMemoryTaskManager` y `MemoryStateManager` (datos se pierden al reiniciar).
+Cuando `enable_redis = false`, se usa `InMemoryTaskManager` y `MemoryStateManager` (datos se pierden al reiniciar) y **la propia API consume la cola** con `max_concurrent_tasks` consumidores: no hace falta levantar `worker`.
 
-### `[app]` — AgentField (broker de reasoners)
+### `[budget]` — topes de gasto (ADR-041)
 
 ```toml
-agentfield_server = "http://localhost:8080"
-agentfield_node_id = "contenido"
-agentfield_llm_call_timeout = 120
+[budget]
+max_usd_per_job = 3.0        # reel (API / CLI / MCP); VideoParams.max_cost_usd lo sobrescribe
+max_usd_per_episode = 25.0   # episodio de serie / long-form
 ```
 
-Si AgentField broker no está disponible, el adapter usa fallback a `core.llm_router` directo (sin DAG distribuido).
+Al llegar al tope no se lanza ninguna llamada pagada más: los beats restantes caen a ken-burns/placeholder. El gasto real (LLM + visual) queda en `TaskInfo.cost_breakdown`.
 
 ---
 
@@ -702,12 +702,11 @@ Lista completa de todas las env vars soportadas. Ver `.env.example` para templat
 | `MAX_CONCURRENT_TASKS` | `3` | Workers paralelos |
 | `MAX_QUEUED_TASKS` | `50` | Capacidad queue |
 
-### AgentField
+### API
 | Variable | Default | Descripción |
 |---|---|---|
-| `AGENT_NODE_ID` | `contenido` | ID del nodo |
-| `AGENTFIELD_SERVER` | `http://localhost:8080` | Control-plane URL |
-| `AGENTFIELD_LLM_CALL_TIMEOUT` | `120` | Timeout per call (s) |
+| `CONTENIDO_API_KEY` | — | Obligatoria fuera de `dev`. Header `X-API-Key` o `Authorization: Bearer`. Sin ella y con `CONTENIDO_ENV≠dev`, la API responde 503 |
+| `CORS_ORIGINS` | — | Orígenes permitidos, separados por coma. Vacío = ninguno |
 
 ### LLM providers
 | Variable | Provider |
