@@ -25,17 +25,20 @@ from typing import Any
 import httpx
 from loguru import logger
 
+from core.visual.canvas import current_aspect
 from core.visual.generation.base import VisualGenerationError, VisualGenerator
-from core.visual.generation.gemini_image import _augment, _crop_to_9x16
+from core.visual.generation.gemini_image import _augment, crop_to_canvas
 from shared.config import load_config
 from shared.schemas import Beat, BeatArtifact, BeatVisual, VideoSource
 
 API_URL = "https://api.openai.com/v1/images/generations"
+EDITS_URL = "https://api.openai.com/v1/images/edits"
 REQUEST_TIMEOUT_S = 180.0
 
 #: Tamaños que acepta la familia `gpt-image-*`. El vertical es el que queremos:
 #: recortar 2:3 → 9:16 tira poca imagen; recortar 1:1 → 9:16 tira casi la mitad.
 PORTRAIT_SIZE = "1024x1536"
+_SIZE_BY_ASPECT = {"9:16": PORTRAIT_SIZE, "16:9": "1536x1024", "1:1": "1024x1024"}
 
 
 async def _call_openai_image(
@@ -44,6 +47,7 @@ async def _call_openai_image(
     model: str,
     api_key: str,
     size: str = PORTRAIT_SIZE,
+    refs: list[Path] | None = None,
 ) -> bytes:
     """Devuelve los bytes PNG de la imagen generada.
 
@@ -56,12 +60,17 @@ async def _call_openai_image(
         "n": 1,
         "size": size,
     }
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
+    headers = {"Authorization": f"Bearer {api_key}"}
     async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_S) as client:
-        resp = await client.post(API_URL, headers=headers, json=payload)
+        if refs:
+            # `images/edits` acepta varias imágenes de entrada: los retratos de
+            # los personajes en cuadro. El modelo compone la escena del prompt
+            # con esas caras, en vez de pegar un retrato de estudio como frame.
+            files = [("image[]", (p.name, p.read_bytes(), "image/jpeg")) for p in refs[:4]]
+            data = {k: str(v) for k, v in payload.items()}
+            resp = await client.post(EDITS_URL, headers=headers, data=data, files=files)
+        else:
+            resp = await client.post(API_URL, headers=headers, json=payload)
         if resp.status_code >= 400:
             raise VisualGenerationError(
                 f"OpenAIImage HTTP {resp.status_code}: {resp.text[:300]}"
@@ -122,12 +131,14 @@ class OpenAIImageGenerator(VisualGenerator):
             prompt=_augment(visual.image_prompt, content_mode),
             model=self.model,
             api_key=self.api_key,
+            size=_SIZE_BY_ASPECT[current_aspect()],
+            refs=[p for p in visual.character_refs if p.exists()],
         )
         if not img_bytes:
             raise VisualGenerationError(f"OpenAIImage: bytes vacíos en beat {beat.idx}")
 
         raw_path.write_bytes(img_bytes)
-        cropped = _crop_to_9x16(raw_path, final_path, target_w=self.canvas_w)
+        cropped = crop_to_canvas(raw_path, final_path)
         logger.info(
             f"[openai_image] beat {beat.idx}: {self.model} → {cropped.name} "
             f"({len(img_bytes) // 1024} KB)"

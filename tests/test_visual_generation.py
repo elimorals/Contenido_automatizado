@@ -15,9 +15,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from PIL import Image
 
-from core.visual.generation import gemini_image as gi_mod
-from core.visual.generation import orchestrator as orch_mod
-from core.visual.generation import veo as veo_mod
 from core.visual.generation.gemini_image import (
     GeminiImageGenerator,
     _augment,
@@ -39,7 +36,6 @@ from shared.schemas import (
     MotionHint,
     VideoSource,
 )
-
 
 # =============================================================================
 # FIXTURES

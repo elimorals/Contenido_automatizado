@@ -23,6 +23,7 @@ from core.long_form.prompts import (
 from core.long_form.types import resolve_provider
 from shared.config import load_config
 from shared.schemas import (
+    AssetProfile,
     CharacterProfile,
     NarrativeArc,
     Scene,
@@ -74,6 +75,19 @@ def _scene_to_text(scene: Scene) -> str:
     )
 
 
+def _format_assets(assets: list[AssetProfile] | None) -> str:
+    """Bloque de assets de la biblia. Sin él el LLM inventaba nombres de props
+    y llenaba `environment` con ambiente sonoro, y ningún asset anclaba."""
+    if not assets:
+        return ""
+    lines = "\n".join(f"- {a.name} ({a.kind}): {a.description}" for a in assets)
+    return (
+        f"\n\n<ASSETS>\n{lines}\n</ASSETS>\n"
+        "Cuando aparezcan, usa EXACTAMENTE estos nombres en `environment`, `props` "
+        "y `assets_present`. `environment` es el LUGAR visible, nunca sonido."
+    )
+
+
 class SceneExtractor:
     """Descompone un NarrativeArc en lista de Scene."""
 
@@ -88,6 +102,7 @@ class SceneExtractor:
         *,
         target_scenes: int = 6,
         max_scenes: int = 12,
+        assets: list[AssetProfile] | None = None,
     ) -> list[Scene]:
         system = SCENE_EXTRACTOR_SYSTEM.format(
             target_minutes=arc.target_minutes,
@@ -97,6 +112,7 @@ class SceneExtractor:
         user = (
             f"<SCRIPT>\n{_arc_to_text(arc)}\n</SCRIPT>\n\n"
             f"<CHARACTERS>\n{_format_characters(characters)}\n</CHARACTERS>"
+            f"{_format_assets(assets)}"
         )
         result = await complete_structured(
             prompt=user,
@@ -130,6 +146,7 @@ class StoryboardArtist:
         user_requirement: str = "",
         min_shots: int = 4,
         max_shots: int = 12,
+        assets: list[AssetProfile] | None = None,
     ) -> list[Shot]:
         system = STORYBOARD_ARTIST_SYSTEM.format(
             min_shots=min_shots,
@@ -140,6 +157,7 @@ class StoryboardArtist:
             f"<SCRIPT>\n{_scene_to_text(scene)}\n</SCRIPT>\n\n"
             f"<CHARACTERS>\n{_format_characters(characters)}\n</CHARACTERS>\n\n"
             f"<USER_REQUIREMENT>\n{user_req_str}\n</USER_REQUIREMENT>"
+            f"{_format_assets(assets)}"
         )
         result = await complete_structured(
             prompt=user,

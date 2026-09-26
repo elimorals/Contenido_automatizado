@@ -10,7 +10,6 @@ Cubre:
 """
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -19,8 +18,6 @@ import pytest
 from PIL import Image
 
 from core.comfy.training import (
-    TRAINING_MAX_IMAGES,
-    TRAINING_MIN_IMAGES,
     TrainingValidationError,
     kohya_training_command,
     plan_lora_training,
@@ -28,28 +25,21 @@ from core.comfy.training import (
     validate_training_dataset,
 )
 from core.comfy.wrapper import (
-    ComfyCLIError,
     ComfyCLINotInstalled,
     check_binary,
 )
 from core.visual.generation.comfy import (
-    _is_local_path,
-    _is_oom_error,
-    _workflow_version,
-)
-from core.visual.generation.comfy import (
     ComfyUIGenerator,
     _brand_from_tenant,
+    _is_local_path,
+    _is_oom_error,
     _resolve_tenant_id,
-    is_comfyui_available,
+    _workflow_version,
 )
 from core.visual.generation.comfy_client import (
     ComfyAuthError,
     ComfyClient,
-    ComfyConnectionError,
     ComfyError,
-    ComfyExecutionError,
-    ComfyTimeoutError,
     ComfyValidationError,
     _ws_url_from_http,
 )
@@ -78,7 +68,6 @@ from shared.schemas import (
     MotionHint,
     VideoSource,
 )
-
 
 # =============================================================================
 # Fixtures
@@ -445,12 +434,11 @@ class TestComfyUIGeneratorSoftFail:
         with patch(
             "core.visual.generation.comfy.ComfyClient",
             return_value=mock_client,
-        ):
-            with pytest.raises(VisualGenerationError, match="no responde"):
-                await gen.generate(
-                    beat=sample_beat, visual=sample_visual,
-                    content_mode="general", out_dir=tmp_path,
-                )
+        ), pytest.raises(VisualGenerationError, match="no responde"):
+            await gen.generate(
+                beat=sample_beat, visual=sample_visual,
+                content_mode="general", out_dir=tmp_path,
+            )
 
 
 # =============================================================================

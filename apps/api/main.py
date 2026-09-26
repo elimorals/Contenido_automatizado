@@ -14,6 +14,7 @@ sigue procesando otras requests.
 from __future__ import annotations
 
 import asyncio
+import hmac
 import json
 import os
 import re
@@ -26,6 +27,7 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from loguru import logger
 from pydantic import BaseModel, Field
 
@@ -45,17 +47,15 @@ from core.narrative import (
     hunt_reversal,
     hunt_specific_figure,
     hunt_temporal,
-    pick_best_narration,
-    pick_top_essences,
-    write_narrations,
 )
+from core.narrative.dag import run_topic_dag
 from core.reference import ReferenceAnalysisError, analyze_reference
 from core.subtitles import (
     subtitles_from_word_timings,
     write_reel_ass_with_accents,
     write_srt,
 )
-from core.tts import detect_engine_and_voice, get_engine
+from core.tts import detect_engine_and_voice, get_engine, resolve_voice_name
 from orchestration.queue import QueueFullError, get_task_manager
 from orchestration.state import get_state_manager
 from shared.config import load_config
@@ -67,6 +67,7 @@ from shared.schemas import (
     TaskState,
     VideoParams,
 )
+from shared.urlsafe import UnsafeURLError, check_public_url
 
 # =============================================================================
 # Lifespan: queue + state + distribution boot/shutdown
@@ -83,6 +84,19 @@ async def lifespan(app: FastAPI):
     app.state.task_manager = get_task_manager(config)
     app.state.state_manager = get_state_manager(config)
     app.state.distribution = get_distribution_service(config)
+    # Sin Redis la cola vive en ESTE proceso: el worker separado tendría su
+    # propia cola vacía. Consumimos aquí mismo.
+    consumers: list[asyncio.Task] = []
+    stop = asyncio.Event()
+    if not config.app.enable_redis:
+        from apps.api.worker import consume
+
+        consumers = [
+            asyncio.create_task(
+                consume(app.state.task_manager, app.state.state_manager, stop, f"api-{i}")
+            )
+            for i in range(max(1, config.app.max_concurrent_tasks))
+        ]
     logger.info(
         f"[contenido] API arranca: env={config.app.env}, "
         f"default_mode={config.app.default_mode}, "
@@ -93,6 +107,9 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         logger.info("[contenido] API shutdown — cerrando recursos")
+        stop.set()
+        for t in consumers:
+            t.cancel()
         try:
             await app.state.task_manager.close()
         except Exception as e:  # pragma: no cover
@@ -110,13 +127,39 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# CORS cerrado por defecto: la WebUI (Streamlit) llama desde su servidor, no
+# desde el navegador. Antes `*` + credenciales dejaba que cualquier página
+# abierta generara y publicara en redes.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[o for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "DELETE"],
+    allow_headers=["Authorization", "X-API-Key", "Content-Type"],
 )
+
+_PUBLIC_PATHS = {"/", "/health", "/docs", "/redoc", "/openapi.json"}
+
+
+@app.middleware("http")
+async def require_api_key(request: Request, call_next):
+    """`X-API-Key` o `Authorization: Bearer` contra `CONTENIDO_API_KEY`.
+
+    Sin key configurada: abierto solo en `CONTENIDO_ENV=dev` (uso local);
+    en cualquier otro entorno se rechaza todo en vez de quedar expuesto.
+    """
+    if request.url.path in _PUBLIC_PATHS or request.method == "OPTIONS":
+        return await call_next(request)
+    expected = os.getenv("CONTENIDO_API_KEY", "")
+    if not expected:
+        if os.getenv("CONTENIDO_ENV", "dev") == "dev":
+            return await call_next(request)
+        return JSONResponse({"detail": "CONTENIDO_API_KEY no configurada"}, status_code=503)
+    auth = request.headers.get("authorization", "")
+    given = request.headers.get("x-api-key") or auth.removeprefix("Bearer ").strip()
+    if not hmac.compare_digest(given, expected):
+        return JSONResponse({"detail": "API key inválida o ausente"}, status_code=401)
+    return await call_next(request)
 
 
 # =============================================================================
@@ -176,6 +219,13 @@ async def create_video(params: VideoParams, request: Request) -> BaseResponse:
     cfg = request.app.state.config
     queue = request.app.state.task_manager
     state = request.app.state.state_manager
+
+    for url in (params.url, params.reference_url):
+        if url:
+            try:
+                check_public_url(url)
+            except UnsafeURLError as e:
+                raise HTTPException(status_code=422, detail=str(e)) from e
 
     # Backpressure rápido: chequea size antes de intentar encolar.
     try:
@@ -380,34 +430,16 @@ async def generate_script(params: VideoParams, request: Request) -> BaseResponse
             )
 
         if params.topic:
-            # 4 hunters → 12 candidates
-            candidates_lists = await asyncio.gather(
-                hunt_specific_figure(narrative_app, params.topic),
-                hunt_reversal(narrative_app, params.topic),
-                hunt_temporal(narrative_app, params.topic),
-                hunt_cross_domain(narrative_app, params.topic),
-            )
-            candidates = [c for lst in candidates_lists for c in lst]
-            # critic → top 3
-            critic_output = await pick_top_essences(
-                narrative_app, params.topic, candidates
-            )
-            top_essences = [candidates[i] for i in critic_output.top_3_indices]
-            # narrators → 3 scripts
-            scripts = await write_narrations(narrative_app, top_essences)
-            # judge
-            verdict = await pick_best_narration(
-                narrative_app, params.topic, scripts, top_essences
-            )
-            winner_conv = scripts[verdict.winner_idx]
-            adapted = _adapt_conversational_to_draft(winner_conv)
+            dag = await run_topic_dag(params.topic)
             return BaseResponse(
                 data={
                     "entry": "topic",
-                    "winner_idx": verdict.winner_idx,
-                    "composite_score": verdict.composite_score,
-                    "conversational": winner_conv.model_dump(mode="json"),
-                    "script": adapted.model_dump(mode="json"),
+                    "winner_idx": dag.verdict.winner_idx,
+                    "composite_score": dag.verdict.composite_score,
+                    "conversational": dag.winner_script.model_dump(mode="json"),
+                    "script": _adapt_conversational_to_draft(dag.winner_script).model_dump(
+                        mode="json"
+                    ),
                     "elapsed_s": time.perf_counter() - t0,
                 }
             )
@@ -494,7 +526,7 @@ async def generate_audio(params: VideoParams, request: Request) -> BaseResponse:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        engine_name, voice = detect_engine_and_voice(params.voice_name)
+        engine_name, voice = detect_engine_and_voice(resolve_voice_name(params.voice_name))
         engine = get_engine(engine_name)
         artifact = await engine.synthesize(
             text=params.script,
@@ -536,7 +568,7 @@ async def generate_subtitle(params: VideoParams, request: Request) -> BaseRespon
     try:
         # Re-synthesize para obtener word_timings; en producción se prefiere
         # llamar al worker con la pipeline completa.
-        engine_name, voice = detect_engine_and_voice(params.voice_name)
+        engine_name, voice = detect_engine_and_voice(resolve_voice_name(params.voice_name))
         engine = get_engine(engine_name)
         artifact = await engine.synthesize(
             text=params.script,
@@ -619,31 +651,16 @@ async def get_narrative(params: VideoParams, request: Request) -> BaseResponse:
                 }
             )
         if params.topic:
-            candidates_lists = await asyncio.gather(
-                hunt_specific_figure(narrative_app, params.topic),
-                hunt_reversal(narrative_app, params.topic),
-                hunt_temporal(narrative_app, params.topic),
-                hunt_cross_domain(narrative_app, params.topic),
-            )
-            candidates = [c for lst in candidates_lists for c in lst]
-            critic_output = await pick_top_essences(
-                narrative_app, params.topic, candidates
-            )
-            top_essences = [candidates[i] for i in critic_output.top_3_indices]
-            scripts = await write_narrations(narrative_app, top_essences)
-            verdict = await pick_best_narration(
-                narrative_app, params.topic, scripts, top_essences
-            )
-            winner_conv = scripts[verdict.winner_idx]
-            adapted: ScriptDraft = _adapt_conversational_to_draft(winner_conv)
+            dag = await run_topic_dag(params.topic)
+            adapted: ScriptDraft = _adapt_conversational_to_draft(dag.winner_script)
             return BaseResponse(
                 data={
                     "entry": "topic",
-                    "winner_idx": verdict.winner_idx,
-                    "composite_score": verdict.composite_score,
-                    "conversational": winner_conv.model_dump(mode="json"),
+                    "winner_idx": dag.verdict.winner_idx,
+                    "composite_score": dag.verdict.composite_score,
+                    "conversational": dag.winner_script.model_dump(mode="json"),
                     "script_draft": adapted.model_dump(mode="json"),
-                    "all_scripts": [s.model_dump(mode="json") for s in scripts],
+                    "all_scripts": [x.model_dump(mode="json") for x in dag.scripts],
                     "elapsed_s": time.perf_counter() - t0,
                 }
             )

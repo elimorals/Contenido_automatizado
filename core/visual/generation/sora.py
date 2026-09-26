@@ -33,7 +33,7 @@ from typing import Any
 import httpx
 from loguru import logger
 
-from core.visual.generation.base import VisualGenerationError, VisualGenerator
+from core.visual.generation.base import GenerationTimeout, VisualGenerationError, VisualGenerator
 from core.visual.generation.veo import _motion_clause
 from shared.config import load_config
 from shared.schemas import Beat, BeatArtifact, BeatVisual, VideoSource
@@ -73,6 +73,13 @@ def _build_prompt(visual: BeatVisual) -> str:
     )
 
 
+
+def _sora_size() -> str:
+    """Sora acepta 720x1280 y 1280x720; 1:1 no existe → vertical y se recorta después."""
+    from core.visual.canvas import current_aspect
+
+    return "1280x720" if current_aspect() == "16:9" else "720x1280"
+
 class SoraGenerator(VisualGenerator):
     """Genera clips i2v con `sora-2` a partir del first frame del beat."""
 
@@ -91,7 +98,8 @@ class SoraGenerator(VisualGenerator):
         self.api_key = api_key or cfg.get_llm_provider("openai").api_key
         self.poll_interval_s = poll_interval_s or cfg.visual.sora_poll_interval_s
         self.max_poll_time_s = max_poll_time_s or cfg.visual.sora_max_poll_time_s
-        self.size = f"{cfg.visual.canvas_w}x{cfg.visual.canvas_h}"
+        # Vacío = según el aspect del job en curso (ver `_sora_size`).
+        self.size = ""
 
     # ------------------------------------------------------------------
     # Ciclo del job
@@ -111,7 +119,7 @@ class SoraGenerator(VisualGenerator):
                     "model": self.model,
                     "prompt": prompt,
                     "seconds": str(seconds),
-                    "size": self.size,
+                    "size": self.size or _sora_size(),
                 },
                 files={"input_reference": (frame.name, fh, "image/jpeg")},
             )
@@ -150,7 +158,7 @@ class SoraGenerator(VisualGenerator):
             await asyncio.sleep(self.poll_interval_s)
             waited += self.poll_interval_s
 
-        raise VisualGenerationError(
+        raise GenerationTimeout(
             f"Sora: job {job_id} no terminó en {self.max_poll_time_s:.0f}s"
         )
 
@@ -198,7 +206,7 @@ class SoraGenerator(VisualGenerator):
                 client, prompt=prompt, seconds=seconds, frame=first_frame_path
             )
             logger.info(
-                f"[sora] beat {beat.idx}: job {job_id[:24]}… ({seconds}s, {self.size})"
+                f"[sora] beat {beat.idx}: job {job_id[:24]}… ({seconds}s, {self.size or _sora_size()})"
             )
             await self._await_job(client, job_id)
             clip = await self._download(client, job_id, dest)

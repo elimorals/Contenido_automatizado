@@ -1,4 +1,4 @@
-"""TTS de OpenAI con dirección actoral (ADR-040).
+"""TTS de OpenAI con dirección actoral.
 
 Por qué existe
 --------------
@@ -31,6 +31,7 @@ from loguru import logger
 from core.tts.base import TTSEngine
 from core.tts.timing import (
     DEFAULT_SAMPLE_RATE,
+    strip_tts_tags,
     synthesize_with_sample_accurate_timing,
 )
 from shared.schemas import AudioArtifact
@@ -82,7 +83,7 @@ class OpenAITTSEngine(TTSEngine):
         payload: dict[str, object] = {
             "model": self.model,
             "voice": voice or DEFAULT_VOICE,
-            "input": sentence,
+            "input": strip_tts_tags(sentence),  # si no, lee "[curious]" en voz alta
             "response_format": "wav",
         }
         # `instructions` solo existe en los modelos gpt-4o*-tts; mandarlo a

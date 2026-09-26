@@ -54,13 +54,11 @@ def _is_break_punct(word: str) -> bool:
     if not word:
         return False
     last = word[-1]
-    if last not in _PUNCT_END:
-        return False
     # 2.5% / 1,000 → no romper. Verificamos que no sea separador decimal
     # tipo "2.5" donde la palabra entera es numérico+punto+más-dígitos…
     # En la práctica word boundary del TTS no separa esos casos, así que el
     # check último-char ya es suficiente.
-    return True
+    return last in _PUNCT_END
 
 
 def _emit_block(

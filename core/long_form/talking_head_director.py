@@ -29,6 +29,7 @@ from pathlib import Path
 
 from loguru import logger
 
+from core.cost import budgeted
 from core.long_form.types import LongFormPlanError
 from shared.config import load_config
 from shared.schemas import (
@@ -42,7 +43,6 @@ from shared.schemas import (
     Scene,
     Shot,
 )
-
 
 # =============================================================================
 # Helper: convertir Shot → Beat + BeatVisual (con audio_path populado)
@@ -142,6 +142,7 @@ async def _synthesize_shot_audio(
 # =============================================================================
 
 
+@budgeted
 async def produce_talking_head(
     job: LongFormJob,
     script: LongFormScript,
@@ -197,7 +198,7 @@ async def produce_talking_head(
 
     # Flatten scenes → shots, asignando idx global
     flat_shots: list[tuple[int, Shot, Scene]] = []
-    for scene_idx, scene in enumerate(script.scenes):
+    for _scene_idx, scene in enumerate(script.scenes):
         for shot in scene.shots:
             flat_shots.append((len(flat_shots), shot, scene))
 
@@ -270,6 +271,7 @@ async def produce_talking_head(
             use_veo=False,
             use_comfyui=False,
             live_avatar_gen=live_avatar,
+            normalize=False,  # el clip lip-sync ya dura lo que su audio
         )
         artifacts.extend(sub_artifacts)
         logger.info(
@@ -309,7 +311,6 @@ async def _stitch_artifacts(
     LiveAvatar ya embebe el audio en el MP4 (vía ``merge_video_audio`` en
     su pipeline). Aquí solo concatenamos sin re-encode cuando es posible.
     """
-    import subprocess
     import tempfile
 
     video_paths = [

@@ -131,7 +131,6 @@ def is_available() -> bool:
 # central).
 from core.subtitles.srt import correct  # noqa: E402, F401  — re-export
 
-
 __all__ = [
     "correct",
     "is_available",

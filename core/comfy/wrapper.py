@@ -8,7 +8,6 @@ No conoce nada del protocolo del server — solo orquesta el binario.
 from __future__ import annotations
 
 import asyncio
-import json
 import shutil
 from pathlib import Path
 
@@ -75,10 +74,10 @@ async def _run(
     )
     try:
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout_s)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         proc.kill()
         await proc.wait()
-        raise ComfyCLIError(f"comfy-cli timeout tras {timeout_s}s")
+        raise ComfyCLIError(f"comfy-cli timeout tras {timeout_s}s") from None
     return (
         proc.returncode or 0,
         stdout.decode("utf-8", errors="replace"),
@@ -192,7 +191,7 @@ async def cli_launch(
         stdout = (await proc.stdout.read()).decode() if proc.stdout else ""
         stderr = (await proc.stderr.read()).decode() if proc.stderr else ""
         raise ComfyCLIError(f"comfy launch murió: {(stderr or stdout)[:400]}")
-    except asyncio.TimeoutError:
+    except TimeoutError:
         # Sigue corriendo → el server arrancó OK
         return proc.pid
 

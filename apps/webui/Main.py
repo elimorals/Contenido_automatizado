@@ -37,9 +37,14 @@ def get_api_url() -> str:
     return st.session_state.get("api_url") or DEFAULT_API_URL
 
 
+def _headers() -> dict[str, str]:
+    key = os.getenv("CONTENIDO_API_KEY", "")
+    return {"X-API-Key": key} if key else {}
+
+
 def api_post(path: str, json_body: dict[str, Any], timeout: float = 30.0) -> dict[str, Any]:
     """POST a la API. Lanza httpx.HTTPError si falla."""
-    with httpx.Client(timeout=timeout) as client:
+    with httpx.Client(timeout=timeout, headers=_headers()) as client:
         r = client.post(f"{get_api_url()}{path}", json=json_body)
         r.raise_for_status()
         return r.json()
@@ -47,7 +52,7 @@ def api_post(path: str, json_body: dict[str, Any], timeout: float = 30.0) -> dic
 
 def api_get(path: str, timeout: float = 10.0) -> dict[str, Any]:
     """GET a la API. Lanza httpx.HTTPError si falla."""
-    with httpx.Client(timeout=timeout) as client:
+    with httpx.Client(timeout=timeout, headers=_headers()) as client:
         r = client.get(f"{get_api_url()}{path}")
         r.raise_for_status()
         return r.json()
@@ -126,7 +131,7 @@ def _run_and_show(params: dict[str, Any]) -> None:
     progress = st.progress(0, text="Esperando inicio...")
     timings_placeholder = st.empty()
 
-    for iteration in range(POLL_MAX_ITERS):
+    for _iteration in range(POLL_MAX_ITERS):
         try:
             info_resp = api_get(f"/tasks/{task_id}")
         except Exception as e:
@@ -147,9 +152,8 @@ def _run_and_show(params: dict[str, Any]) -> None:
         )
         timings = info.get("timings_s", {}) or {}
         if timings:
-            with timings_placeholder.container():
-                with st.expander("⏱ Timings parciales"):
-                    st.json(timings)
+            with timings_placeholder.container(), st.expander("⏱ Timings parciales"):
+                st.json(timings)
 
         # COMPLETE
         if state == 1:

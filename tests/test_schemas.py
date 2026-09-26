@@ -7,7 +7,6 @@ from shared.schemas import (
     AccentOverlay,
     AccentPattern,
     AccentPosition,
-    BeatRole,
     GenerationMode,
     HookVariant,
     ScriptDraft,

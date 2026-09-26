@@ -13,7 +13,6 @@ Cambios vs ViMax original:
 """
 from __future__ import annotations
 
-
 # =============================================================================
 # Novel Compressor (de ViMax/agents/novel_compressor.py)
 # =============================================================================

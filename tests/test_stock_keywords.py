@@ -171,7 +171,12 @@ class TestStockTrim:
 
         from core.visual import selector as sel_mod
         from shared.schemas import (
-            Beat, BeatRole, BeatVisual, MaterialInfo, MotionHint, VideoSource,
+            Beat,
+            BeatRole,
+            BeatVisual,
+            MaterialInfo,
+            MotionHint,
+            VideoSource,
         )
 
         beat = Beat(idx=1, role=BeatRole.MECHANISM, text="body",
@@ -186,8 +191,10 @@ class TestStockTrim:
                          duration_s=3600.0, width=1080, height=1920)   # 1 hora
         ])
 
-        cached = tmp_path / "cached.mp4"; cached.write_bytes(b"fake")
-        trimmed = tmp_path / "stock-01.mp4"; trimmed.write_bytes(b"cut")
+        cached = tmp_path / "cached.mp4"
+        cached.write_bytes(b"fake")
+        trimmed = tmp_path / "stock-01.mp4"
+        trimmed.write_bytes(b"cut")
         trim_spy = AsyncMock(return_value=trimmed)
 
         with (
@@ -209,7 +216,12 @@ class TestStockTrim:
 
         from core.visual import selector as sel_mod
         from shared.schemas import (
-            Beat, BeatRole, BeatVisual, MaterialInfo, MotionHint, VideoSource,
+            Beat,
+            BeatRole,
+            BeatVisual,
+            MaterialInfo,
+            MotionHint,
+            VideoSource,
         )
 
         beat = Beat(idx=1, role=BeatRole.MECHANISM, text="body",
@@ -222,7 +234,8 @@ class TestStockTrim:
             MaterialInfo(provider=VideoSource.ARCHIVE_ORG, url="https://a/x.mp4",
                          duration_s=600.0, width=1080, height=1920)
         ])
-        cached = tmp_path / "cached.mp4"; cached.write_bytes(b"fake")
+        cached = tmp_path / "cached.mp4"
+        cached.write_bytes(b"fake")
 
         with (
             patch("core.visual.selector.get_all_providers", return_value=[provider]),

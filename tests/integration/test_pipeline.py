@@ -23,7 +23,6 @@ from shared.schemas import (
     BeatArtifact,
     BeatRole,
     BeatVisual,
-    Card,
     ConversationalScript,
     Essence,
     GenerationMode,
@@ -31,14 +30,13 @@ from shared.schemas import (
     MotionHint,
     OpenStyle,
     ScriptDraft,
-    SubtitleStyle,
+    TaskInfo,
     TaskState,
     VideoAspect,
     VideoParams,
     VideoSource,
     WordTiming,
 )
-
 
 # =============================================================================
 # Fixtures
@@ -313,17 +311,16 @@ async def test_run_pipeline_catches_exception_marks_failed(
         "apps.api.pipeline.run_topic_pipeline",
         new_callable=AsyncMock,
         side_effect=RuntimeError("boom"),
-    ):
-        with pytest.raises(RuntimeError, match="boom"):
-            await run_pipeline(params, "fail-task-id", state_manager)
+    ), pytest.raises(RuntimeError, match="boom"):
+        await run_pipeline(params, "fail-task-id", state_manager)
 
-    # El state debe haber registrado FAILED + error en timings.
+    # FAILED + error en su propio campo (en timings_s rompía Redis).
     stored = await state_manager.get("fail-task-id")
     assert stored is not None
     assert stored.state == TaskState.FAILED
-    assert "error" in stored.timings_s or any(
-        "boom" in str(v) for v in stored.timings_s.values()
-    )
+    assert stored.error == "boom"
+    # Round-trip JSON como hace Redis: antes fallaba con el str en timings_s.
+    assert TaskInfo.model_validate_json(stored.model_dump_json()).error == "boom"
 
 
 @pytest.mark.integration

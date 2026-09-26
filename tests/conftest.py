@@ -10,6 +10,16 @@ from shared.schemas import GenerationMode, VideoAspect, VideoParams
 
 
 @pytest.fixture(autouse=True)
+def _reset_cost_breaker():
+    """El circuit breaker de `core.cost` es de proceso; entre tests no debe filtrarse."""
+    from core.cost import reset_breaker
+
+    reset_breaker()
+    yield
+    reset_breaker()
+
+
+@pytest.fixture(autouse=True)
 def _isolate_local_env(monkeypatch: pytest.MonkeyPatch):
     """Neutraliza las env vars del `.env` local que cambian comportamiento.
 

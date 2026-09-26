@@ -12,7 +12,7 @@ help:
 	@echo "  make typecheck      Type check con mypy"
 	@echo "  make clean          Limpiar archivos generados"
 	@echo ""
-	@echo "  make docker-up      Levantar stack completo (API + WebUI + Redis + control-plane)"
+	@echo "  make docker-up      Levantar stack completo (API + WebUI + Redis + worker)"
 	@echo "  make docker-down    Detener stack"
 	@echo "  make docker-build   Reconstruir imágenes"
 	@echo "  make docker-logs    Tail de logs"

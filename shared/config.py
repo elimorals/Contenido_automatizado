@@ -61,9 +61,6 @@ class AppConfig(BaseModel):
     redis_host: str = "localhost"
     redis_port: int = 6379
     redis_db: int = 0
-    agentfield_server: str = "http://localhost:8080"
-    agentfield_node_id: str = "contenido"
-    agentfield_llm_call_timeout: int = 120
 
 
 class LLMProviderConfig(BaseModel):
@@ -212,6 +209,14 @@ class QualityConfig(BaseModel):
     # cuántas rondas sin mejora ≥ min_delta antes de declarar meseta y parar.
     plateau_patience: int = 2                   # QUALITY_PLATEAU_PATIENCE
     plateau_min_delta: float = 0.1              # QUALITY_PLATEAU_MIN_DELTA
+
+
+class BudgetConfig(BaseModel):
+    """Topes de gasto (USD). Al llegar, no se lanza ninguna llamada pagada más:
+    los beats restantes caen a ken-burns/placeholder. Ver `core/cost.py`."""
+
+    max_usd_per_job: float = 3.0       # reel (API/CLI/MCP)
+    max_usd_per_episode: float = 25.0  # episodio de serie / long-form
 
 
 class ComfyTenantEntry(BaseModel):
@@ -488,6 +493,7 @@ class Config(BaseModel):
     upload_post: UploadPostConfig = Field(default_factory=UploadPostConfig)
     long_form: LongFormConfig = Field(default_factory=LongFormConfig)
     quality: QualityConfig = Field(default_factory=QualityConfig)
+    budget: BudgetConfig = Field(default_factory=BudgetConfig)
 
     # Aspect ratios (no es BaseModel anidado por simplicidad TOML)
     aspect_ratios: dict[str, dict[str, int]] = Field(
@@ -541,8 +547,6 @@ def _apply_env_overrides(cfg: Config) -> Config:
         os.getenv("MAX_CONCURRENT_TASKS", cfg.app.max_concurrent_tasks)
     )
     cfg.app.max_queued_tasks = int(os.getenv("MAX_QUEUED_TASKS", cfg.app.max_queued_tasks))
-    cfg.app.agentfield_server = os.getenv("AGENTFIELD_SERVER", cfg.app.agentfield_server)
-    cfg.app.agentfield_node_id = os.getenv("AGENT_NODE_ID", cfg.app.agentfield_node_id)
 
     # LLM providers (mapeo común)
     env_llm_map = {
@@ -810,6 +814,7 @@ def _coerce_dict_to_config(raw: dict[str, Any]) -> Config:
         "ui": UIConfig(**raw.get("ui", {})),
         "upload_post": UploadPostConfig(**raw.get("upload_post", {})),
         "quality": QualityConfig(**raw.get("quality", {})),
+        "budget": BudgetConfig(**raw.get("budget", {})),
     }
 
     # Aspect ratios (sección anidada en [editor.aspect])

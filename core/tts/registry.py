@@ -25,11 +25,12 @@ SUPPORTED_ENGINES = (
     "azure",
     "mimo",
     "siliconflow",
+    "openai",
     "silent",
 )
 
 
-def get_engine(name: str, **kwargs) -> "TTSEngine":
+def get_engine(name: str, **kwargs) -> TTSEngine:
     """Instancia un engine por nombre.
 
     Args:
@@ -76,6 +77,11 @@ def get_engine(name: str, **kwargs) -> "TTSEngine":
         from core.tts.engines.siliconflow import SiliconFlowEngine
 
         return SiliconFlowEngine(**kwargs)
+
+    if name == "openai":
+        from core.tts.engines.openai_tts import OpenAITTSEngine
+
+        return OpenAITTSEngine(**kwargs)
 
     raise ValueError(
         f"Unknown TTS engine '{name}'. Supported: {SUPPORTED_ENGINES}"

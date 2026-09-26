@@ -18,15 +18,14 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
-from shared.config import load_config
-from shared.schemas import AudioArtifact
-
 from core.tts.base import TTSEngine
 from core.tts.timing import (
     DEFAULT_SAMPLE_RATE,
     synthesize_with_sample_accurate_timing,
     wrap_pcm16_as_wav,
 )
+from shared.config import load_config
+from shared.schemas import AudioArtifact
 
 DEFAULT_GEMINI_TTS_MODEL = "gemini-2.5-flash-preview-tts"
 

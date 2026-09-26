@@ -27,6 +27,7 @@ from pathlib import Path
 
 from loguru import logger
 
+from core.cost import estimate_usd
 from core.visual.broll_embedder import get_broll_embedder
 from core.visual.broll_rerank import rerank
 from core.visual.broll_visual import (
@@ -35,6 +36,7 @@ from core.visual.broll_visual import (
     get_visual_reranker,
     rerank_visual,
 )
+from core.visual.canvas import use_aspect
 from core.visual.generation import generate_beat_videos
 from core.visual.generation.ken_burns import (
     _placeholder_frame,
@@ -57,34 +59,6 @@ from shared.schemas import (
     VideoSource,
     VisualStrategy,
 )
-
-# Costos aproximados (USD) por fuente — ajustar contra precios reales.
-# Higgsfield DoP: $0.13/run base (lite); turbo ~$0.20; preview ~$0.30
-# Soul: ~$0.04 por imagen generada (similar a Gemini Flash Image)
-# Effects: ~$0.10 por overlay
-_COST_ESTIMATES: dict[VideoSource, float] = {
-    VideoSource.PEXELS: 0.0,
-    VideoSource.PIXABAY: 0.0,
-    VideoSource.COVERR: 0.0,
-    VideoSource.GEMINI_IMAGE: 0.04,  # ~1 imagen + ken-burns
-    VideoSource.VEO: 0.30,  # Veo i2v 4-8s
-    VideoSource.LOCAL: 0.0,
-    VideoSource.HIGGSFIELD_DOP: 0.20,  # DoP turbo (default)
-    VideoSource.HIGGSFIELD_SOUL: 0.05,  # SoulId-guided image
-    VideoSource.HIGGSFIELD_EFFECT: 0.10,  # Effect overlay post-step
-    VideoSource.COMFYUI: 0.0,  # self-hosted = compute propio; managed override en config
-    # Corpus libres (ADR-022): gratis (dominio público / CC / licencia Unsplash).
-    VideoSource.ARCHIVE_ORG: 0.0,
-    VideoSource.WIKIMEDIA: 0.0,
-    VideoSource.NASA: 0.0,
-    VideoSource.UNSPLASH: 0.0,
-    # Corpus libre histórico (ADR-026): dominio público → gratis.
-    VideoSource.LOC: 0.0,
-    VideoSource.NARA: 0.0,
-    VideoSource.POND5_PD: 0.0,
-    VideoSource.FAL: 0.25,  # i2v Kling/Runway/MiniMax (~$0.2-0.5/clip según modelo)
-}
-
 
 # =============================================================================
 # DECISIÓN: stock vs IA
@@ -365,7 +339,9 @@ async def _try_stock(
             trimmed = await trim_clip(
                 src=local_path,
                 out_path=out_dir / f"stock-{beat.idx:02d}.mp4",
-                duration_s=float(beat.veo_duration),
+                # target (parte real del audio), no el bucket de Veo: sumados dan
+                # la duración de la voz; con buckets cada beat se comía el siguiente.
+                duration_s=float(beat.target_duration_s or beat.veo_duration),
             )
         except Exception as e:  # noqa: BLE001 — sin recorte no se puede usar
             logger.warning(
@@ -458,10 +434,11 @@ def _track_cost(
     cost_tracker: dict | None,
     beat_idx: int,
     source: VideoSource,
+    seconds: float = 0.0,
 ) -> None:
     if cost_tracker is None:
         return
-    cost = _COST_ESTIMATES.get(source, 0.0)
+    cost = estimate_usd(source, seconds)  # tabla única en core/cost.py
     cost_tracker[f"beat_{beat_idx}_{source.value}"] = cost
 
 
@@ -565,7 +542,23 @@ async def select_and_generate_beat_artifact(
         BeatArtifact con video_path poblado (o placeholder + frame en peor caso).
     """
     out_dir.mkdir(parents=True, exist_ok=True)
+    with use_aspect(aspect):
+        return await _select_and_generate(
+            beat, visual, essence, mode, strategy, aspect, out_dir, cost_tracker, decision_log
+        )
 
+
+async def _select_and_generate(
+    beat: Beat,
+    visual: BeatVisual,
+    essence: Essence,
+    mode: GenerationMode,
+    strategy: VisualStrategy,
+    aspect: str,
+    out_dir: Path,
+    cost_tracker: dict | None,
+    decision_log: DecisionLog | None,
+) -> BeatArtifact:
     primary_source = _decide_source(beat, essence, mode, strategy)
     logger.info(
         f"[selector] beat {beat.idx} ({beat.role.value}) mode={mode.value} "
@@ -601,7 +594,7 @@ async def select_and_generate_beat_artifact(
         )
         artifact = _make_placeholder_artifact(beat, out_dir)
 
-    _track_cost(cost_tracker, beat.idx, artifact.source)
+    _track_cost(cost_tracker, beat.idx, artifact.source, float(beat.veo_duration))
     if decision_log is not None:
         _record_decision(decision_log, beat, essence, mode, artifact)
     return artifact

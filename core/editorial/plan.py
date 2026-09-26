@@ -10,7 +10,6 @@ from __future__ import annotations
 import datetime as dt
 import json
 from pathlib import Path
-from uuid import uuid4
 
 from loguru import logger
 from pydantic import BaseModel, Field
@@ -19,15 +18,13 @@ from core.editorial.loader import EditorialRegistry, load_editorial
 from core.llm_router import complete_structured
 from shared.config import load_config
 from shared.schemas import (
-    DistributionPlatform,
     EditorialPlan,
-    EntryType,
     ReelIdea,
 )
 
 
 def iso_week(when: dt.datetime | None = None) -> str:
-    when = when or dt.datetime.now(dt.timezone.utc)
+    when = when or dt.datetime.now(dt.UTC)
     iso = when.isocalendar()
     return f"{iso.year}-W{iso.week:02d}"
 
@@ -132,24 +129,24 @@ def _build_system_prompt(
         parts.append(performance_block)
 
     parts.append(
-        f"\n## REGLAS\n"
-        f"- Rota pilares: no más de 2 ideas del mismo pilar.\n"
-        f"- Aprovecha eventos locales solo si encajan.\n"
-        f"- Cada idea es concreta y accionable, no temas genéricos.\n"
-        f"- `id` en kebab-case, único en el plan.\n"
-        f"- `audience`: una sola por idea.\n"
-        f"- `platforms`: elige 1-3 según formato natural.\n"
-        f"- `entry_type`: 'topic' por default (entry al DAG /videos).\n"
-        f"- `entry_value`: el topic concreto que el DAG ingestará.\n"
-        f"- `rationale`: por qué ESTA semana, no por qué es buena en general.\n"
-        f"- `approved` siempre false."
+        "\n## REGLAS\n"
+        "- Rota pilares: no más de 2 ideas del mismo pilar.\n"
+        "- Aprovecha eventos locales solo si encajan.\n"
+        "- Cada idea es concreta y accionable, no temas genéricos.\n"
+        "- `id` en kebab-case, único en el plan.\n"
+        "- `audience`: una sola por idea.\n"
+        "- `platforms`: elige 1-3 según formato natural.\n"
+        "- `entry_type`: 'topic' por default (entry al DAG /videos).\n"
+        "- `entry_value`: el topic concreto que el DAG ingestará.\n"
+        "- `rationale`: por qué ESTA semana, no por qué es buena en general.\n"
+        "- `approved` siempre false."
     )
 
     return "\n".join(parts)
 
 
 def _build_user_prompt(registry: EditorialRegistry, n_ideas: int, week: str) -> str:
-    now = dt.datetime.now(dt.timezone.utc)
+    now = dt.datetime.now(dt.UTC)
     upcoming = _events_for_month(registry, now.month)
     events_block = "\n".join(f"- {e}" for e in upcoming) if upcoming else "Ninguno relevante."
 
@@ -246,7 +243,7 @@ async def generate_plan(
 
     plan = EditorialPlan(
         week=week,
-        generated_at=dt.datetime.now(dt.timezone.utc).isoformat(),
+        generated_at=dt.datetime.now(dt.UTC).isoformat(),
         ideas=response.ideas,
     )
 

@@ -1,23 +1,17 @@
-"""AgentField runtime adapter.
+"""Runtime de reasoners: `app.ai(...)` despacha a `core.llm_router`.
 
-Expone `app` y `reel` (router) compatibles con el namespace de reels-af.
+Esto ES el runtime (ADR-040). AgentField nunca llegó a ejecutarse — el SDK
+instalado no exportaba `App` y todo caía siempre aquí — así que se retiró el
+import, el adapter y el control-plane del compose.
 
-Si AgentField (`agentfield`) está instalado, importamos el `app` real desde
-el módulo central del proyecto. Si no, exponemos un stub minimalista que
-permite registrar reasoners (decorador `@reel.reasoner()`) y llamar a
-`app.ai(system=..., user=..., schema=..., temperature=...)` despachando al
-`core.llm_router`.
-
-Esto sirve dos propósitos:
-  1. Imports estables (`from core.narrative.runtime import app, reel`) sin
-     romper si AgentField todavía no está cableado.
-  2. Punto único donde el equipo puede swappear el bus (AgentField, raw
-     LLM router, mock para tests) sin tocar los 8 reasoners.
+`@reel.reasoner()` registra el reasoner por nombre; `app.ai(system=, user=,
+schema=, temperature=)` es la firma heredada de reels-af.
 """
 
 from __future__ import annotations
 
-from typing import Any, Callable, Type, TypeVar
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from pydantic import BaseModel
 
@@ -25,22 +19,7 @@ T = TypeVar("T", bound=BaseModel)
 
 
 # ─────────────────────────────────────────────────────────────────────
-# Intento de importar AgentField real
-# ─────────────────────────────────────────────────────────────────────
-
-try:
-    # Convención: si el proyecto cablea AgentField, lo expone aquí.
-    # Reemplaza este import por el real cuando se conecte.
-    from agentfield import App as _AgentFieldApp  # type: ignore[import-not-found]
-
-    _HAS_AGENTFIELD = True
-except Exception:  # pragma: no cover - AgentField puede no estar instalado
-    _AgentFieldApp = None  # type: ignore[assignment]
-    _HAS_AGENTFIELD = False
-
-
-# ─────────────────────────────────────────────────────────────────────
-# Stub minimalista (fallback)
+# Runtime
 # ─────────────────────────────────────────────────────────────────────
 
 
@@ -105,7 +84,7 @@ class _AppStub:
         *,
         system: str,
         user: str,
-        schema: Type[T],
+        schema: type[T],
         temperature: float = 0.7,
         max_tokens: int = 2000,
         provider: str | None = None,
@@ -142,12 +121,8 @@ class _AppStub:
 # ─────────────────────────────────────────────────────────────────────
 
 
-if _HAS_AGENTFIELD and _AgentFieldApp is not None:  # pragma: no cover
-    app: Any = _AgentFieldApp()
-    reel: Any = getattr(app, "reel", _ReelRouter())
-else:
-    app = _AppStub()
-    reel = _ReelRouter()
+app = _AppStub()
+reel = _ReelRouter()
 
 
 __all__ = ["app", "reel"]

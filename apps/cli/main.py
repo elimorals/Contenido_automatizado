@@ -10,10 +10,10 @@ import asyncio
 import datetime as dt
 import json
 from pathlib import Path
+from typing import Annotated
 from uuid import uuid4
 
 import typer
-from typing_extensions import Annotated
 
 from apps.api.pipeline import run_pipeline
 from core.llm_router import available_providers
@@ -106,7 +106,7 @@ def _run(params: VideoParams, output: Path, quiet: bool) -> TaskInfo:
                 # Dar oportunidad al poll de terminar limpiamente
                 try:
                     await asyncio.wait_for(poll_task, timeout=1.0)
-                except (asyncio.TimeoutError, asyncio.CancelledError):
+                except (TimeoutError, asyncio.CancelledError):
                     poll_task.cancel()
 
     try:
@@ -760,7 +760,7 @@ def brand_check() -> None:
     typer.echo(f"  Audiences ({len(r.audiences)}): {', '.join(r.audiences.keys()) or '—'}")
     typer.echo(
         f"  Platforms ({len(r.platforms)}): "
-        f"{', '.join(p.value for p in r.platforms.keys()) or '—'}"
+        f"{', '.join(p.value for p in r.platforms) or '—'}"
     )
     f = r.facts
     typer.echo(
@@ -889,7 +889,10 @@ def comfy_lora_cmd(
     """Gestiona LoRAs: list | download | train (wizard)."""
     try:
         from core.comfy import (
-            TrainingValidationError, download_lora, list_loras, plan_lora_training,
+            TrainingValidationError,
+            download_lora,
+            list_loras,
+            plan_lora_training,
         )
     except Exception as e:  # noqa: BLE001
         typer.secho(f"✗ {e}", fg=typer.colors.RED, err=True)
@@ -928,7 +931,7 @@ def comfy_lora_cmd(
             )
             typer.echo(f"  Imágenes válidas: {len(result['valid_images'])}")
             if result["warnings"]:
-                typer.secho(f"  ⚠ Warnings:", fg=typer.colors.YELLOW)
+                typer.secho("  ⚠ Warnings:", fg=typer.colors.YELLOW)
                 for w in result["warnings"][:5]:
                     typer.echo(f"    • {w}")
             typer.echo("")
@@ -1329,7 +1332,7 @@ app.add_typer(series_app, name="series")
 @series_app.command("list")
 def series_list() -> None:
     """Lista las series con biblia en editorial/series/."""
-    from core.long_form.series import load_bible, list_series
+    from core.long_form.series import list_series, load_bible
 
     slugs = list_series()
     if not slugs:
@@ -1433,12 +1436,12 @@ def series_produce(
                 target_minutes=max(0.6, ep.target_seconds / 60),
             )
             scenes = await SceneExtractor().extract(
-                arc, b.characters, target_scenes=2, max_scenes=3,
+                arc, b.characters, target_scenes=2, max_scenes=3, assets=b.assets,
             )
             artist = StoryboardArtist()
             for sc in scenes:
                 sc.shots = await artist.draw_scene(
-                    sc, b.characters, min_shots=3, max_shots=6,
+                    sc, b.characters, min_shots=3, max_shots=6, assets=b.assets,
                 )
             ep.scenes = scenes
             save_bible(b)

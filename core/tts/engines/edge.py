@@ -18,9 +18,6 @@ from pathlib import Path
 
 import edge_tts
 
-from shared.config import load_config
-from shared.schemas import AudioArtifact
-
 from core.tts.base import TTSEngine
 from core.tts.timing import (
     DEFAULT_SAMPLE_RATE,
@@ -28,6 +25,8 @@ from core.tts.timing import (
     synthesize_with_sample_accurate_timing,
     transcode_to_canonical_wav,
 )
+from shared.config import load_config
+from shared.schemas import AudioArtifact
 
 _DEFAULT_RATE_STR = "+0%"
 _DEFAULT_TIMEOUT_S = 30.0

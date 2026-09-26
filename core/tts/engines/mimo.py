@@ -13,9 +13,6 @@ import asyncio
 import base64
 from pathlib import Path
 
-from shared.config import load_config
-from shared.schemas import AudioArtifact
-
 from core.tts.base import TTSEngine
 from core.tts.timing import (
     DEFAULT_SAMPLE_RATE,
@@ -23,6 +20,8 @@ from core.tts.timing import (
     synthesize_with_sample_accurate_timing,
     transcode_to_canonical_wav,
 )
+from shared.config import load_config
+from shared.schemas import AudioArtifact
 
 _MIMO_DEFAULT_BASE_URL = "https://api.xiaomimimo.com/v1"
 _MIMO_DEFAULT_TTS_MODEL = "mimo-v2.5-tts"

@@ -12,8 +12,6 @@ import re
 import unicodedata
 from pathlib import Path
 
-from shared.schemas import AudioArtifact
-
 from core.tts.base import TTSEngine
 from core.tts.timing import (
     DEFAULT_SAMPLE_RATE,
@@ -22,6 +20,7 @@ from core.tts.timing import (
     split_into_sentences,
     strip_tts_tags,
 )
+from shared.schemas import AudioArtifact
 
 
 def estimate_speech_duration(text: str) -> float:

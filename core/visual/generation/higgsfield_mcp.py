@@ -36,6 +36,7 @@ from typing import Any
 import httpx
 from loguru import logger
 
+from core.visual.canvas import current_aspect
 from core.visual.generation.base import VisualGenerationError, VisualGenerator
 from core.visual.generation.veo import _motion_clause
 from shared.config import load_config
@@ -351,7 +352,7 @@ class HiggsfieldMCPGenerator(VisualGenerator):
     def __init__(self, model: str | None = None, aspect_ratio: str | None = None) -> None:
         cfg = load_config()
         self.model = model or cfg.visual.higgsfield_mcp_model
-        self.aspect_ratio = aspect_ratio or "9:16"
+        self.aspect_ratio = aspect_ratio  # None = aspect del job en curso
         self.max_wait_s = cfg.visual.higgsfield_mcp_max_wait_s
 
     async def generate(
@@ -380,7 +381,7 @@ class HiggsfieldMCPGenerator(VisualGenerator):
             params: dict[str, Any] = {
                 "model": self.model,
                 "prompt": prompt,
-                "aspect_ratio": self.aspect_ratio,
+                "aspect_ratio": self.aspect_ratio or current_aspect(),
                 #  es el rol i2v: con  a secas los modelos
                 # de video lo interpretan como t2v y rechazan la referencia
                 # ("mode 't2v' does not accept reference media").

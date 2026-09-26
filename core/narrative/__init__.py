@@ -1,4 +1,4 @@
-"""DAG de 18 reasoners narrativos (portados de reels-af).
+"""Reasoners narrativos (portados de reels-af).
 
 Reasoners disponibles:
   - extract_essence       — URL → Essence (article path)
@@ -13,8 +13,8 @@ Reasoners disponibles:
   - plan_beat_visuals     — beats → list[BeatVisual] (per-beat image prompts)
   - plan_beat_accents     — beats → list[AccentOverlay|None] (overlays editoriales)
 
-Runtime: usa `core.narrative.runtime.app` (AgentField adapter) que despacha a
-`core.llm_router` cuando AgentField no está cableado.
+Runtime: `core.narrative.runtime.app` despacha a `core.llm_router`.
+DAG del topic path: `core.narrative.dag.run_topic_dag` (única copia).
 """
 from __future__ import annotations
 
