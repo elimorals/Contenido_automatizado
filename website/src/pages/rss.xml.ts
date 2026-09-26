@@ -61,7 +61,7 @@ export async function GET(context: APIContext): Promise<Response> {
     title: "contenido · documentación",
     description:
       "Plataforma open source de generación de video con IA. Reels cinematográficos con LoRA propia, long-form de 5–60 min, ComfyUI multi-tenant, cost-tracking nativo.",
-    site: context.site ?? "https://contenido.vercel.app/",
+    site: context.site ?? "https://contenido-automatizado.vercel.app/",
     items,
     customData:
       "<language>es</language>" +

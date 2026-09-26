@@ -4,7 +4,7 @@
 Contact: mailto:elias@cipreholding.com
 Expires: 2027-06-16T00:00:00.000Z
 Preferred-Languages: es, en
-Canonical: https://contenido.vercel.app/.well-known/security.txt
+Canonical: https://contenido-automatizado.vercel.app/.well-known/security.txt
 Policy: https://github.com/elimorals/Contenido_automatizado/security/policy
 
 # Si descubriste una vulnerabilidad de seguridad en este proyecto

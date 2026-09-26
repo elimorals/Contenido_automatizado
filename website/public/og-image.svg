@@ -45,7 +45,7 @@
     <text fill="#8A8275"
           font-family="ui-monospace, 'JetBrains Mono', monospace"
           font-size="14" letter-spacing="2.5">
-      <tspan>413 TESTS</tspan>
+      <tspan>874 TESTS</tspan>
       <tspan dx="20" fill="#5E5848">/</tspan>
       <tspan dx="20">5 LINAJES</tspan>
       <tspan dx="20" fill="#5E5848">/</tspan>
@@ -57,5 +57,5 @@
 
   <text x="1120" y="570" text-anchor="end" fill="#5E5848"
         font-family="ui-monospace, 'JetBrains Mono', monospace"
-        font-size="14" letter-spacing="2">contenido.vercel.app</text>
+        font-size="14" letter-spacing="2">contenido-automatizado.vercel.app</text>
 </svg>

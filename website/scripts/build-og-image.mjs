@@ -119,7 +119,7 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" 
       font-size="14"
       letter-spacing="2.5"
     >
-      <tspan>413 TESTS</tspan>
+      <tspan>874 TESTS</tspan>
       <tspan dx="20" fill="#5E5848">/</tspan>
       <tspan dx="20">5 LINAJES</tspan>
       <tspan dx="20" fill="#5E5848">/</tspan>
@@ -138,7 +138,7 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" 
     font-family="ui-monospace, 'JetBrains Mono', monospace"
     font-size="14"
     letter-spacing="2"
-  >contenido.vercel.app</text>
+  >contenido-automatizado.vercel.app</text>
 </svg>`;
 
 async function main() {
