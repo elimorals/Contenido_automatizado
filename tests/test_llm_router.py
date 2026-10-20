@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from pydantic import BaseModel
@@ -215,7 +215,7 @@ class _FakeAsyncClient:
         self._response = response
         self.last_call: dict[str, Any] | None = None
 
-    async def __aenter__(self) -> "_FakeAsyncClient":
+    async def __aenter__(self) -> _FakeAsyncClient:
         return self
 
     async def __aexit__(self, *args: Any) -> None:

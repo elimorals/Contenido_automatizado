@@ -16,12 +16,11 @@ peor que falta de overlays.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from shared.schemas import AccentOverlay, AccentPattern, AccentPosition, Beat, Essence
-
 
 # La defaults DEBE ser None. Cada parte del prompt y schema fuerza al modelo
 # a comprometerse yes/no ANTES de construir el overlay, para que no se deje
@@ -40,7 +39,7 @@ class _AccentDecision(BaseModel):
             "canonical patterns unambiguously applies to this beat."
         ),
     )
-    overlay: Optional[AccentOverlay] = Field(
+    overlay: AccentOverlay | None = Field(
         default=None,
         description=(
             "ONLY set when emit_overlay is true. Must be null otherwise. "

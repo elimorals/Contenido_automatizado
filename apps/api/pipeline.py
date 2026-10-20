@@ -19,6 +19,7 @@ from typing import Any
 
 from loguru import logger
 
+from core.cost import JobLedger, job_budget
 from core.distribution import get_distribution_service
 from core.editor import stitch_video
 from core.editorial import assess_slideshow_risk
@@ -29,16 +30,10 @@ from core.narrative import (
 from core.narrative import (
     compose_script,
     extract_essence,
-    hunt_cross_domain,
-    hunt_reversal,
-    hunt_specific_figure,
-    hunt_temporal,
-    pick_best_narration,
-    pick_top_essences,
     plan_beat_accents,
     plan_beat_visuals,
-    write_narrations,
 )
+from core.narrative.dag import run_topic_dag
 from core.planning import pack_cards, plan_beats
 from core.reference import ReferenceAnalysisError, analyze_reference
 from core.subtitles import (
@@ -46,7 +41,7 @@ from core.subtitles import (
     write_reel_ass_with_accents,
     write_srt,
 )
-from core.tts import detect_engine_and_voice, get_engine
+from core.tts import detect_engine_and_voice, get_engine, resolve_voice_name
 from core.visual import generate_all_beat_artifacts
 from core.visual.provider_scoring import DecisionLog
 from shared.config import load_config
@@ -369,7 +364,7 @@ async def _run_shared_downstream(
     logger.info(f"{prefix} Phase A: TTS synth")
     t = time.perf_counter()
     try:
-        engine_name, voice = detect_engine_and_voice(params.voice_name)
+        engine_name, voice = detect_engine_and_voice(resolve_voice_name(params.voice_name))
         engine = get_engine(engine_name)
         audio_artifact = await engine.synthesize(
             text=script_draft.narration,
@@ -380,7 +375,6 @@ async def _run_shared_downstream(
     except Exception as e:
         logger.error(f"{prefix} TTS falló: {e}")
         timings["tts"] = time.perf_counter() - t
-        timings["error"] = f"tts: {e}"
         await _update_state(state_manager, task_id, timings_s=timings)
         raise
     timings["tts"] = time.perf_counter() - t
@@ -405,7 +399,6 @@ async def _run_shared_downstream(
     except Exception as e:
         logger.error(f"{prefix} plan falló: {e}")
         timings["plan"] = time.perf_counter() - t
-        timings["error"] = f"plan: {e}"
         await _update_state(state_manager, task_id, timings_s=timings)
         raise
     timings["plan"] = time.perf_counter() - t
@@ -421,7 +414,6 @@ async def _run_shared_downstream(
     except Exception as e:
         logger.error(f"{prefix} visual/accent plan falló: {e}")
         timings["visual_accent"] = time.perf_counter() - t
-        timings["error"] = f"visual_accent: {e}"
         await _update_state(state_manager, task_id, timings_s=timings)
         raise
     timings["visual_accent"] = time.perf_counter() - t
@@ -446,7 +438,6 @@ async def _run_shared_downstream(
     except Exception as e:
         logger.error(f"{prefix} media gen falló: {e}")
         timings["media"] = time.perf_counter() - t
-        timings["error"] = f"media: {e}"
         await _update_state(state_manager, task_id, timings_s=timings)
         raise
     timings["media"] = time.perf_counter() - t
@@ -523,7 +514,6 @@ async def _run_shared_downstream(
     except Exception as e:
         logger.error(f"{prefix} subtitles falló: {e}")
         timings["subtitles"] = time.perf_counter() - t
-        timings["error"] = f"subtitles: {e}"
         await _update_state(state_manager, task_id, timings_s=timings)
         raise
     timings["subtitles"] = time.perf_counter() - t
@@ -550,7 +540,6 @@ async def _run_shared_downstream(
     except Exception as e:
         logger.error(f"{prefix} stitch falló: {e}")
         timings["stitch"] = time.perf_counter() - t
-        timings["error"] = f"stitch: {e}"
         await _update_state(state_manager, task_id, timings_s=timings)
         raise
     timings["stitch"] = time.perf_counter() - t
@@ -673,7 +662,7 @@ async def run_article_pipeline(
 
 
 # =============================================================================
-# TOPIC PIPELINE (18 reasoners)
+# TOPIC PIPELINE (DAG en core/narrative/dag.py)
 # =============================================================================
 
 
@@ -687,117 +676,34 @@ async def run_topic_pipeline(
     logger.info(f"{prefix} TOPIC pipeline starting (topic={params.topic})")
     timings: dict[str, float] = {}
 
-    # ─── Phase 1 (paralelo): 4 hunters → 12 candidates ──────────────────────
-    t = time.perf_counter()
-    try:
-        candidates_lists = await asyncio.gather(
-            hunt_specific_figure(narrative_app, params.topic),
-            hunt_reversal(narrative_app, params.topic),
-            hunt_temporal(narrative_app, params.topic),
-            hunt_cross_domain(narrative_app, params.topic),
-        )
-        candidates = [c for lst in candidates_lists for c in lst]
-    except Exception as e:
-        logger.error(f"{prefix} hunters fallaron: {e}")
-        timings["hunters"] = time.perf_counter() - t
-        await _update_state(state_manager, task_id, timings_s=timings)
-        raise
-    timings["hunters"] = time.perf_counter() - t
-    logger.info(f"{prefix} hunters → {len(candidates)} candidates")
-
-    await _update_state(state_manager, task_id, progress=15, timings_s=dict(timings))
-
-    # ─── Phase 2: critic (top 3) ────────────────────────────────────────────
-    t = time.perf_counter()
-    try:
-        critic_output = await pick_top_essences(narrative_app, params.topic, candidates)
-        top_essences = [candidates[i] for i in critic_output.top_3_indices]
-    except Exception as e:
-        logger.error(f"{prefix} critic falló: {e}")
-        timings["critic"] = time.perf_counter() - t
-        await _update_state(state_manager, task_id, timings_s=timings)
-        raise
-    timings["critic"] = time.perf_counter() - t
-
-    # ─── Phase 2.5 (opcional): referencia → brief (para inyectar al prompt) ───
+    # El brief de referencia no depende del DAG: se calcula antes y entra a los narradores.
     reference_brief = await _compute_reference_brief(params, task_id, state_manager, timings)
 
-    # ─── Phase 3 (paralelo): 3 narrators ────────────────────────────────────
-    t = time.perf_counter()
-    try:
-        scripts = await write_narrations(narrative_app, top_essences, reference_brief)
-    except Exception as e:
-        logger.error(f"{prefix} narrators fallaron: {e}")
-        timings["narrators"] = time.perf_counter() - t
-        await _update_state(state_manager, task_id, timings_s=timings)
-        raise
-    timings["narrators"] = time.perf_counter() - t
+    progress_by_phase = {"hunters": 15, "narrators": 22}
 
-    await _update_state(state_manager, task_id, progress=22, timings_s=dict(timings))
-
-    # ─── Phase 3.5: mechanical slop gate (opt-in, $0, pre-Judge) ────────────
-    # Determinista: descarta narraciones AI-slop ANTES de gastar tokens del
-    # Judge. Non-fatal y guardado — si falla o no hay supervivientes claros,
-    # se sigue con todos los candidatos. Garantiza ≥1.
-    cfg_quality = load_config().quality
-    if cfg_quality.slop_gate_enabled and len(scripts) > 1:
-        try:
-            from core.quality import filter_slop
-
-            kept, reports = filter_slop(
-                [s.narration for s in scripts],
-                extra_banned=cfg_quality.slop_extra_banned,
-                density_threshold=cfg_quality.slop_density_threshold,
-            )
-            for i, r in enumerate(reports):
-                logger.info(f"{prefix} slop[{i}] {r.note()}")
-            if 0 < len(kept) < len(scripts):
-                dropped = len(scripts) - len(kept)
-                scripts = [scripts[i] for i in kept]
-                top_essences = [top_essences[i] for i in kept]
-                logger.info(
-                    f"{prefix} slop gate: {dropped} candidato(s) descartado(s), "
-                    f"{len(scripts)} pasan al Judge"
-                )
-        except Exception as e:  # noqa: BLE001 — gate nunca debe tumbar el pipeline
-            logger.warning(f"{prefix} slop gate falló (non-fatal): {e}")
-
-    # ─── Phase 4: judge ─────────────────────────────────────────────────────
-    t = time.perf_counter()
-    try:
-        verdict = await pick_best_narration(
-            narrative_app, params.topic, scripts, top_essences
+    async def _on_phase(name: str, t: dict[str, float]) -> None:
+        await _update_state(
+            state_manager, task_id, progress=progress_by_phase.get(name), timings_s=dict(t)
         )
-    except Exception as e:
-        logger.error(f"{prefix} judge falló: {e}")
-        timings["judge"] = time.perf_counter() - t
-        await _update_state(state_manager, task_id, timings_s=timings)
-        raise
-    timings["judge"] = time.perf_counter() - t
 
-    winner_script = scripts[verdict.winner_idx]
-    winner_essence_candidate = top_essences[verdict.winner_idx]
+    # ─── Phases 1-4: hunters → critic → narrators → slop gate → judge ───────
+    dag = await run_topic_dag(
+        params.topic, reference_brief=reference_brief, timings=timings, on_phase=_on_phase
+    )
     logger.info(
-        f"{prefix} judge winner={verdict.winner_idx} score={verdict.composite_score}"
+        f"{prefix} judge winner={dag.verdict.winner_idx} score={dag.verdict.composite_score}"
     )
 
     # ─── Phase 5: adapt ConversationalScript → ScriptDraft ──────────────────
-    script_draft = _adapt_conversational_to_draft(winner_script)
-    # Promote candidate (EssenceCandidate hereda de Essence) → Essence pura para downstream.
-    essence = Essence(
-        core_claim=winner_essence_candidate.core_claim,
-        mechanism=winner_essence_candidate.mechanism,
-        evidence=winner_essence_candidate.evidence,
-        content_mode=winner_essence_candidate.content_mode,
-        domain=winner_essence_candidate.domain,
-    )
+    script_draft = _adapt_conversational_to_draft(dag.winner_script)
+    essence = dag.winner_essence
 
     await _update_state(
         state_manager,
         task_id,
         progress=28,
-        chosen_candidate=winner_essence_candidate,
-        winner_composite=verdict.composite_score,
+        chosen_candidate=dag.top_essences[dag.verdict.winner_idx],
+        winner_composite=dag.verdict.composite_score,
         essence=essence,
         script=script_draft.narration,
         timings_s=dict(timings),
@@ -925,7 +831,7 @@ async def run_subject_pipeline(
 
     t = time.perf_counter()
     try:
-        engine_name, voice = detect_engine_and_voice(params.voice_name)
+        engine_name, voice = detect_engine_and_voice(resolve_voice_name(params.voice_name))
         engine = get_engine(engine_name)
         audio_artifact = await engine.synthesize(
             text=script_text,
@@ -1027,7 +933,6 @@ async def run_subject_pipeline(
     # ─── Phase 6: Stitch ────────────────────────────────────────────────────
     if not artifacts:
         # No hay material → no se puede stitch. Marcamos error.
-        timings["error"] = "no_materials"
         await _update_state(state_manager, task_id, timings_s=timings)
         raise RuntimeError(
             "subject_pipeline: no se obtuvo material de stock y no hay placeholders"
@@ -1106,6 +1011,14 @@ async def run_pipeline(
     )
     await state_manager.set(task_id, info)
 
+    limit = params.max_cost_usd if params.max_cost_usd is not None else load_config().budget.max_usd_per_job
+    with job_budget(limit) as ledger:
+        return await _dispatch(params, task_id, state_manager, prefix, ledger)
+
+
+async def _dispatch(
+    params: VideoParams, task_id: str, state_manager: Any, prefix: str, ledger: JobLedger
+) -> TaskInfo:
     try:
         if params.url:
             logger.info(f"{prefix} dispatch → article pipeline")
@@ -1121,9 +1034,11 @@ async def run_pipeline(
                 "VideoParams sin entry point: se requiere uno de url|topic|subject"
             )
 
-        # Marcar COMPLETE solo si llegamos aquí sin excepciones.
+        # Marcar COMPLETE solo si llegamos aquí sin excepciones. El ledger es el
+        # gasto real del job (LLM + visual), no la estimación por beat.
         info = await _update_state(
-            state_manager, task_id, state=TaskState.COMPLETE, progress=100
+            state_manager, task_id, state=TaskState.COMPLETE, progress=100,
+            cost_breakdown=ledger.breakdown(),
         )
         logger.success(f"{prefix} pipeline COMPLETE")
         return info
@@ -1135,12 +1050,15 @@ async def run_pipeline(
             current_timings = dict(current.timings_s) if current else {}
         except Exception:
             current_timings = {}
-        current_timings["error"] = str(e)
+        # El error va en su campo: en `timings_s` (dict[str, float]) rompía la
+        # deserialización y la tarea quedaba en PROCESSING para siempre en Redis.
         await _update_state(
             state_manager,
             task_id,
             state=TaskState.FAILED,
             timings_s=current_timings,
+            error=str(e),
+            cost_breakdown=ledger.breakdown(),
         )
         raise
 

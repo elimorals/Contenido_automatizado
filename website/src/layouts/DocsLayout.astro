@@ -10,7 +10,7 @@ interface Props {
 const { title, description, currentSlug } = Astro.props;
 
 // ─── JSON-LD adicional para docs ─────────────────────────────────────
-const siteUrl = Astro.site ?? new URL("https://contenido.vercel.app");
+const siteUrl = Astro.site ?? new URL("https://contenido-automatizado.vercel.app");
 const canonical = new URL(Astro.url.pathname, siteUrl).href;
 
 // TechArticle es más específico que Article para documentación técnica.

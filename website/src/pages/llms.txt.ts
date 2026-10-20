@@ -14,12 +14,12 @@
  * (Google), llms.txt es para LLMs en runtime que necesitan entender
  * qué hay en el sitio y dónde está la documentación canónica.
  *
- * Acceso: https://contenido.vercel.app/llms.txt
+ * Acceso: https://contenido-automatizado.vercel.app/llms.txt
  */
 
 import type { APIRoute } from "astro";
 
-const SITE = "https://contenido.vercel.app";
+const SITE = "https://contenido-automatizado.vercel.app";
 const REPO = "https://github.com/elimorals/Contenido_automatizado";
 
 const docs = [
@@ -30,7 +30,7 @@ const docs = [
   ["comfyui", "7 workflows ComfyUI + LoRA training wizard + multi-tenant + OOM auto-retry"],
   ["long_form", "Pipeline ViMax-inspired para video largo 5-60min con RAG + VLM consistency"],
   ["live_avatar", "Talking-head audio-driven con lip-sync (LiveAvatar Alibaba-Quark, ADR-016)"],
-  ["pipeline", "DAG completo en detalle: 18 reasoners + visual selector + editor"],
+  ["pipeline", "DAG completo en detalle: 10 reasoners + visual selector + editor"],
   ["mcp", "Servidor MCP: usa el pipeline desde un agente (Claude/Cursor). Job-based + gate de costo (ADR-021)"],
   ["cost_model", "Tabla de costos por modo (express/premium/brand-owned/long-form)"],
   ["troubleshooting", "Errores comunes y sus fixes"],

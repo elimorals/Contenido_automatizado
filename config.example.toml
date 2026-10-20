@@ -21,10 +21,6 @@ redis_host = "localhost"
 redis_port = 6379
 redis_db = 0
 
-# --- AgentField broker ---
-agentfield_server = "http://localhost:8080"
-agentfield_node_id = "contenido"
-agentfield_llm_call_timeout = 120
 
 # =============================================================================
 # LLM PROVIDERS
@@ -410,3 +406,10 @@ supported_languages = [
 api_key = ""
 auto_upload = false
 platforms = ["tiktok", "instagram"]
+
+# --- Topes de gasto (core/cost.py) ---
+# Al llegar al tope no se lanza ninguna llamada pagada más: los beats restantes
+# caen a ken-burns/placeholder. `VideoParams.max_cost_usd` lo sobrescribe por job.
+[budget]
+max_usd_per_job = 3.0        # reel (API / CLI / MCP)
+max_usd_per_episode = 25.0   # episodio de serie / long-form

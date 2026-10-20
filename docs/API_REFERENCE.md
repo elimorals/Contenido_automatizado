@@ -6,6 +6,12 @@ Referencia completa de los 14 endpoints REST. La versión interactiva (Swagger) 
 **Content-Type**: `application/json` para todos los `POST`  
 **Auth**: ninguna por defecto (agregar reverse proxy con auth en producción)
 
+## Autenticación
+
+Fuera de `CONTENIDO_ENV=dev`, todas las rutas salvo `/`, `/health` y `/docs` exigen
+`X-API-Key: <CONTENIDO_API_KEY>` (o `Authorization: Bearer <key>`). `url` y
+`reference_url` se rechazan con 422 si resuelven a una IP privada (anti-SSRF).
+
 ## Health
 
 ### `GET /health`
@@ -468,7 +474,7 @@ done < topics.csv
 | `429` | Too Many Requests | Queue full |
 | `500` | Internal Server Error | Bug en el pipeline |
 | `502` | Bad Gateway | LLM provider caído |
-| `503` | Service Unavailable | Redis/AgentField caído |
+| `503` | Service Unavailable | Redis caído, o `CONTENIDO_API_KEY` sin configurar fuera de dev |
 
 Body de error estándar:
 ```json

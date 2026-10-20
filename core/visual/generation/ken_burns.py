@@ -12,13 +12,12 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 from core.editor.encoders import _ffmpeg_binary
+from core.visual.canvas import current_canvas
 from core.visual.generation.base import VisualGenerationError, VisualGenerator
 from shared.config import load_config
 from shared.schemas import Beat, BeatArtifact, BeatVisual, MotionHint, VideoSource
 
-# Veo Lite native vertical res; mantenemos parity.
-_CANVAS_W = 720
-_CANVAS_H = 1280
+# El canvas sale de `current_canvas()` (aspect del job), no de constantes.
 _FPS = 30
 
 
@@ -40,12 +39,13 @@ def _placeholder_frame(out_path: Path, idx: int) -> Path:
         (32, 48, 56),
         (56, 48, 32),
     ]
+    w, h = current_canvas()
     base_color = palette[idx % len(palette)]
     accent = tuple(min(255, c + 12) for c in base_color)
-    img = Image.new("RGB", (_CANVAS_W, _CANVAS_H), color=base_color)
+    img = Image.new("RGB", (w, h), color=base_color)
     draw = ImageDraw.Draw(img)
-    draw.rectangle((0, 0, _CANVAS_W, _CANVAS_H // 2), fill=accent)
-    draw.text((40, _CANVAS_H - 80), f"beat {idx}", fill=(200, 200, 200))
+    draw.rectangle((0, 0, w, h // 2), fill=accent)
+    draw.text((40, h - 80), f"beat {idx}", fill=(200, 200, 200))
     img.save(str(out_path), format="JPEG", quality=88)
     return out_path
 
@@ -65,9 +65,10 @@ def _build_ffmpeg_cmd(
     # Slow zoom-in de 1.0 a `zoom_target` durante el clip.
     # Step = (target - 1) / n_frames para llegar exacto al final.
     zoom_step = max(0.0001, (zoom_target - 1.0) / max(1, n_frames))
+    w, h = current_canvas()
     zp = (
         f"zoompan=z='min(zoom+{zoom_step:.6f},{zoom_target:.3f})':"
-        f"d={n_frames}:s={_CANVAS_W}x{_CANVAS_H}:fps={_FPS}"
+        f"d={n_frames}:s={w}x{h}:fps={_FPS}"
     )
     # OJO con `-loop 1`: `d=` es "frames de salida POR frame de entrada". Con
     # el loop, ffmpeg alimentaba ~25 frames por segundo y zoompan generaba
@@ -209,16 +210,15 @@ async def trim_clip(
     """
     out_path.parent.mkdir(parents=True, exist_ok=True)
     dur = max(0.5, float(duration_s))
-    scale = (
-        f"scale={_CANVAS_W}:{_CANVAS_H}:force_original_aspect_ratio=increase,"
-        f"crop={_CANVAS_W}:{_CANVAS_H}"
-    )
+    w, h = current_canvas()
+    scale = f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h}"
     cmd = [
         _ffmpeg_binary(), "-y", "-loglevel", "error",
         "-ss", f"{max(0.0, start_s):.2f}",
         "-i", str(src),
         "-t", f"{dur:.2f}",
-        "-vf", f"{scale},fps={_FPS}",
+        # tpad: si la fuente es más corta que el beat, congela el último frame.
+        "-vf", f"{scale},fps={_FPS},tpad=stop_mode=clone:stop_duration={dur:.2f}",
         "-an",  # el audio del stock nunca se usa: manda la narración TTS
         "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", str(_FPS),
         str(out_path),

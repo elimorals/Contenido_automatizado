@@ -20,7 +20,7 @@ el worker leyendo state.
 from __future__ import annotations
 
 import json
-from typing import Awaitable, Callable
+from collections.abc import Awaitable, Callable
 
 from loguru import logger
 from redis import asyncio as aioredis

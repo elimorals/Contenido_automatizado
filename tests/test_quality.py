@@ -13,8 +13,6 @@ Todo puro y determinista — sin LLM, sin I/O.
 """
 from __future__ import annotations
 
-import os
-
 import pytest
 
 from core.quality import (
@@ -25,7 +23,6 @@ from core.quality import (
     rank_by_slop,
     score_slop,
 )
-
 
 # ──────────────────────────────────────────────────────────────────────────
 # score_slop

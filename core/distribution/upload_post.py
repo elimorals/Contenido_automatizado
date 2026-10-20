@@ -20,6 +20,10 @@ from typing import Any
 import httpx
 from loguru import logger
 
+from core.distribution.analytics import PostMetrics, parse_post_analytics
+from core.distribution.base import DistributionService
+from core.distribution.schemas import SUPPORTED_PLATFORMS, UploadResult, UploadStatus
+
 try:
     from tenacity import (
         AsyncRetrying,
@@ -46,9 +50,6 @@ def _is_retryable(exc: BaseException) -> bool:
         return exc.response.status_code in RETRYABLE_STATUS
     return False
 
-from core.distribution.analytics import PostMetrics, parse_post_analytics
-from core.distribution.base import DistributionService
-from core.distribution.schemas import SUPPORTED_PLATFORMS, UploadResult, UploadStatus
 
 API_BASE = "https://api.upload-post.com"
 UPLOAD_TIMEOUT_S = 300.0  # 5 min para videos grandes
@@ -171,7 +172,7 @@ class UploadPostService(DistributionService):
         full_caption = _build_caption(caption, hashtags)
         if metadata.get("aspect") == "16:9":
             logger.warning(
-                f"aspect=16:9 declarado en metadata; las plataformas verticales recortarán."
+                "aspect=16:9 declarado en metadata; las plataformas verticales recortarán."
             )
         else:
             _warn_aspect_if_landscape(video_path)

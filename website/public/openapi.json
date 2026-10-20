@@ -9,7 +9,7 @@
     "contact": {
       "name": "Elías Morales — Cipre Holding",
       "email": "elias@cipreholding.com",
-      "url": "https://contenido.vercel.app/"
+      "url": "https://contenido-automatizado.vercel.app/"
     },
     "license": {
       "name": "Apache-2.0",
@@ -306,7 +306,7 @@
     "/scripts": {
       "post": {
         "summary": "Generate Script",
-        "description": "Genera solo el script (sin TTS/video). Dispatch por entry point.\n\n- url     → extract_essence + compose_script (10 reasoners)\n- topic   → hunters + critic + narrators + judge (18 reasoners)\n- subject → 1 LLM call (legacy MPT)",
+        "description": "Genera solo el script (sin TTS/video). Dispatch por entry point.\n\n- url     → extract_essence + compose_script (10 reasoners)\n- topic   → hunters + critic + narrators + judge\n- subject → 1 LLM call (legacy MPT)",
         "operationId": "generate_script_scripts_post",
         "requestBody": {
           "content": {
@@ -1062,6 +1062,6 @@
   ],
   "externalDocs": {
     "description": "Documentación completa para LLMs (canónico)",
-    "url": "https://contenido.vercel.app/llms-full.txt"
+    "url": "https://contenido-automatizado.vercel.app/llms-full.txt"
   }
 }

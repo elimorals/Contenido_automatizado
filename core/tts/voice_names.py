@@ -6,6 +6,7 @@ Heurística de detección de engine por nombre:
   - `mimo:…-Female`                          → Xiaomi MiMo
   - `gemini:…-Female`                        → Gemini Flash (interno reels-af)
   - `siliconflow:model:voice-Gender`         → SiliconFlow CosyVoice2
+  - `openai:coral`                           → OpenAI gpt-4o-mini-tts
   - `no-voice` / `none`                      → Silent (no-voice)
   - `xx-XX-…Neural-Gender`                   → Edge TTS (default fallback)
 
@@ -17,6 +18,9 @@ Para llamarse desde el registry / pipeline:
 from __future__ import annotations
 
 NO_VOICE_NAME = "no-voice"
+# Voz cuando el usuario no eligió ninguna. Los prompts del DAG escriben en
+# inglés, así que una voz es-MX leería mal; se cambia en `[tts.edge].default_voice`.
+FALLBACK_VOICE = "en-US-AvaNeural-Female"
 _NO_VOICE_ALIASES = {NO_VOICE_NAME, "none", ""}
 
 
@@ -28,6 +32,19 @@ def strip_gender_suffix(name: str) -> str:
 def is_no_voice(voice_name: str | None) -> bool:
     """¿El usuario eligió explícitamente "sin voz"?"""
     return str(voice_name or "").strip().lower() in _NO_VOICE_ALIASES
+
+
+def resolve_voice_name(voice_name: str | None) -> str:
+    """Vacío → voz por defecto real (antes vacío = reel mudo).
+
+    Solo ``no-voice``/``none`` explícitos piden silencio.
+    """
+    name = str(voice_name or "").strip()
+    if name:
+        return name
+    from shared.config import load_config
+
+    return load_config().get_tts_engine("edge").default_voice or FALLBACK_VOICE
 
 
 def is_azure_v2(voice_name: str) -> str:
@@ -107,6 +124,9 @@ def detect_engine_and_voice(voice_name: str) -> tuple[str, str]:
             return ("siliconflow", f"{model}:{voice}")
         return ("siliconflow", voice_name)
 
+    if voice_name.startswith("openai:"):
+        return ("openai", strip_gender_suffix(voice_name.split(":", 1)[1]))
+
     if is_azure_explicit(voice_name):
         # azure:Name → "Name"
         parts = voice_name.split(":", 1)
@@ -123,6 +143,7 @@ def detect_engine_and_voice(voice_name: str) -> tuple[str, str]:
 
 
 __all__ = [
+    "FALLBACK_VOICE",
     "NO_VOICE_NAME",
     "detect_engine_and_voice",
     "is_azure_explicit",
@@ -131,5 +152,6 @@ __all__ = [
     "is_mimo",
     "is_no_voice",
     "is_siliconflow",
+    "resolve_voice_name",
     "strip_gender_suffix",
 ]

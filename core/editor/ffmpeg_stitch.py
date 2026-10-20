@@ -24,10 +24,11 @@ import shlex
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from core.tts.timing import measure_audio_duration
 from shared.config import Config, load_config
 from shared.schemas import BeatArtifact, VideoAspect
 
-from .aspect import build_scale_filter, get_dimensions
+from .aspect import build_scale_filter
 from .bgm import build_bgm_mix_filter
 from .encoders import (
     _ffmpeg_binary,
@@ -37,6 +38,9 @@ from .encoders import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Un stitch sano de long-form tarda minutos; más de esto es un ffmpeg colgado.
+FFMPEG_TIMEOUT_S = 1800.0
 
 
 # ───── ffmpeg path escaping ──────────────────────────────────────────
@@ -80,6 +84,9 @@ class FFmpegCommandBuilder:
     audio_bitrate: str = "128k"
     fps: int = 30
     extra_args: list[str] = field(default_factory=list)
+    # Duración final exacta (la de la voz). `-shortest` no es fiable con
+    # filter_complex: un reel salió con 398 s de video y 40 s de audio.
+    duration_s: float | None = None
 
     def add_input(self, path: Path | str, *pre_args: str) -> int:
         """Añade un input file. `pre_args` van antes de `-i` (ej: -ss, -t)."""
@@ -113,6 +120,8 @@ class FFmpegCommandBuilder:
             "-shortest",
             "-movflags", "+faststart",
         ]
+        if self.duration_s:
+            cmd += ["-t", f"{self.duration_s:.3f}"]
         cmd += self.extra_args
         cmd.append(str(self.out_path))
         return cmd
@@ -129,7 +138,12 @@ async def _run_ffmpeg(cmd: list[str]) -> tuple[int, str]:
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    _, stderr = await proc.communicate()
+    try:
+        _, stderr = await asyncio.wait_for(proc.communicate(), timeout=FFMPEG_TIMEOUT_S)
+    except TimeoutError:
+        proc.kill()
+        await proc.wait()
+        raise RuntimeError(f"ffmpeg colgado: timeout tras {FFMPEG_TIMEOUT_S:.0f}s") from None
     stderr_text = stderr.decode(errors="replace")[-1500:] if stderr else ""
     return proc.returncode or 0, stderr_text
 
@@ -193,8 +207,19 @@ async def stitch_video(
             abs_p = str(Path(art.video_path).resolve()).replace("'", "'\\''")
             fp.write(f"file '{abs_p}'\n")
 
+    # La voz manda la duración. Si no se puede medir (archivo raro), seguimos
+    # sin `-t` ni padding y confiamos en `-shortest` como antes.
+    try:
+        voice_duration_s: float | None = measure_audio_duration(audio_path)
+    except Exception as exc:  # ffprobe ausente o archivo ilegible
+        logger.warning("stitch: no se pudo medir la voz (%s); sin -t explícito", exc)
+        voice_duration_s = None
+
     # 2. Filter complex — scale → (subtitles) → labeled video out.
     scale = build_scale_filter(aspect, fps=cfg.editor.fps, config=cfg)
+    if voice_duration_s:
+        # Si el video queda corto, congelar el último frame; `-t` corta el resto.
+        scale = f"{scale},tpad=stop_mode=clone:stop=-1"
     if subtitle_ass_path is not None:
         ass_arg = _ffmpeg_path_arg(subtitle_ass_path)
         font_dir_arg = _ffmpeg_path_arg(Path(cfg.subtitles.font_name).parent or ".")
@@ -210,6 +235,7 @@ async def stitch_video(
             bgm_input_label="2:a",
             voice_weight=voice_volume,
             bgm_weight=bgm_volume,
+            total_duration_s=voice_duration_s,
             out_label="a",
         )
     else:
@@ -246,6 +272,7 @@ async def stitch_video(
         builder.audio_codec = audio_codec
         builder.audio_bitrate = audio_bitrate
         builder.fps = fps
+        builder.duration_s = voice_duration_s
         cmd = builder.build()
 
         rc, stderr_text = await _run_ffmpeg(cmd)

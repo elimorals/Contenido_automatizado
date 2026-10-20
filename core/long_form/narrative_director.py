@@ -27,6 +27,7 @@ from pathlib import Path
 from loguru import logger
 
 from core.checkpoint import Checkpoint, CheckpointStore, get_checkpoint_store
+from core.cost import budgeted
 from core.long_form.types import LongFormPlanError
 from shared.config import load_config
 from shared.schemas import (
@@ -187,15 +188,26 @@ def _shot_prompt(shot: Shot, scene: Scene, bible: SeriesBible) -> str:
         if character:
             parts.append(f"{name}: {character.appearance}")
 
-    index = {a.name: a for a in bible.assets}
-    for name in list(shot.assets_present) + ([scene.environment] if scene.environment else []):
-        asset = index.get(name or "")
-        if asset and asset.description:
-            parts.append(f"{asset.name}: {asset.description}")
+    for asset in _assets_in(shot, scene, bible):
+        parts.append(f"{asset.name}: {asset.description}")
 
     if scene.setting:
         parts.append(scene.setting)
     return ". ".join(p.strip().rstrip(".") for p in parts if p and p.strip())
+
+
+def _assets_in(shot: Shot, scene: Scene, bible: SeriesBible) -> list:
+    """Assets de la biblia referidos por el shot o su escena.
+
+    El match exacto por nombre no acertaba nunca (el LLM escribe "Contrato de
+    herencia" para el asset "Testamento", o mete ambiente sonoro en
+    `environment`): se busca el nombre del asset dentro de todo el texto.
+    """
+    haystack = " ".join([
+        shot.visual_description, *shot.assets_present, scene.environment or "",
+        *scene.props, scene.setting or "",
+    ]).lower()
+    return [a for a in bible.assets if a.description and a.name.lower() in haystack]
 
 
 def _shot_to_visual(
@@ -204,7 +216,7 @@ def _shot_to_visual(
     bible: SeriesBible,
     *,
     audio_path: Path | None = None,
-    reference: Path | None = None,
+    refs: list[Path] | None = None,
 ) -> BeatVisual:
     speaker = shot.speaker or (shot.characters_present or [""])[0]
     return BeatVisual(
@@ -212,8 +224,23 @@ def _shot_to_visual(
         motion_hint=_CAMERA_TO_MOTION.get(shot.camera_movement, MotionHint.SLOW_ZOOM_IN),
         visual_anchor=speaker or scene.title,
         audio_path=audio_path,
-        reference_image_path=reference,
+        character_refs=refs or [],
     )
+
+
+def _on_screen_refs(shot: Shot, bible: SeriesBible) -> list[Path]:
+    """Retratos de quienes ESTÁN en cuadro — no de quien habla.
+
+    Antes viajaba solo el retrato del hablante y se usaba como frame literal:
+    si hablaba alguien fuera de cuadro (una llamada), su cara aparecía en el
+    plano, y los presentes que no hablaban iban sin referencia.
+    """
+    refs: list[Path] = []
+    for name in shot.characters_present:
+        c = bible.character(name)
+        if c and c.portrait_path and Path(c.portrait_path).exists():
+            refs.append(Path(c.portrait_path))
+    return refs
 
 
 # =============================================================================
@@ -261,6 +288,7 @@ async def _tts_shot(
 # =============================================================================
 
 
+@budgeted
 async def produce_episode(
     bible: SeriesBible,
     episode: Episode,
@@ -342,14 +370,8 @@ async def produce_episode(
         shot.target_duration_s = max(
             1.0, float(tts_data.get(str(idx), {}).get("duration_s") or shot.target_duration_s)
         )
-        speaker = bible.character(shot.speaker or "")
-        reference = (
-            Path(speaker.portrait_path)
-            if speaker and speaker.portrait_path and Path(speaker.portrait_path).exists()
-            else None
-        )
         beats.append(_shot_to_beat(shot, idx, total))
-        visuals.append(_shot_to_visual(shot, scene, bible, reference=reference))
+        visuals.append(_shot_to_visual(shot, scene, bible, refs=_on_screen_refs(shot, bible)))
 
     # === Shots pendientes ===
     from core.visual.generation import generate_beat_videos

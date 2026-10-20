@@ -1,13 +1,11 @@
-"""Tests para la capa de orchestration (queue + state + AgentField)."""
+"""Tests para la capa de orchestration (queue + state)."""
 from __future__ import annotations
 
-import asyncio
 from unittest.mock import AsyncMock
 
 import pytest
 
 from orchestration import (
-    AgentFieldAdapter,
     QueueFullError,
     get_state_manager,
     get_task_manager,
@@ -24,7 +22,6 @@ from shared.schemas import (
     VideoAspect,
     VideoParams,
 )
-
 
 # =============================================================================
 # Helpers
@@ -272,92 +269,3 @@ async def test_redis_state_get_returns_none_when_missing():
     assert await s.get("nope") is None
 
 
-# =============================================================================
-# AGENTFIELD ADAPTER
-# =============================================================================
-
-
-@pytest.mark.asyncio
-async def test_agentfield_local_dispatch_fallback():
-    """Sin broker disponible, dispatch_dag ejecuta reasoners locales en paralelo."""
-    adapter = AgentFieldAdapter()
-    # Forzar modo local sin levantar broker.
-    adapter._connected = True
-    adapter._mode = "local"
-
-    call_log: list[str] = []
-
-    async def reasoner_a(x: int) -> dict:
-        await asyncio.sleep(0.01)
-        call_log.append(f"a:{x}")
-        return {"a": x * 2}
-
-    async def reasoner_b(y: int) -> dict:
-        await asyncio.sleep(0.01)
-        call_log.append(f"b:{y}")
-        return {"b": y + 1}
-
-    result = await adapter.dispatch_dag(
-        reasoners=[
-            ("phase_a", reasoner_a, {"x": 5}),
-            ("phase_b", reasoner_b, {"y": 10}),
-        ],
-        timeout_s=5.0,
-    )
-
-    assert result.success is True
-    assert result.outputs["phase_a"] == {"a": 10}
-    assert result.outputs["phase_b"] == {"b": 11}
-    assert set(result.timings_s.keys()) == {"phase_a", "phase_b"}
-    assert all(v >= 0 for v in result.timings_s.values())
-    assert set(call_log) == {"a:5", "b:10"}
-
-
-@pytest.mark.asyncio
-async def test_agentfield_dispatch_captures_per_reasoner_errors():
-    """Si un reasoner falla, los demás siguen y el error se reporta en `errors`."""
-    adapter = AgentFieldAdapter()
-    adapter._connected = True
-    adapter._mode = "local"
-
-    async def good() -> dict:
-        return {"ok": True}
-
-    async def bad() -> dict:
-        raise RuntimeError("boom")
-
-    result = await adapter.dispatch_dag(
-        reasoners=[
-            ("good_phase", good, {}),
-            ("bad_phase", bad, {}),
-        ],
-        timeout_s=5.0,
-    )
-
-    assert result.success is False
-    assert result.outputs["good_phase"] == {"ok": True}
-    assert "bad_phase" not in result.outputs
-    assert "bad_phase" in result.errors
-    assert isinstance(result.errors["bad_phase"], RuntimeError)
-    # Timings registrados aún para el fallido.
-    assert "bad_phase" in result.timings_s
-
-
-@pytest.mark.asyncio
-async def test_agentfield_dispatch_timeout():
-    """Timeout en un reasoner produce error pero no rompe el dispatch."""
-    adapter = AgentFieldAdapter()
-    adapter._connected = True
-    adapter._mode = "local"
-
-    async def slow() -> dict:
-        await asyncio.sleep(2.0)
-        return {}
-
-    result = await adapter.dispatch_dag(
-        reasoners=[("slow_phase", slow, {})],
-        timeout_s=0.1,
-    )
-    assert result.success is False
-    assert "slow_phase" in result.errors
-    assert isinstance(result.errors["slow_phase"], asyncio.TimeoutError)

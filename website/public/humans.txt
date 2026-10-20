@@ -1,6 +1,6 @@
 /* TEAM */
 Maintainer: Elías Morales
-Site: https://contenido.vercel.app
+Site: https://contenido-automatizado.vercel.app
 Twitter: @cipreholding
 Contact: elias@cipreholding.com
 From: Cipre Holding
@@ -23,4 +23,4 @@ Doctrine: open source que QUIERE descubrimiento (allow-list AI bots)
 /* PROJECT */
 Standard: OpenAPI 3.1, A2A v1 Agent Card, OpenAI ai-plugin v1, llmstxt.org, RFC 9116
 License:  Apache-2.0
-Tests:    413 verdes (Python 3.11+, pytest)
+Tests:    874 verdes (Python 3.11+, pytest)

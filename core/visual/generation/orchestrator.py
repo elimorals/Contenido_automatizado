@@ -30,7 +30,19 @@ from pathlib import Path
 
 from loguru import logger
 
-from core.visual.generation.base import VisualGenerationError, VisualGenerator
+from core.cost import (
+    BudgetExceeded,
+    charge,
+    ensure_budget,
+    estimate_usd,
+    is_tripped,
+    note_failure,
+)
+from core.visual.generation.base import (
+    GenerationTimeout,
+    VisualGenerationError,
+    VisualGenerator,
+)
 from core.visual.generation.comfy import ComfyUIGenerator
 from core.visual.generation.gemini_image import GeminiImageGenerator
 from core.visual.generation.higgsfield import HiggsfieldDopGenerator
@@ -40,6 +52,7 @@ from core.visual.generation.higgsfield_soul import HiggsfieldSoulGenerator
 from core.visual.generation.ken_burns import (
     KenBurnsGenerator,
     _placeholder_frame,
+    trim_clip,
 )
 from core.visual.generation.live_avatar import LiveAvatarGenerator
 from core.visual.generation.openai_image import OpenAIImageGenerator
@@ -81,6 +94,14 @@ async def _generate_first_frame_with_fallback(
     if visual.reference_image_path is not None and visual.reference_image_path.exists():
         return visual.reference_image_path, True, VideoSource.LOCAL
 
+    # Sin presupuesto ni para una imagen → placeholder sin llamar a nadie.
+    try:
+        ensure_budget(estimate_usd(VideoSource.GEMINI_IMAGE), f"beat {beat.idx} frame")
+    except BudgetExceeded as e:
+        logger.warning(f"[visual.orchestrator] {e}; placeholder.")
+        placeholder = _placeholder_frame(out_dir / f"frame-{beat.idx:02d}-placeholder.jpg", beat.idx)
+        return placeholder, False, VideoSource.LOCAL
+
     # ComfyUI tier — preferido cuando tenant tiene LoRA configurada
     if comfy_gen is not None:
         try:
@@ -98,11 +119,26 @@ async def _generate_first_frame_with_fallback(
         try:
             artifact = await soul_gen.generate(beat, visual, content_mode, out_dir)
             if artifact.first_frame_path is not None:
+                charge("visual", VideoSource.HIGGSFIELD_SOUL.value, estimate_usd(VideoSource.HIGGSFIELD_SOUL))
                 return artifact.first_frame_path, True, VideoSource.HIGGSFIELD_SOUL
         except Exception as e:
             logger.warning(
                 f"[visual.orchestrator] beat {beat.idx} Soul gen falló ({e}); "
                 "fallback a Gemini Image."
+            )
+
+    # Con personajes en cuadro, OpenAI primero: es el tier que recibe los
+    # retratos como referencia (images/edits). Gemini solo ve el texto.
+    if visual.character_refs and openai_image_gen is not None:
+        try:
+            artifact = await openai_image_gen.generate(beat, visual, content_mode, out_dir)
+            if artifact.first_frame_path is not None:
+                charge("visual", VideoSource.OPENAI_IMAGE.value, estimate_usd(VideoSource.OPENAI_IMAGE))
+                return artifact.first_frame_path, True, VideoSource.OPENAI_IMAGE
+        except Exception as e:  # noqa: BLE001
+            logger.warning(
+                f"[visual.orchestrator] beat {beat.idx} OpenAI con refs falló ({e}); "
+                "sigo sin referencias."
             )
 
     # Gemini Image tier (vía OpenRouter)
@@ -111,6 +147,7 @@ async def _generate_first_frame_with_fallback(
         artifact = await image_gen.generate(beat, visual, content_mode, out_dir)
         if artifact.first_frame_path is None:
             raise VisualGenerationError("image gen returned None path")
+        charge("visual", VideoSource.GEMINI_IMAGE.value, estimate_usd(VideoSource.GEMINI_IMAGE))
         return artifact.first_frame_path, True, VideoSource.GEMINI_IMAGE
     except Exception as e:  # noqa: BLE001
         gemini_err = e
@@ -127,6 +164,7 @@ async def _generate_first_frame_with_fallback(
             artifact = await openai_image_gen.generate(beat, visual, content_mode, out_dir)
             if artifact.first_frame_path is None:
                 raise VisualGenerationError("openai image gen returned None path")
+            charge("visual", VideoSource.OPENAI_IMAGE.value, estimate_usd(VideoSource.OPENAI_IMAGE))
             return artifact.first_frame_path, True, VideoSource.OPENAI_IMAGE
         except Exception as e:  # noqa: BLE001
             logger.warning(
@@ -215,89 +253,45 @@ async def _generate_one(
                 f"({e}); degradando a DoP/Veo + audio stitched en editor."
             )
 
-    # 2a. Higgsfield DoP (prioridad si configurado)
-    if motion_artifact is None and hf_dop_gen is not None and frame_is_real:
-        try:
-            motion_artifact = await hf_dop_gen.generate(
-                beat=beat,
-                visual=visual,
-                content_mode=content_mode,
-                out_dir=out_dir,
-                first_frame_path=frame_path,
-            )
-        except Exception as e:
-            logger.warning(
-                f"[visual.orchestrator] beat {beat.idx} Higgsfield DoP falló "
-                f"({e}); intentando Veo."
-            )
-
-    # 2b. Veo i2v fallback
-    if motion_artifact is None and veo_gen is not None and frame_is_real:
-        try:
-            motion_artifact = await veo_gen.generate(
-                beat=beat,
-                visual=visual,
-                content_mode=content_mode,
-                out_dir=out_dir,
-                first_frame_path=frame_path,
-            )
-        except Exception as e:
-            logger.warning(
-                f"[visual.orchestrator] beat {beat.idx} Veo falló ({e}); "
-                "fallback ken-burns."
-            )
-
-    # 2b.3 Higgsfield vía MCP (ADR-037) — puente de desarrollo: usa los
-    # créditos de la cuenta web cuando la Platform API no tiene saldo. Va antes
-    # que Sora porque, si está encendido, es una elección explícita del operador.
-    if motion_artifact is None and hf_mcp_gen is not None and frame_is_real:
-        try:
-            motion_artifact = await hf_mcp_gen.generate(
-                beat=beat,
-                visual=visual,
-                content_mode=content_mode,
-                out_dir=out_dir,
-                first_frame_path=frame_path,
-            )
-        except Exception as e:  # noqa: BLE001
-            logger.warning(
-                f"[visual.orchestrator] beat {beat.idx} Higgsfield MCP falló "
-                f"({e}); intentando Sora."
-            )
-
-    # 2b.4 Sora 2 i2v (ADR-033) — nativo de OpenAI, misma key que el DAG.
-    # Va tras Veo y antes de fal.ai: es el fallback que cubre el caso de tener
-    # solo key de OpenAI, donde DoP/Veo/fal ni pueden intentarlo.
-    if motion_artifact is None and sora_gen is not None and frame_is_real:
-        try:
-            motion_artifact = await sora_gen.generate(
-                beat=beat,
-                visual=visual,
-                content_mode=content_mode,
-                out_dir=out_dir,
-                first_frame_path=frame_path,
-            )
-        except Exception as e:  # noqa: BLE001
-            logger.warning(
-                f"[visual.orchestrator] beat {beat.idx} Sora falló ({e}); "
-                "intentando fal.ai / ken-burns."
-            )
-
-    # 2b.5 fal.ai i2v fallback (Kling/Runway/MiniMax) — antes de ken-burns (ADR-023).
-    if motion_artifact is None and fal_gen is not None and frame_is_real:
-        try:
-            motion_artifact = await fal_gen.generate(
-                beat=beat,
-                visual=visual,
-                content_mode=content_mode,
-                out_dir=out_dir,
-                first_frame_path=frame_path,
-            )
-        except Exception as e:
-            logger.warning(
-                f"[visual.orchestrator] beat {beat.idx} fal.ai falló ({e}); "
-                "fallback ken-burns."
-            )
+    # 2a-2b.5 Proveedores de motion pagados, en orden de preferencia:
+    # DoP → Veo → Higgsfield MCP (ADR-037, puente de dev) → Sora (ADR-033) → fal (ADR-023).
+    # Cada intento pasa por el presupuesto del job y el circuit breaker; tras un
+    # timeout NO se prueba el siguiente pagado (el job remoto puede cobrarse igual).
+    if motion_artifact is None and frame_is_real:
+        chain = [
+            (VideoSource.HIGGSFIELD_DOP, hf_dop_gen),
+            (VideoSource.VEO, veo_gen),
+            (VideoSource.HIGGSFIELD_MCP, hf_mcp_gen),
+            (VideoSource.SORA, sora_gen),
+            (VideoSource.FAL, fal_gen),
+        ]
+        for source, gen in chain:
+            if gen is None or is_tripped(source):
+                continue
+            est = estimate_usd(source, float(beat.veo_duration))
+            try:
+                ensure_budget(est, f"beat {beat.idx} {source.value}")
+                motion_artifact = await gen.generate(
+                    beat=beat,
+                    visual=visual,
+                    content_mode=content_mode,
+                    out_dir=out_dir,
+                    first_frame_path=frame_path,
+                )
+            except BudgetExceeded as e:
+                logger.warning(f"[visual.orchestrator] {e}; ken-burns.")
+                break
+            except Exception as e:  # noqa: BLE001
+                note_failure(source, e)
+                logger.warning(
+                    f"[visual.orchestrator] beat {beat.idx} {source.value} falló ({e})"
+                )
+                if isinstance(e, GenerationTimeout | TimeoutError):
+                    break
+                continue
+            if motion_artifact is not None:
+                charge("visual", source.value, est)
+                break
 
     # 2c. Ken-burns (siempre disponible si frame existe)
     if motion_artifact is None:
@@ -361,6 +355,7 @@ async def generate_beat_videos(
     ken_burns_gen: KenBurnsGenerator | None = None,
     live_avatar_gen: LiveAvatarGenerator | None = None,
     fal_gen: VisualGenerator | None = None,
+    normalize: bool = True,
 ) -> list[BeatArtifact]:
     """Genera un video por beat en paralelo (asyncio.gather), con 3-tier fallback.
 
@@ -510,4 +505,29 @@ async def generate_beat_videos(
             for beat, visual in zip(beats, visuals)
         )
     )
+    if normalize:
+        artifacts = await asyncio.gather(
+            *(_normalize_clip(b, a, out_dir) for b, a in zip(beats, artifacts))
+        )
     return list(artifacts)
+
+
+async def _normalize_clip(beat: Beat, artifact: BeatArtifact, out_dir: Path) -> BeatArtifact:
+    """Recorta el clip IA a la duración del beat y lo lleva al canvas del job.
+
+    Sora devuelve 8/12 s, DoP 5 s, el MCP 12 s: sin esto cada beat se come
+    segundos de los siguientes y la imagen se desfasa de la narración. Solo
+    stock se recortaba (ADR-036). Si el recorte falla se conserva el original:
+    el clip ya está pagado.
+    """
+    if artifact.video_path is None or not Path(artifact.video_path).exists():
+        return artifact
+    dur = float(beat.target_duration_s or beat.veo_duration)
+    try:
+        clip = await trim_clip(
+            Path(artifact.video_path), out_dir / f"clip-{beat.idx:02d}-norm.mp4", dur
+        )
+    except Exception as e:  # clip ilegible / ffmpeg ausente
+        logger.warning(f"[visual.orchestrator] beat {beat.idx}: normalizado falló ({e})")
+        return artifact
+    return artifact.model_copy(update={"video_path": clip, "duration_s": dur})

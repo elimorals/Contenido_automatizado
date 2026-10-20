@@ -17,7 +17,7 @@ sentence-transformers (que es ~80MB) salvo el test marked slow.
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import numpy as np
 import pytest
@@ -39,7 +39,6 @@ from shared.schemas import (
     Shot,
     VideoParams,
 )
-
 
 # =============================================================================
 # Fixtures

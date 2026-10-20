@@ -20,6 +20,14 @@ class VisualGenerationError(RuntimeError):
     """
 
 
+class GenerationTimeout(VisualGenerationError):
+    """El cliente dejó de esperar pero el job remoto puede seguir (y cobrarse).
+
+    El orchestrator NO cae a otro proveedor pagado tras esto: pagaría dos veces
+    el mismo beat.
+    """
+
+
 class VisualGenerator(ABC):
     """Contrato común para generadores visuales (imagen o video) por beat."""
 

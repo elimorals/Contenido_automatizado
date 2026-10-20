@@ -22,7 +22,6 @@ from core.distribution import (
 )
 from shared.config import Config, UploadPostConfig
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

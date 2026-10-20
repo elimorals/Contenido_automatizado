@@ -99,6 +99,13 @@ class LLMProvider(ABC):
         self.last_cost_usd = cost
         self.total_cost_usd += cost
         self.total_calls += 1
+        # Ledger del job (si hay): el gasto LLM cuenta contra el mismo tope que
+        # el visual. Los contadores de arriba son por instancia cacheada y se
+        # mezclan entre jobs concurrentes; el ledger no.
+        from core.cost import charge, ensure_budget
+
+        charge("llm", self.model_name or self.name, cost)
+        ensure_budget(0.0, f"llm {self.model_name}")
         return cost
 
     def get_cost_record(self, phase: str = "") -> Any:

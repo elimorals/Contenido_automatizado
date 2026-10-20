@@ -456,6 +456,14 @@ class BeatVisual(BaseModel):
             "el pipeline visual estándar (stock/gen + i2v motion)."
         ),
     )
+    character_refs: list[Path] = Field(
+        default_factory=list,
+        description=(
+            "Retratos de los personajes EN CUADRO. El first frame se genera "
+            "condicionado a ellos (gpt-image edits) en vez de usar un retrato "
+            "como frame literal."
+        ),
+    )
     reference_image_path: Path | None = Field(
         None,
         description=(
@@ -658,6 +666,11 @@ class VideoParams(BaseModel):
     # === Performance ===
     n_threads: int = Field(2, ge=1, le=16)
 
+    # === Costo ===
+    max_cost_usd: float | None = Field(
+        None, ge=0, description="Tope de gasto del job (None = `[budget].max_usd_per_job`)."
+    )
+
     model_config = {"populate_by_name": True}
 
     @model_validator(mode="after")
@@ -695,6 +708,7 @@ class TaskInfo(BaseModel):
     winner_composite: float | None = None
     timings_s: dict[str, float] = Field(default_factory=dict)
     cost_breakdown: dict[str, float] = Field(default_factory=dict)
+    error: str | None = None
 
     # Quality signals (advisory). p.ej. slideshow_risk, static_ratio (anti-slideshow guard).
     quality_flags: dict[str, float] = Field(default_factory=dict)

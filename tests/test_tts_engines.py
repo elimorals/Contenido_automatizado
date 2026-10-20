@@ -79,7 +79,7 @@ def test_detect_engine_and_voice(name, expected_engine, expected_voice):
 
 def test_supported_engines_set():
     assert set(SUPPORTED_ENGINES) == {
-        "edge", "gemini_flash", "azure", "mimo", "siliconflow", "silent"
+        "edge", "gemini_flash", "azure", "mimo", "siliconflow", "openai", "silent"
     }
 
 
@@ -251,3 +251,41 @@ async def test_siliconflow_engine_rejects_bad_voice_format(tmp_path: Path):
     engine = SiliconFlowEngine(api_key="dummy-key")
     with pytest.raises(ValueError, match="model:voice"):
         await engine.synthesize("hello.", "no-colons", tmp_path)
+
+
+def test_empty_voice_resolves_to_real_voice_not_silent():
+    """Auditoría 2026-09: `voice_name=""` (default de VideoParams) daba reel mudo."""
+    from core.tts import detect_engine_and_voice, resolve_voice_name
+
+    engine, voice = detect_engine_and_voice(resolve_voice_name(""))
+    assert engine != "silent" and voice
+    assert resolve_voice_name("no-voice") == "no-voice"  # silencio explícito se respeta
+
+
+def test_openai_tts_is_routed_and_registered():
+    from core.tts import detect_engine_and_voice, get_engine
+
+    assert detect_engine_and_voice("openai:coral") == ("openai", "coral")
+    assert get_engine("openai").name == "openai"
+
+
+async def test_openai_tts_strips_inline_tags(tmp_path, monkeypatch):
+    from core.tts.engines.openai_tts import OpenAITTSEngine
+
+    sent = {}
+
+    class _Resp:
+        status_code = 200
+        content = b"RIFF"
+
+    class _Client:
+        def __init__(self, *a, **k): ...
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): ...
+        async def post(self, url, headers, json):
+            sent.update(json)
+            return _Resp()
+
+    monkeypatch.setattr("core.tts.engines.openai_tts.httpx.AsyncClient", _Client)
+    await OpenAITTSEngine(api_key="k")._synth_one("[curious] Hola mundo.", tmp_path / "a.wav", "coral")
+    assert sent["input"] == "Hola mundo."

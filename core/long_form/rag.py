@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -31,7 +30,6 @@ from loguru import logger
 
 from core.long_form.types import EmbeddingProvider, LongFormPlanError
 from shared.config import LongFormConfig, load_config
-
 
 # =============================================================================
 # Splitter wrapper (recomendado de ViMax/LangChain)

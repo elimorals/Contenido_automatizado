@@ -53,11 +53,10 @@ async def download_to_file(
         timeout=download_timeout(),
         verify=get_tls_verify(),
         follow_redirects=True,
-    ) as client:
-        async with client.stream("GET", url, headers=headers) as resp:
-            resp.raise_for_status()
-            with dest.open("wb") as f:
-                async for chunk in resp.aiter_bytes(chunk_size=64 * 1024):
-                    if chunk:
-                        f.write(chunk)
+    ) as client, client.stream("GET", url, headers=headers) as resp:
+        resp.raise_for_status()
+        with dest.open("wb") as f:
+            async for chunk in resp.aiter_bytes(chunk_size=64 * 1024):
+                if chunk:
+                    f.write(chunk)
     return dest

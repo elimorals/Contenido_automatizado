@@ -115,24 +115,30 @@ def build_bgm_mix_filter(
     voice_weight: float = 1.0,
     bgm_weight: float = 0.2,
     fade_out_s: float = 3.0,
+    total_duration_s: float | None = None,
     out_label: str = "a",
 ) -> str:
     """Construye el segmento de filter_complex que mezcla voz + BGM.
 
     Estrategia:
-      • BGM en loop infinito (`aloop=loop=-1`).
-      • Volume scaling con `volume=<bgm_weight>`.
-      • Fade-out final (`afade=t=out:st=...:d=...`) — la duración se
-        recorta luego con `-shortest` del comando principal.
-      • `amix=inputs=2:duration=first` para alinear al primer input (voz).
+      • BGM en loop infinito (`aloop=loop=-1`) escalado a `bgm_weight`.
+      • Fade-out en los últimos `fade_out_s` de `total_duration_s` (la voz).
+        Sin duración conocida no hay fade: antes arrancaba en t=0 y la
+        música quedaba muda a los 3 s.
+      • `amix ... normalize=0`: sin esto amix divide cada input entre 2 y
+        la voz baja 6 dB en cuanto hay BGM.
 
     El nodo final tiene label `[{out_label}]` listo para `-map "[{out_label}]"`.
     """
+    fade = ""
+    if total_duration_s and total_duration_s > fade_out_s:
+        fade = f",afade=t=out:st={total_duration_s - fade_out_s:.3f}:d={fade_out_s}"
     return (
         f"[{voice_input_label}]volume={voice_weight}[voice_norm];"
         f"[{bgm_input_label}]aloop=loop=-1:size=2e+09,"
-        f"volume={bgm_weight},afade=t=out:st=0:d={fade_out_s}[bgm_norm];"
-        f"[voice_norm][bgm_norm]amix=inputs=2:duration=first:dropout_transition=2[{out_label}]"
+        f"volume={bgm_weight}{fade}[bgm_norm];"
+        f"[voice_norm][bgm_norm]amix=inputs=2:duration=first:"
+        f"dropout_transition=2:normalize=0[{out_label}]"
     )
 
 

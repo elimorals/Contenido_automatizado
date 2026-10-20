@@ -20,7 +20,6 @@ from core.tts.timing import (
     wrap_pcm16_as_wav,
 )
 
-
 # pyproject configura `asyncio_mode = "auto"` → tests async se detectan
 # automáticamente; los sync no necesitan marker.
 

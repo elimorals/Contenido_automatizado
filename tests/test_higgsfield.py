@@ -40,7 +40,6 @@ from core.visual.generation import (
     resolve_preset,
 )
 from core.visual.generation.higgsfield_cli import (
-    CLIFallbackError,
     CLINotInstalledError,
     _check_binary,
     _extract_video_url,
@@ -65,7 +64,6 @@ from shared.schemas import (
     MotionHint,
     VideoSource,
 )
-
 
 # =============================================================================
 # FIXTURES
@@ -638,15 +636,14 @@ class TestCLIFallbackIntegration:
         with patch(
             "core.visual.generation.higgsfield.HiggsfieldClient",
             return_value=mock_client,
-        ):
-            with pytest.raises(VisualGenerationError, match="REST error"):
-                await gen.generate(
-                    beat=sample_beat,
-                    visual=sample_visual,
-                    content_mode="general",
-                    out_dir=tmp_path,
-                    first_frame_path=fake_jpeg,
-                )
+        ), pytest.raises(VisualGenerationError, match="REST error"):
+            await gen.generate(
+                beat=sample_beat,
+                visual=sample_visual,
+                content_mode="general",
+                out_dir=tmp_path,
+                first_frame_path=fake_jpeg,
+            )
 
     @pytest.mark.asyncio
     async def test_rest_fail_with_cli_enabled_tries_cli(

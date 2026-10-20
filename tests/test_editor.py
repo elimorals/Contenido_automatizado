@@ -5,14 +5,13 @@ durante CI/unit tests.
 """
 from __future__ import annotations
 
-import asyncio
+import shutil
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from core.editor import (
-    FFmpegCommandBuilder,
     build_bgm_mix_filter,
     build_scale_filter,
     detect_hw_encoder,
@@ -24,7 +23,6 @@ from core.editor import (
     stitch_video,
 )
 from shared.schemas import BeatArtifact, VideoAspect, VideoSource
-
 
 # ─────────────────────────────────────────────────────────────────────
 # Fixtures
@@ -355,3 +353,63 @@ def test_pick_bgm_custom_rejects_paths_outside_library(tmp_path, monkeypatch):
     evil.write_bytes(b"id3")
     out = pick_bgm(bgm_type="custom", bgm_file=str(evil))
     assert out is None
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Test render real — ffmpeg de verdad, sin mocks. Atrapa los tres bugs de
+# la auditoría 2026-09: BGM mudo a los 3 s, voz -6 dB por amix y video
+# más largo que la voz.
+# ─────────────────────────────────────────────────────────────────────
+
+
+def _ff(*args: str) -> None:
+    import subprocess
+
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", *args], check=True)
+
+
+def _mean_db(path: Path, start: float, dur: float) -> float:
+    import re
+    import subprocess
+
+    out = subprocess.run(
+        ["ffmpeg", "-ss", str(start), "-t", str(dur), "-i", str(path),
+         "-af", "volumedetect", "-f", "null", "-"],
+        capture_output=True, text=True,
+    ).stderr
+    return float(re.search(r"mean_volume: (-?[\d.]+) dB", out).group(1))
+
+
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="requiere ffmpeg")
+@pytest.mark.asyncio
+async def test_stitch_real_render_duration_and_mix(tmp_path):
+    from core.tts.timing import measure_audio_duration
+
+    clip = tmp_path / "long.mp4"  # 20 s de video para 6 s de voz
+    _ff("-f", "lavfi", "-i", "color=c=blue:s=320x240:d=20:r=30", "-c:v", "libx264",
+        "-pix_fmt", "yuv420p", str(clip))
+    voice = tmp_path / "voice.wav"
+    _ff("-f", "lavfi", "-i", "sine=frequency=440:duration=6", str(voice))
+    bgm = tmp_path / "bgm.wav"
+    _ff("-f", "lavfi", "-i", "sine=frequency=110:duration=2", str(bgm))
+    silence = tmp_path / "silence.wav"
+    _ff("-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono", "-t", "10", str(silence))
+
+    art = [BeatArtifact(idx=0, video_path=clip, first_frame_path=None)]
+    out = await stitch_video(
+        artifacts=art, audio_path=voice, subtitle_ass_path=None,
+        out_dir=tmp_path / "out", bgm_path=bgm, bgm_volume=0.3,
+    )
+
+    assert abs(measure_audio_duration(out) - 6.0) < 0.2
+    # La voz sola no pierde nivel al mezclar (normalize=0).
+    assert _mean_db(out, 0.5, 2) >= _mean_db(voice, 0.5, 2) - 0.5
+
+    # BGM sigue sonando a mitad del reel con la voz en silencio.
+    out2 = await stitch_video(
+        artifacts=art, audio_path=silence, subtitle_ass_path=None,
+        out_dir=tmp_path / "out2", bgm_path=bgm, bgm_volume=0.3,
+    )
+    assert abs(measure_audio_duration(out2) - 10.0) < 0.2
+    assert _mean_db(out2, 4, 1) > -40  # antes: -91 dB (fade arrancaba en t=0)
+    assert _mean_db(out2, 9.5, 0.5) < _mean_db(out2, 4, 1)  # fade al final

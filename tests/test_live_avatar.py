@@ -34,8 +34,6 @@ from core.visual.generation import (
     LiveAvatarAPIError,
     LiveAvatarAuthError,
     LiveAvatarBackendUnavailableError,
-    LiveAvatarBadInputError,
-    LiveAvatarError,
     LiveAvatarGenerator,
     LiveAvatarResult,
     LocalCliBackend,
@@ -53,7 +51,6 @@ from shared.schemas import (
     LongFormIntent,
     VideoSource,
 )
-
 
 # =============================================================================
 # Fixtures
@@ -318,14 +315,13 @@ async def test_remote_backend_auth_401(cfg_remote: LiveAvatarConfig, tmp_path: P
         async def __aexit__(self, *a):
             return False
 
-    with patch("httpx.AsyncClient", return_value=FakeCtx()):
-        with pytest.raises(LiveAvatarAuthError):
-            await backend.generate(
-                image_path=img,
-                audio_path=audio,
-                prompt="x",
-                out_path=tmp_path / "out.mp4",
-            )
+    with patch("httpx.AsyncClient", return_value=FakeCtx()), pytest.raises(LiveAvatarAuthError):
+        await backend.generate(
+            image_path=img,
+            audio_path=audio,
+            prompt="x",
+            out_path=tmp_path / "out.mp4",
+        )
 
 
 # =============================================================================
@@ -358,14 +354,13 @@ async def test_remote_backend_500_api_error(
         async def __aexit__(self, *a):
             return False
 
-    with patch("httpx.AsyncClient", return_value=FakeCtx()):
-        with pytest.raises(LiveAvatarAPIError):
-            await backend.generate(
-                image_path=img,
-                audio_path=audio,
-                prompt="x",
-                out_path=tmp_path / "out.mp4",
-            )
+    with patch("httpx.AsyncClient", return_value=FakeCtx()), pytest.raises(LiveAvatarAPIError):
+        await backend.generate(
+            image_path=img,
+            audio_path=audio,
+            prompt="x",
+            out_path=tmp_path / "out.mp4",
+        )
 
 
 # =============================================================================

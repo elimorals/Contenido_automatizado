@@ -11,12 +11,12 @@
  * Si quisieras BLOCK training pero permitir search, descomenta la sección
  * "OPT-OUT training" abajo.
  *
- * Acceso: https://contenido.vercel.app/robots.txt
+ * Acceso: https://contenido-automatizado.vercel.app/robots.txt
  */
 
 import type { APIRoute } from "astro";
 
-const SITE = "https://contenido.vercel.app";
+const SITE = "https://contenido-automatizado.vercel.app";
 
 export const GET: APIRoute = () => {
   const body = `# robots.txt — contenido
